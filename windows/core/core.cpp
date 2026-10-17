@@ -71,7 +71,7 @@ std::vector<uint8_t> GifCompositor::Add(const SubFrame& f) {
         // ブラウザと同じく、背景色ではなく透明に戻す
         for (int y = y0; y < y1; ++y) {
             std::fill(canvas_.begin() + (static_cast<size_t>(y) * width_ + x0) * 4,
-                      canvas_.begin() + (static_cast<size_t>(y) * width_ + x1) * 4, 0);
+                      canvas_.begin() + (static_cast<size_t>(y) * width_ + x1) * 4, uint8_t{0});
         }
     } else if (f.disposal == Disposal::Previous) {
         canvas_ = std::move(previous);

@@ -33,10 +33,14 @@ WallWindow::WallWindow(ID2D1Factory* d2d, const LoadedImage& image, const RECT& 
     height_ = rc.bottom - rc.top;
     dest_ = Layout(image.width, image.height, width_, height_, fit);
 
-    hwnd_ = CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, kClassName, L"pixwall",
+    // 24H2 の Progman は WS_EX_NOREDIRECTIONBITMAP で、子の窓の絵を受け止める面を持たない。
+    // そのままでは描いても画面に出ないので、アイコンの窓（SHELLDLL_DefView）と同じく WS_EX_LAYERED にして、
+    // 自分の面を持たせる（不透明度は 255）。古い並び（WorkerW の子）でも害はない
+    hwnd_ = CreateWindowExW(WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW | WS_EX_LAYERED, kClassName, L"pixwall",
                             WS_CHILD | WS_CLIPSIBLINGS, rc.left, rc.top, width_, height_, desktop.parent, nullptr,
                             inst, this);
     if (!hwnd_) return;
+    SetLayeredWindowAttributes(hwnd_, 0, 255, LWA_ALPHA);
     SetWindowPos(hwnd_, desktop.insertAfter, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
@@ -54,8 +58,11 @@ bool WallWindow::EnsureTarget() {
     const auto props = D2D1::RenderTargetProperties(
         D2D1_RENDER_TARGET_TYPE_DEFAULT, D2D1::PixelFormat(DXGI_FORMAT_B8G8R8A8_UNORM, D2D1_ALPHA_MODE_IGNORE), 96,
         96);
+    // 次の書き換えの間合い（vsync）を待たずに渡す。待たせると、to-fu の NVIDIA のドライバーでは
+    // 待つ間も CPU を回し、30 秒で 0.6 秒ほど使った（待たないと 0.05〜0.08 秒）。
+    // 窓の絵は DWM が合成するので、待たなくても画面が裂けることはない
     const auto hwndProps =
-        D2D1::HwndRenderTargetProperties(hwnd_, D2D1::SizeU(width_, height_), D2D1_PRESENT_OPTIONS_NONE);
+        D2D1::HwndRenderTargetProperties(hwnd_, D2D1::SizeU(width_, height_), D2D1_PRESENT_OPTIONS_IMMEDIATELY);
     if (FAILED(d2d_->CreateHwndRenderTarget(props, hwndProps, &target_))) return false;
 
     // フレームは元の大きさのまま GPU に置く。拡大は描くときに GPU に任せる

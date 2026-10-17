@@ -18,7 +18,8 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 ### 壁紙の後ろに窓を出す
 
 - `Progman` に `0x052C`（wParam `0xD`、lParam `1`）を送って `WorkerW` を作らせ、その子にした窓へ描く（Lively Wallpaper などと同じやり方）
-- **Windows 11 24H2 から並びが変わった**: `WorkerW` が `Progman` の子になり、アイコンの `SHELLDLL_DefView` との前後も違う。古い並び（`WorkerW` が最上位）と新しい並びの両方を探して、アイコンより後ろに入れる。新しい並びは `Progman` に `SHELLDLL_DefView` と `WorkerW` の両方の子があることで見分け、`Progman` の子にして `SHELLDLL_DefView` のすぐ後ろ（`WorkerW` より手前）に入れる。古い並びは `SHELLDLL_DefView` を子に持つ最上位の窓の次の `WorkerW` の子にする。to-fu の版で確かめる
+- **Windows 11 24H2 から並びが変わった**: `WorkerW` が `Progman` の子になり、アイコンの `SHELLDLL_DefView` との前後も違う。古い並び（`WorkerW` が最上位）と新しい並びの両方を探して、アイコンより後ろに入れる。新しい並びは `Progman` に `SHELLDLL_DefView` と `WorkerW` の両方の子があることで見分け、`Progman` の子にして `SHELLDLL_DefView` のすぐ後ろ（`WorkerW` より手前）に入れる。古い並びは `SHELLDLL_DefView` を子に持つ最上位の窓の次の `WorkerW` の子にする。to-fu（26H2、ビルド 26300）で、新しい並びの位置に入ることを確かめた
+- **24H2 の `Progman` は `WS_EX_NOREDIRECTIONBITMAP`**: 子の窓の絵を受け止める面を持たないので、ふつうの子の窓に描いても画面に出ない。アイコンの `SHELLDLL_DefView` と同じく `WS_EX_LAYERED`（不透明度 255）にして、自分の面を持たせる
 - Explorer が落ちて作り直されたら（`TaskbarCreated` のメッセージ）、窓を付け直す
 - 窓は `WS_CHILD` の子窓で、`WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`、`WM_NCHITTEST` に `HTTRANSPARENT` を返してマウスを素通しする。子窓はタスクバーにも Alt+Tab にも出ない
 - OS の通知（`WM_DISPLAYCHANGE`・電源・セッション）は、表示しない最上位の窓（`WS_EX_TOOLWINDOW`）で受ける。子窓や message-only の窓には `WM_DISPLAYCHANGE` が来ないため
@@ -30,7 +31,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 ### 描く
 
 - WIC で GIF を全フレーム読み、GIF の重ね方（disposal）を当てて元の大きさの完成した絵にしてから、`ID2D1Bitmap` で GPU に置く。重ね方は `core` の `GifCompositor`（WIC は GIF のフレームを重ねずに返すため）。`Background` は背景色ではなく透明に戻す（ブラウザと同じ）
-- 描くのは、今は `ID2D1HwndRenderTarget::DrawBitmap` を `D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR` で。フレームが変わったときだけ描く。フリップモデルのスワップチェーン（`ID2D1DeviceContext`）は、WorkerW の子窓で使えるか・測って差があるかを確かめてから決める
+- 描くのは、今は `ID2D1HwndRenderTarget::DrawBitmap` を `D2D1_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR` で。フレームが変わったときだけ描く。vsync を待たずに渡す（`D2D1_PRESENT_OPTIONS_IMMEDIATELY`）。窓の絵は DWM が合成するので、待たなくても裂けない。フリップモデルのスワップチェーン（`ID2D1DeviceContext`）は、WorkerW の子窓で使えるか・測って差があるかを確かめてから決める
 - 今は窓ごとに render target を持つので、フレームの `ID2D1Bitmap` も窓（画面）の数だけ GPU に置く。画面ごとに別の画像になれば同じことなので、そのままにする。全画面に同じ画像のとき、タイマーは1つで全部の窓を進める
 - 次のフレームまでは `CreateWaitableTimerEx`（高精度）で待ち、`MsgWaitForMultipleObjectsEx` でメッセージと一緒に眠る
 

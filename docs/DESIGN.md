@@ -89,7 +89,8 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ### 設定画面
 
-- SwiftUI の `Window` シーン。もう一度起動されたら（`applicationShouldHandleReopen`）出す。開いている間だけ `NSApp.setActivationPolicy(.regular)` にして Dock に出し、閉じたら `.accessory` に戻す
+- 中身は SwiftUI（`SettingsView`、`Form` の grouped）。入れ物は AppKit の `NSWindow` + `NSHostingController` にした（SwiftUI の `Window` シーンにすると App のライフサイクルを SwiftUI に渡すことになり、`main.swift` で決めている起動の流れと Dock の出し入れを扱いにくいため）。もう一度起動されたら（`applicationShouldHandleReopen`）出す。開いている間だけ `NSApp.setActivationPolicy(.regular)` にして Dock に出し、閉じたら（`windowWillClose`）`.accessory` に戻す
+- 設定を変えると、`config.json` に書いて、画像が変わったときだけ読み直し、窓を作り直す
 - メニューバーのアイコンは `MenuBarExtra`（設定で出したときだけ）
 - ログイン時の起動は `SMAppService.mainApp`
 

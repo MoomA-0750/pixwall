@@ -37,6 +37,11 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - ロック・ユーザー切り替え: `WTSRegisterSessionNotification`
 - 省エネモード・バッテリー: `GUID_POWER_SAVING_STATUS`、`GUID_ACDC_POWER_SOURCE`
 
+### 静止画を書き出す
+
+- 設定画面（C#）から、常駐側と同じ並べ方の計算で PNG を描く。並べ方の計算は C++ と C# で二重に持たないよう、常駐側の C++ を小さな DLL（`pixwall-core.dll`）に分けて両方から呼ぶ。描くのは WIC の `IWICBitmap` へニアレストネイバーで、`IWICBitmapEncoder`（PNG）で書く
+- 保存先は WinUI 3 の `FileSavePicker`
+
 ### 設定画面とのやり取り
 
 - 設定画面は `config.json` を書いてから、常駐側の隠れた窓へ `WM_COPYDATA` で「読み直して」と送る
@@ -60,6 +65,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - 1枚目を、窓に描くのと同じ並べ方で画面の物理ピクセルの大きさの `CGContext`（`interpolationQuality = .none`）に描き、`~/Library/Application Support/pixwall/desktop/<画面のID>-<解像度>.png` に書く
 - `NSWorkspace.shared.setDesktopImageURL(_:for:options:)` で、その画面に入れる。`options` は拡大なし（`imageScaling = .scaleNone` 相当）
 - 入れる前に `desktopImageURL(for:)` と `desktopImageOptions(for:)` を `config.json` に覚え、外したとき・終えたとき（`applicationWillTerminate`）に戻す。落ちて戻せなかったときは、次に起動したときに覚えた値を見て判断する
+- 設定画面の「静止画を書き出す」も同じ描き方を使い、保存先だけ `NSSavePanel` で選ぶ。OS の壁紙は変えない
 - 確かめること: macOS の版によっては、今の操作スペースにしか入らない。すべての操作スペースに入るかを MacBook Air M1 で見る。入らなければ、操作スペースが切り替わったとき（`NSWorkspace.activeSpaceDidChangeNotification`）に入れ直す
 
 ### 描く

@@ -1,0 +1,10 @@
+build/
+bin/
+obj/
+*.user
+.vs/
+x64/
+DerivedData/
+.build/
+xcuserdata/
+.DS_Store

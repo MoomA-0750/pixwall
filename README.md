@@ -1,0 +1,24 @@
+# pixwall
+
+ドット絵の GIF などの動く画像を、Windows と Mac の壁紙として動かすアプリ。
+
+- **無用にリソースを使わない**: 絵が変わる瞬間だけ描く。ほかの窓に隠れている・画面が消えている・ロック中・省電力中は止める
+- **常駐中にタスクバーや Dock にアイコンを出さない**
+- **画面はそれぞれの OS のネイティブ UI で描く**（Windows は WinUI 3、Mac は SwiftUI / AppKit）
+
+ステータス: 設計まで（2026-10-17）。コードはまだない。
+
+## 構成
+
+| 場所 | 中身 |
+|---|---|
+| `windows/` | Windows 版（常駐: C++ / Win32 / Direct2D、設定画面: C# / WinUI 3） |
+| `macos/` | Mac 版（Swift、常駐と設定画面を1つのアプリで） |
+| `SPEC.md` | 今どう動くべきか（正本） |
+| `docs/DESIGN.md` | 仕組みと、OS ごとの作り方 |
+| `docs/decisions.md` | なぜそうしたか、試してやめたこと |
+
+## 作る・試す場所
+
+- Windows 版: to-fu（Windows 11）でビルドして試す
+- Mac 版: MacBook Air M1（Xcode）でビルドして試す

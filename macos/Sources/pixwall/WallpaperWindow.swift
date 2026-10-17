@@ -16,6 +16,11 @@ final class WallpaperWindow: NSWindow {
     /// AppDelegate が持つ、全画面に共通の止める理由
     var sharedPause = PauseReasons() { didSet { updateRunning() } }
     private var occluded = false { didSet { updateRunning() } }
+    /// ほかのアプリの窓が、メニューバーと Dock を除いたところをほぼ覆っている（AppDelegate が見張る）
+    var covered = false { didSet { if covered != oldValue { updateRunning() } } }
+
+    /// 窓に覆われたかを見る範囲。メニューバーと Dock のまわりは、隠れていなくても見ない
+    var coverageTarget: CGRect { (screen ?? targetScreen).visibleFrame }
 
     init(screen: NSScreen, image: AnimatedImage, fit: Fit, speed: Double) {
         targetScreen = screen
@@ -108,7 +113,7 @@ final class WallpaperWindow: NSWindow {
 
     private func updateRunning() {
         var reasons = sharedPause
-        reasons.occluded = occluded
+        reasons.occluded = occluded || covered
         let run = isVisible && image.frames.count > 1 && !reasons.shouldPause
         if run, timer == nil {
             nextDeadline = .now()

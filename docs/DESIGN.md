@@ -81,7 +81,8 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ### 止める
 
-- 隠れているか: `NSWindow.occlusionState` の `.visible`（`didChangeOcclusionStateNotification`）
+- 隠れているか: `NSWindow.occlusionState` の `.visible`（`didChangeOcclusionStateNotification`）。全画面（別の操作スペース）はこれで分かる
+- 最大化した窓の後ろ: `occlusionState` は、メニューバーと Dock のまわりが見えていると `.visible` のままになる。そこで `CGWindowListCopyWindowInfo` でほかの窓の位置を読み（位置と大きさだけなら画面収録の許可は要らない）、画面の `visibleFrame` を覆っているかを `PixwallCore.isCovered` で決める。数えるのは、Dock に出るアプリ（`activationPolicy == .regular`）の layer 0 の窓だけ。3 秒ごとと、`NSWorkspace` のアプリ・操作スペースの切り替えの通知で見る。ほかの理由で止めている間は見ない
 - 画面の消灯: `NSWorkspace.screensDidSleepNotification` / `screensDidWakeNotification`
 - ロック: `com.apple.screenIsLocked` / `com.apple.screenIsUnlocked`（分散通知）
 - 低電力モード: `ProcessInfo.isLowPowerModeEnabled`、`NSProcessInfoPowerStateDidChange`

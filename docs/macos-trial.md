@@ -36,3 +36,16 @@ top -l 4 -s 5 -stats pid,command,cpu,mem -pid $(pgrep -x pixwall)
 ```
 
 目安は `SPEC.md` の「常駐の目安」。`samples/dot-64x64-30f.gif`（64×64・30フレーム・100ms）で測る。
+
+## 隠れたときに止まるか
+
+30 秒の CPU 時間で見る（`top` の IDLEW はタイマーで起きた回数を数えないので使えない）。
+
+```sh
+p=$(pgrep -x pixwall); a=$(ps -o cputime= -p $p); sleep 30; ps -o cputime= -p $p; echo "前: $a"
+```
+
+- ほかの窓を小さくしておく: 増える（動いている）
+- ほかのアプリの窓を Window > Fill か、タイトルバーのダブルクリックで画面いっぱいにする: 3 秒ほどでほとんど増えなくなる（止まる）
+- その窓を元の大きさに戻すか、デスクトップをクリックする: また増える
+- その窓を全画面（別の操作スペース）にする: 増えない

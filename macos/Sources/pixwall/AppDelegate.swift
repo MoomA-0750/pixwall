@@ -11,9 +11,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var loadedPath: String?
     private var windows: [WallpaperWindow] = []
     private var pause = PauseReasons() {
-        didSet { windows.forEach { $0.sharedPause = pause } }
+        didSet {
+            windows.forEach { $0.sharedPause = pause }
+            updateCoverageWatch()
+        }
     }
     private var rebuildWork: DispatchWorkItem?
+    private var coverageTimer: DispatchSourceTimer?
+    /// Dock に出るアプリの pid。アプリが起動・終了したときに数え直す
+    private var regularApps: Set<pid_t>?
     private lazy var settings = SettingsModel(config: config)
     private var settingsWindow: NSWindow?
 
@@ -106,6 +112,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return w
         }
         windows.forEach { $0.start() }
+        updateCoverageWatch()
+        checkCoverage()
+    }
+
+    // MARK: - ほかの窓に覆われているか
+
+    /// 最大化した窓の後ろでは、メニューバーと Dock のまわりに壁紙が見えていても OS は「見えている」と扱う。
+    /// そこで、ほかの窓の位置を時々読んで、覆われた画面では止める。
+    /// 動かす必要があるときだけ見張る（ほかの理由で止めている間は見ない）
+    private func updateCoverageWatch() {
+        let need = !windows.isEmpty && (image?.frames.count ?? 0) > 1 && !pause.shouldPause
+        if need, coverageTimer == nil {
+            let t = DispatchSource.makeTimerSource(queue: .main)
+            // 窓を広げた・縮めたは通知が無いので、時々見る。窓の一覧を読むと 1 回 4〜5ms かかるので（M1）、
+            // 3 秒ごとにする。アプリや操作スペースの切り替えは通知ですぐ見る
+            t.schedule(deadline: .now() + 3, repeating: 3, leeway: .seconds(1))
+            t.setEventHandler { [weak self] in self?.checkCoverage() }
+            coverageTimer = t
+            t.resume()
+        } else if !need, let t = coverageTimer {
+            t.cancel()
+            coverageTimer = nil
+            windows.forEach { $0.covered = false }
+        }
+    }
+
+    private func checkCoverage() {
+        guard coverageTimer != nil else { return }
+        if regularApps == nil {
+            regularApps = Set(NSWorkspace.shared.runningApplications
+                .filter { $0.activationPolicy == .regular }.map(\.processIdentifier))
+        }
+        let frames = otherWindowFrames(regularApps: regularApps ?? [])
+        windows.forEach { $0.covered = isCovered($0.coverageTarget, by: frames) }
     }
 
     /// 変化が落ち着くまで少し待ってから1回だけ作り直す
@@ -126,6 +166,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         let ws = NSWorkspace.shared.notificationCenter
+        // アプリや操作スペースが切り替わったら、1秒待たずに見直す
+        for name in [NSWorkspace.didActivateApplicationNotification, NSWorkspace.activeSpaceDidChangeNotification,
+                     NSWorkspace.didHideApplicationNotification, NSWorkspace.didUnhideApplicationNotification,
+                     NSWorkspace.didTerminateApplicationNotification] {
+            ws.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.checkCoverage() }
+        }
+        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
+            ws.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.regularApps = nil }
+        }
         ws.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
             self?.pause.screensAsleep = true
         }

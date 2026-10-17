@@ -50,13 +50,13 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ## Mac 版
 
-1つのアプリ（Swift）。`Info.plist` の `LSUIElement = YES` で Dock とアプリの切り替えに出さない。
+1つのアプリ（Swift）。Xcode のプロジェクトは持たず、SwiftPM（`macos/Package.swift`）でビルドし、`macos/build-app.sh` で `.app` に包んで ad-hoc 署名する。OS に触らない計算（並べ方・待ち時間・止める条件）は `PixwallCore` に分けて XCTest で確かめ、AppKit を使う部分は `pixwall` に置く。試し方は `docs/macos-trial.md`。`Info.plist` の `LSUIElement = YES` で Dock とアプリの切り替えに出さない。
 
 ### 壁紙の後ろに窓を出す
 
 - 画面ごとに枠なしの `NSWindow`。`level` は `CGWindowLevelForKey(.desktopWindow)`、`collectionBehavior` は `[.canJoinAllSpaces, .stationary, .ignoresCycle]`、`ignoresMouseEvents = true`
 - **メニューバーの下も描く**: 窓の大きさは `visibleFrame` ではなく `NSScreen.frame` にする。`NSWindow` はふつう、窓がメニューバーにかからないように位置を直してしまう（ほかのアプリでメニューバーの下が描かれないのはたぶんこれ）。`constrainFrameRect(_:to:)` を上書きして、渡された枠をそのまま返す。ノッチのある画面も `frame` で全体を覆う
-- 描いたあと、メニューバーが透明な設定でメニューバーの下に絵が見えるかを、MacBook Air M1 で確かめる。見えなければ窓の `level` を変えて試す（`docs/decisions.md` に結果を書く）
+- `level` は `desktopWindow` のままで、メニューバーの下・Dock の下まで絵が見え、デスクトップのウィジェットとアイコンは手前に出ることを MacBook Air M1（macOS 27）で確かめた
 - 解像度などの変化: `NSApplication.didChangeScreenParametersNotification` と、窓ごとの `NSWindow.didChangeBackingPropertiesNotification` を受けたら、少し待ってから画面を数え直し、窓の枠・`contentsScale`・倍率を作り直して1回描く
 - 手での更新: 設定画面とメニューバーのメニューの「表示を更新」で、上と同じ作り直しをする
 
@@ -71,7 +71,8 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 ### 描く
 
 - ImageIO（`CGImageSourceCreateWithURL`）で全フレームを `CGImage` にして持つ。待ち時間は `kCGImagePropertyGIFUnclampedDelayTime` など
-- `CALayer` の `contents` を差し替えるだけで描く。`magnificationFilter = .nearest`
+- `CALayer` の `contents` を差し替えるだけで描く。`magnificationFilter = .nearest`。差し替えたときの既定のふわっとした切り替えは `actions` で切る
+- 窓の root の layer は layer-hosting（`view.layer` を先に渡してから `wantsLayer`）にして、AppKit に中身を描かせない
 - 次のフレームまでは `DispatchSourceTimer`（`leeway` を少し付けて、まとめて起こしてもらう）
 
 ### 止める

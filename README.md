@@ -6,7 +6,7 @@
 - **常駐中にタスクバーや Dock にアイコンを出さない**
 - **画面はそれぞれの OS のネイティブ UI で描く**（Windows は WinUI 3、Mac は SwiftUI / AppKit）
 
-ステータス: 設計まで（2026-10-17）。コードはまだない。
+ステータス: Mac 版の最小の形が動く（2026-10-17。1つの GIF をアイコンの後ろで動かし、Dock に出さない）。Windows 版と設定画面はまだない。
 
 ## 構成
 
@@ -14,6 +14,7 @@
 |---|---|
 | `windows/` | Windows 版（常駐: C++ / Win32 / Direct2D、設定画面: C# / WinUI 3） |
 | `macos/` | Mac 版（Swift、常駐と設定画面を1つのアプリで） |
+| `samples/` | 試す・測るための画像 |
 | `SPEC.md` | 今どう動くべきか（正本） |
 | `docs/DESIGN.md` | 仕組みと、OS ごとの作り方 |
 | `docs/decisions.md` | なぜそうしたか、試してやめたこと |

@@ -1,7 +1,6 @@
 // pixwall.exe（常駐側）。試作の間は、動かす画像を引数で1つ渡す: pixwall.exe <画像のパス>
 // 終えるときは taskkill /im pixwall.exe（隠れた窓に WM_CLOSE が届いて片付けてから終わる）
 #include <windows.h>
-#include <d2d1.h>
 #include <shellapi.h>
 #include <wincodec.h>
 #include <wrl/client.h>
@@ -32,9 +31,9 @@ constexpr GUID kPowerSaving = {0xe00958c0, 0xc213, 0x4ace, {0xac, 0x77, 0xfe, 0x
 
 struct App {
     ComPtr<IWICImagingFactory> wic;
-    ComPtr<ID2D1Factory> d2d;
+    Gpu gpu;
     LoadedImage image;
-    D2D1_COLOR_F background{0, 0, 0, 1};
+    Color background;
     std::vector<std::unique_ptr<WallWindow>> windows;
     HWND messageWindow = nullptr;
     UINT taskbarCreated = 0;
@@ -55,15 +54,24 @@ long long Now() {
 }
 
 // 余白の色の既定。1枚目の左上の1ドット（premultiplied の BGRA を戻す）
-D2D1_COLOR_F TopLeftColor(const LoadedImage& image) {
+Color TopLeftColor(const LoadedImage& image) {
     const uint8_t* p = image.frames[0].data();
     const float a = p[3] / 255.0f;
     if (a <= 0) return {0, 0, 0, 1};
     return {p[2] / 255.0f / a, p[1] / 255.0f / a, p[0] / 255.0f / a, 1};
 }
 
+void Rebuild();
+
 void RenderAll() {
-    for (auto& w : app.windows) w->Render(app.frame);
+    for (auto& w : app.windows) {
+        if (!w->Render(app.frame)) {
+            // GPU が入れ替わった・ドライバーが更新されたなど。GPU の道具から作り直す
+            app.gpu.Reset();
+            Rebuild();
+            return;
+        }
+    }
 }
 
 void ArmNext() {
@@ -99,6 +107,11 @@ void Advance() {
 // 画面を数え直して、画面ごとに窓を作り直す。フレームは読み直さない
 void Rebuild() {
     app.windows.clear();
+    if (!app.gpu.dcomp && !app.gpu.Create()) {
+        OutputDebugStringW(L"pixwall: GPU の道具を作れない\n");
+        UpdateRunning();
+        return;
+    }
     const DesktopParent desktop = FindDesktopParent();
     if (!desktop.parent) {
         OutputDebugStringW(L"pixwall: アイコンの後ろに入れる窓が見つからない\n");
@@ -115,10 +128,9 @@ void Rebuild() {
         },
         reinterpret_cast<LPARAM>(&monitors));
     for (const RECT& rc : monitors) {
-        auto w = std::make_unique<WallWindow>(app.d2d.Get(), app.image, rc, desktop, app.background, Fit::Integer);
+        auto w = std::make_unique<WallWindow>(app.gpu, app.image, rc, desktop, app.background, Fit::Integer);
         if (w->ok()) app.windows.push_back(std::move(w));
     }
-    RenderAll();
     UpdateRunning();
 }
 
@@ -219,7 +231,6 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         return 1;
     }
     app.background = TopLeftColor(app.image);
-    D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, app.d2d.GetAddressOf());
 
     app.messageWindow = CreateMessageWindow(inst);
     app.taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
@@ -254,7 +265,7 @@ done:
     WTSUnRegisterSessionNotification(app.messageWindow);
     CloseHandle(app.timer);
     app.image = {};
-    app.d2d.Reset();
+    app.gpu.Reset();
     app.wic.Reset();
     CoUninitialize();
     ReleaseMutex(mutex);

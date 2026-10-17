@@ -23,6 +23,9 @@ namespace {
 constexpr UINT_PTR kRebuildTimer = 1;
 // 解像度などが変わってから、変化が落ち着くまで待つ時間
 constexpr UINT kRebuildDelayMs = 200;
+// アイコンの後ろに入れる窓が見つからないとき（Explorer が立ち上がる途中など）に探し直す間隔と回数
+constexpr UINT kRetryDelayMs = 1000;
+constexpr int kMaxRetries = 30;
 
 // winnt.h の GUID_CONSOLE_DISPLAY_STATE と GUID_POWER_SAVING_STATUS と同じ値。
 // SDK の定義を使うと INITGUID やリンクするライブラリに左右されるので、ここで持つ
@@ -37,6 +40,7 @@ struct App {
     std::vector<std::unique_ptr<WallWindow>> windows;
     HWND messageWindow = nullptr;
     UINT taskbarCreated = 0;
+    int retries = 0;
 
     PauseReasons pause;
     size_t frame = 0;
@@ -114,10 +118,17 @@ void Rebuild() {
     }
     const DesktopParent desktop = FindDesktopParent();
     if (!desktop.parent) {
-        OutputDebugStringW(L"pixwall: アイコンの後ろに入れる窓が見つからない\n");
+        // Explorer が作り直された直後は、アイコンの窓も WorkerW もまだ無いことがある。少し待って探し直す
+        if (app.retries < kMaxRetries) {
+            ++app.retries;
+            SetTimer(app.messageWindow, kRebuildTimer, kRetryDelayMs, nullptr);
+        } else {
+            OutputDebugStringW(L"pixwall: アイコンの後ろに入れる窓が見つからない\n");
+        }
         UpdateRunning();
         return;
     }
+    app.retries = 0;
     std::vector<RECT> monitors;
     EnumDisplayMonitors(
         nullptr, nullptr,
@@ -134,7 +145,10 @@ void Rebuild() {
     UpdateRunning();
 }
 
-void ScheduleRebuild(HWND hwnd) { SetTimer(hwnd, kRebuildTimer, kRebuildDelayMs, nullptr); }
+void ScheduleRebuild(HWND hwnd) {
+    app.retries = 0;
+    SetTimer(hwnd, kRebuildTimer, kRebuildDelayMs, nullptr);
+}
 
 void OnPowerSetting(const POWERBROADCAST_SETTING* s) {
     if (s->DataLength < sizeof(DWORD)) return;

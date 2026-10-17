@@ -20,7 +20,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - `Progman` に `0x052C`（wParam `0xD`、lParam `1`）を送って `WorkerW` を作らせ、その子にした窓へ描く（Lively Wallpaper などと同じやり方）
 - **Windows 11 24H2 から並びが変わった**: `WorkerW` が `Progman` の子になり、アイコンの `SHELLDLL_DefView` との前後も違う。古い並び（`WorkerW` が最上位）と新しい並びの両方を探して、アイコンより後ろに入れる。新しい並びは `Progman` に `SHELLDLL_DefView` と `WorkerW` の両方の子があることで見分け、`Progman` の子にして `SHELLDLL_DefView` のすぐ後ろ（`WorkerW` より手前）に入れる。古い並びは `SHELLDLL_DefView` を子に持つ最上位の窓の次の `WorkerW` の子にする。to-fu（26H2、ビルド 26300）で、新しい並びの位置に入ることを確かめた
 - **24H2 の `Progman` は `WS_EX_NOREDIRECTIONBITMAP`**: 子の窓の絵を受け止める面を持たないので、ふつうの子の窓に GDI や `ID2D1HwndRenderTarget` で描いても画面に出ない。pixwall の窓は DirectComposition で絵を渡すので出る（窓も `WS_EX_NOREDIRECTIONBITMAP`）
-- Explorer が落ちて作り直されたら（`TaskbarCreated` のメッセージ）、窓を付け直す
+- Explorer が落ちて作り直されたら（`TaskbarCreated` のメッセージ）、窓を付け直す。作り直された直後はアイコンの窓も `WorkerW` もまだ無いことがあるので、見つからなければ 1 秒ごとに最大 30 回探し直す
 - 窓は `WS_CHILD` の子窓で、`WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`、`WM_NCHITTEST` に `HTTRANSPARENT` を返してマウスを素通しする。子窓はタスクバーにも Alt+Tab にも出ない
 - OS の通知（`WM_DISPLAYCHANGE`・電源・セッション）は、表示しない最上位の窓（`WS_EX_TOOLWINDOW`）で受ける。子窓や message-only の窓には `WM_DISPLAYCHANGE` が来ないため
 - 画面ごとに1枚の窓。大きさは作業領域（`rcWork`）ではなく画面全体（`MONITORINFO.rcMonitor`）にして、タスクバーの下も描く

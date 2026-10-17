@@ -55,6 +55,13 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - 解像度などの変化: `NSApplication.didChangeScreenParametersNotification` と、窓ごとの `NSWindow.didChangeBackingPropertiesNotification` を受けたら、少し待ってから画面を数え直し、窓の枠・`contentsScale`・倍率を作り直して1回描く
 - 手での更新: 設定画面とメニューバーのメニューの「表示を更新」で、上と同じ作り直しをする
 
+### OS の壁紙に1枚目を入れる
+
+- 1枚目を、窓に描くのと同じ並べ方で画面の物理ピクセルの大きさの `CGContext`（`interpolationQuality = .none`）に描き、`~/Library/Application Support/pixwall/desktop/<画面のID>-<解像度>.png` に書く
+- `NSWorkspace.shared.setDesktopImageURL(_:for:options:)` で、その画面に入れる。`options` は拡大なし（`imageScaling = .scaleNone` 相当）
+- 入れる前に `desktopImageURL(for:)` と `desktopImageOptions(for:)` を `config.json` に覚え、外したとき・終えたとき（`applicationWillTerminate`）に戻す。落ちて戻せなかったときは、次に起動したときに覚えた値を見て判断する
+- 確かめること: macOS の版によっては、今の操作スペースにしか入らない。すべての操作スペースに入るかを MacBook Air M1 で見る。入らなければ、操作スペースが切り替わったとき（`NSWorkspace.activeSpaceDidChangeNotification`）に入れ直す
+
 ### 描く
 
 - ImageIO（`CGImageSourceCreateWithURL`）で全フレームを `CGImage` にして持つ。待ち時間は `kCGImagePropertyGIFUnclampedDelayTime` など

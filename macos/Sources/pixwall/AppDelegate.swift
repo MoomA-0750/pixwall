@@ -55,7 +55,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         nc.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main) {
             [weak self] _ in self?.scheduleRebuild()
         }
-        nc.addObserver(forName: ProcessInfo.powerStateDidChangeNotification, object: nil, queue: .main) { [weak self] _ in
+        nc.addObserver(forName: .NSProcessInfoPowerStateDidChange, object: nil, queue: .main) { [weak self] _ in
             self?.pause.lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
         }
 

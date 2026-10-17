@@ -17,10 +17,12 @@ public struct PauseReasons: Equatable {
     public var lowPower = false
     /// 低電力モードのときに止めるか（設定。既定は止める）
     public var pauseOnLowPower = true
+    /// 設定画面の「一時停止」
+    public var userPaused = false
 
     public init() {}
 
     public var shouldPause: Bool {
-        occluded || screensAsleep || locked || (lowPower && pauseOnLowPower)
+        userPaused || occluded || screensAsleep || locked || (lowPower && pauseOnLowPower)
     }
 }

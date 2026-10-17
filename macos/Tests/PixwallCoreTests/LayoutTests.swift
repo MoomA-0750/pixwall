@@ -52,5 +52,8 @@ final class TimingTests: XCTestCase {
         XCTAssertFalse(p.shouldPause)
         p.occluded = true
         XCTAssertTrue(p.shouldPause)
+        p.occluded = false
+        p.userPaused = true
+        XCTAssertTrue(p.shouldPause)
     }
 }

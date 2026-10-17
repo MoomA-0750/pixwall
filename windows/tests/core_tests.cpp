@@ -50,6 +50,9 @@ void TestTiming() {
     CHECK(!p.ShouldPause());
     p.locked = true;
     CHECK(p.ShouldPause());
+    p.locked = false;
+    p.userPaused = true;
+    CHECK(p.ShouldPause());
 }
 
 const uint8_t kRed[4] = {0, 0, 255, 255};   // BGRA

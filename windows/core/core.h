@@ -35,9 +35,10 @@ struct PauseReasons {
     bool locked = false;          // ロック中・ユーザーの切り替え中
     bool energySaver = false;     // 省エネモード
     bool pauseOnEnergySaver = true;  // 省エネモードのときに止めるか（設定。既定は止める）
+    bool userPaused = false;      // 設定画面の「一時停止」
 
     bool ShouldPause() const {
-        return occluded || displayOff || locked || (energySaver && pauseOnEnergySaver);
+        return userPaused || occluded || displayOff || locked || (energySaver && pauseOnEnergySaver);
     }
 };
 

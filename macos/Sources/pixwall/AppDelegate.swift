@@ -1,41 +1,107 @@
 import AppKit
 import PixwallCore
+import SwiftUI
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let imageURL: URL
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    static let configURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("pixwall/config.json")
+
+    private var config: Config
     private var image: AnimatedImage?
+    private var loadedPath: String?
     private var windows: [WallpaperWindow] = []
     private var pause = PauseReasons() {
         didSet { windows.forEach { $0.sharedPause = pause } }
     }
     private var rebuildWork: DispatchWorkItem?
+    private lazy var settings = SettingsModel(config: config)
+    private var settingsWindow: NSWindow?
 
-    init(imageURL: URL) {
-        self.imageURL = imageURL
+    /// imagePath は起動の引数で渡された画像。あれば設定より優先して、設定にも書く
+    init(imagePath: String?) {
+        config = Config.load(from: Self.configURL)
+        if let imagePath { config.image = imagePath }
+        super.init()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard let image = AnimatedImage(url: imageURL) else {
-            NSLog("pixwall: 画像を読めない: %@", imageURL.path)
-            NSApp.terminate(nil)
-            return
-        }
-        self.image = image
         pause.lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
+        settings.onChange = { [weak self] in self?.apply($0) }
+        settings.onPause = { [weak self] in self?.pause.userPaused = $0 }
+        settings.onRefresh = { [weak self] in self?.rebuild() }
         observe()
-        rebuild()
+        apply(config)
+        // 画像をまだ選んでいない・読めないときは、何も見えないので設定画面を出す
+        if image == nil { showSettings() }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         windows.forEach { $0.stop() }
     }
 
+    /// もう一度起動された（Finder・Launchpad・Spotlight・open から）
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettings()
+        return false
+    }
+
+    // MARK: - 設定
+
+    private func apply(_ new: Config) {
+        config = new
+        try? config.save(to: Self.configURL)
+        pause.pauseOnLowPower = config.pauseOnLowPower
+        if config.image != loadedPath {
+            loadedPath = config.image
+            image = config.image.flatMap { AnimatedImage(url: URL(fileURLWithPath: $0)) }
+            settings.loadError = (config.image != nil && image == nil) ? config.image : nil
+        }
+        rebuild()
+    }
+
+    private func showSettings() {
+        if settingsWindow == nil {
+            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: settings)))
+            window.title = "pixwall"
+            window.styleMask = [.titled, .closable, .miniaturizable]
+            window.isReleasedWhenClosed = false
+            window.delegate = self
+            window.center()
+            settingsWindow = window
+        }
+        // 設定画面を開いている間だけ Dock に出す
+        NSApp.setActivationPolicy(.regular)
+        NSApp.mainMenu = makeMainMenu()
+        settingsWindow?.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === settingsWindow else { return }
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    private func makeMainMenu() -> NSMenu {
+        let main = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "設定を閉じる", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "pixwall を終了", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+        return main
+    }
+
+    // MARK: - 壁紙の窓
+
     /// 画面を数え直して、画面ごとに窓を作り直す。フレームは読み直さない
     private func rebuild() {
-        guard let image else { return }
         windows.forEach { $0.stop() }
+        windows = []
+        guard let image else { return }
         windows = NSScreen.screens.map { screen in
-            let w = WallpaperWindow(screen: screen, image: image, fit: .integer, speed: 1)
+            let w = WallpaperWindow(screen: screen, image: image, fit: config.fit, speed: config.speed)
             w.sharedPause = pause
             return w
         }

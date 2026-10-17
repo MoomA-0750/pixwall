@@ -19,7 +19,10 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - **Windows 11 24H2 から並びが変わった**: `WorkerW` が `Progman` の子になり、アイコンの `SHELLDLL_DefView` との前後も違う。古い並び（`WorkerW` が最上位）と新しい並びの両方を探して、アイコンより後ろに入れる。to-fu の版で先に確かめる
 - Explorer が落ちて作り直されたら（`TaskbarCreated` のメッセージ）、窓を付け直す
 - 窓は `WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW` でマウスを素通しし、タスクバーにも Alt+Tab にも出さない
-- 画面ごとに1枚の窓。`WM_DISPLAYCHANGE` と `WM_DPICHANGED` で並べ直す
+- 画面ごとに1枚の窓。大きさは作業領域（`rcWork`）ではなく画面全体（`MONITORINFO.rcMonitor`）にして、タスクバーの下も描く
+- 窓は Per-Monitor V2 の DPI 対応にして、物理ピクセルで大きさと倍率を決める
+- 解像度などの変化: `WM_DISPLAYCHANGE`・`WM_DPICHANGED`・`WM_SETTINGCHANGE`（`SPI_SETWORKAREA`）を受けたら、少し（200ms ほど）待って変化が落ち着いてから、`EnumDisplayMonitors` で画面を数え直し、窓の大きさ・スワップチェーン（`ResizeBuffers`）・倍率を作り直して1回描く。フレームの絵は元の大きさで持っているので読み直さない
+- 手での更新: 設定画面やトレイのメニューから `WM_COPYDATA` で「表示を更新」を送ると、上と同じ作り直しに加えて `WorkerW` も探し直す
 
 ### 描く
 
@@ -47,7 +50,10 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 ### 壁紙の後ろに窓を出す
 
 - 画面ごとに枠なしの `NSWindow`。`level` は `CGWindowLevelForKey(.desktopWindow)`、`collectionBehavior` は `[.canJoinAllSpaces, .stationary, .ignoresCycle]`、`ignoresMouseEvents = true`
-- `NSApplication.didChangeScreenParametersNotification` で並べ直す
+- **メニューバーの下も描く**: 窓の大きさは `visibleFrame` ではなく `NSScreen.frame` にする。`NSWindow` はふつう、窓がメニューバーにかからないように位置を直してしまう（ほかのアプリでメニューバーの下が描かれないのはたぶんこれ）。`constrainFrameRect(_:to:)` を上書きして、渡された枠をそのまま返す。ノッチのある画面も `frame` で全体を覆う
+- 描いたあと、メニューバーが透明な設定でメニューバーの下に絵が見えるかを、MacBook Air M1 で確かめる。見えなければ窓の `level` を変えて試す（`docs/decisions.md` に結果を書く）
+- 解像度などの変化: `NSApplication.didChangeScreenParametersNotification` と、窓ごとの `NSWindow.didChangeBackingPropertiesNotification` を受けたら、少し待ってから画面を数え直し、窓の枠・`contentsScale`・倍率を作り直して1回描く
+- 手での更新: 設定画面とメニューバーのメニューの「表示を更新」で、上と同じ作り直しをする
 
 ### 描く
 

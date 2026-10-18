@@ -53,7 +53,9 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 - 設定画面は `config.json` を書いてから、常駐側の隠れた窓へ `WM_COPYDATA` で「読み直して」と送る
 - 常駐側の2回目の起動は、名前付きミューテックスで既にいると分かったら、設定画面を起こして自分は終わる
-- ログイン時の起動は `HKCU\...\Run`。今は起動するたびに `"<exe>" "<画像の絶対パス>"` を書く。設定画面ができたら、`config.json` の `launchAtLogin` で入れる・消すに替える
+- ログイン時の起動は `HKCU\...\Run`。起動するたびに、`config.json` の `launchAtLogin` がオンなら `"<exe>"` を書き、オフなら消す（入れ直すと exe の場所が変わっても追いつく）
+- `config.json` は `core/config.cpp`（OS に触らない）で読み書きする。Mac の `JSONEncoder` と同じく、キーを名前順に並べて字下げする。書くときは `.tmp` に書いてから `MoveFileEx` で入れ替える
+- 入れるのは `windows/install.ps1`。`build\pixwall.exe` を `%LOCALAPPDATA%\Programs\pixwall` に置き、`%APPDATA%\Microsoft\Windows\Start Menu\Programs\pixwall.lnk` を作って、入れた exe から始める（Run もそれを指すよう書き直される）
 
 ## Mac 版
 

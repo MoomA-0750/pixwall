@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 
+#include "config.h"
 #include "core.h"
 
 using namespace pixwall;
@@ -107,12 +108,55 @@ void TestCompositor() {
     }
 }
 
+void TestConfig() {
+    // 無い・壊れているときは既定の設定
+    CHECK(ParseConfig("") == Config{});
+    CHECK(ParseConfig("not json") == Config{});
+    CHECK(ParseConfig("{}") == Config{});
+
+    // Mac 版が書いた形をそのまま読める
+    const Config mac = ParseConfig(R"({
+  "fit" : "fill",
+  "image" : "/Users/a/Library/Application Support/pixwall/dot.gif",
+  "launchAtLogin" : false,
+  "pauseOnLowPower" : true,
+  "speed" : 2,
+  "version" : 1
+})");
+    CHECK(mac.fit == Fit::Fill);
+    CHECK(mac.image == "/Users/a/Library/Application Support/pixwall/dot.gif");
+    CHECK(!mac.launchAtLogin);
+    CHECK(Near(mac.speed, 2));
+
+    // 読めない値・知らない項目は既定の値のまま。速さは 0.25〜4 に収める
+    const Config odd = ParseConfig(R"({"fit": "tile?", "speed": 100, "extra": {"a": [1, "}"]}, "image": "C:\\x\\y.gif"})");
+    CHECK(odd.fit == Fit::Integer);
+    CHECK(Near(odd.speed, 4));
+    CHECK(odd.image == "C:\\x\\y.gif");
+    // 前の版の設定には launchAtLogin が無い。既定のオン
+    CHECK(odd.launchAtLogin);
+
+    // 日本語のパス（\u の書き方と、そのままの UTF-8 の両方）
+    CHECK(ParseConfig(R"({"image": "C:\\\u58c1\u7d19.gif"})").image == "C:\\\xE5\xA3\x81\xE7\xB4\x99.gif");
+
+    // 書いて読むと同じ
+    Config c;
+    c.image = "C:\\Users\\a b\\\"q\".gif";
+    c.fit = Fit::Fit;
+    c.speed = 0.5;
+    c.pauseOnLowPower = false;
+    c.launchAtLogin = false;
+    CHECK(ParseConfig(FormatConfig(c)) == c);
+    CHECK(FormatConfig(Config{}).find("\"fit\" : \"integer\"") != std::string::npos);
+}
+
 }  // namespace
 
 int main() {
     TestLayout();
     TestTiming();
     TestCompositor();
+    TestConfig();
     if (failures == 0) std::printf("すべて通った\n");
     return failures == 0 ? 0 : 1;
 }

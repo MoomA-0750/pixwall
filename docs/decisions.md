@@ -130,3 +130,13 @@
 - Windows はまだ設定画面も `config.json` も無く、画像は起動の引数でしか渡せない。そこで起動するたびに、今の exe と画像の絶対パスを Run に書く。切る場所が無いのは、設定画面を作るときに直す
 - to-fu でサインアウトしてサインインし直すと、pixwall が始まった（本人が見た。新しいセッションで pixwall.exe が動いていた）
 - Mac も再起動すると pixwall が始まった（本人が見た。起動から 2 分で pixwall が動いていた）
+
+## 2026-10-18 ふつうのアプリとして入れる
+
+- Mac は `/Applications` に入れる（`install-app.sh`）。`/Applications` は admin のグループが書けるので sudo は要らない。入れると Spotlight に出た（`mdfind` で `/Applications/pixwall.app` が見つかる）
+- Windows は、スタートメニューから引数なしで起動できないと意味がないので、Mac と同じ `config.json` を読むようにした。設定画面ができるまで、画像は一度だけ引数で渡す。JSON は外のライブラリを入れず、`core` に平らなオブジェクトだけ読む小さな読み手を書いた（Linux でもテストできる）
+- Windows の置き場所は、管理者の権限が要らない `%LOCALAPPDATA%\Programs`（VS Code や Discord のユーザー向けの入れ方と同じ）。スタートメニューにはショートカットを置くだけで、`Get-StartApps` に pixwall が出た
+- ログイン時の起動（Run）は、画像の引数をやめて exe だけにした。画像は `config.json` から読む
+- install.ps1 は日本語を含むので BOM 付きの UTF-8 にした（Windows PowerShell 5.1 は BOM の無いファイルを日本語の Windows では Shift_JIS として読む）
+- Mac のログイン項目は、入れ替えたあとも pixwall.app が1つだけだった（本人が見た）
+- まだ無いもの: アプリのアイコン（Mac・Windows とも OS の既定のアイコン）、Windows の「設定 > アプリ」からのアンインストール

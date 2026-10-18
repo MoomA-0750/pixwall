@@ -37,17 +37,10 @@ final class OsWallpaper {
             return "\(id)=\(size.width)x\(size.height)"
         }).joined(separator: "|")
         let allOurs = screens.allSatisfy { screen, _ in isOurs(NSWorkspace.shared.desktopImageURL(for: screen)) }
-        let noneOurs = screens.allSatisfy { screen, _ in !isOurs(NSWorkspace.shared.desktopImageURL(for: screen)) }
         if mark == applied, allOurs { return }
 
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        if noneOurs {
-            // 本人の壁紙のまま。macOS の壁紙の設定ファイルを控える（前の控えは、本人が替えたあとなので要らない）
-            try? FileManager.default.removeItem(at: storeBackupURL)
-            try? FileManager.default.copyItem(at: storeURL, to: storeBackupURL)
-            // 前に作った PNG はもうどの操作スペースからも使われていない
-            removePNGs(except: [])
-        }
+        updateStoreBackup()
 
         // 入れる前の壁紙を覚える。自分の PNG が入っている画面は、前に覚えた値のまま（落ちて戻せなかったときなど）
         for (screen, id) in screens {
@@ -93,13 +86,12 @@ final class OsWallpaper {
     func restore() {
         applied = nil
         let originals = loadOriginals()
-        let anyOurs = NSScreen.screens.contains { isOurs(NSWorkspace.shared.desktopImageURL(for: $0)) }
-        if anyOurs, restoreStore() {
+        if restoreStore() {
             saveOriginals([:])
             removePNGs(except: [])
             return
         }
-        // 設定ファイルで戻せないとき（控えが無い・本人が壁紙を替えた）は、画面ごとに NSWorkspace で戻す
+        // 設定ファイルで戻せないとき（控えが無い・どの操作スペースも自分の PNG でない）は、画面ごとに NSWorkspace で戻す
         try? FileManager.default.removeItem(at: storeBackupURL)
         for screen in NSScreen.screens {
             guard let id = Self.uuid(of: screen), let original = originals[id],
@@ -121,17 +113,28 @@ final class OsWallpaper {
         removePNGs(except: [])
     }
 
-    /// 控えた macOS の壁紙の設定ファイルを書き戻し、WallpaperAgent を起こし直して読ませる。
-    /// 全部の操作スペースと、写真などの壁紙まで元どおりになる
+    /// macOS の壁紙の設定ファイルを控える。自分の PNG を指していない項目（操作スペースごと・上の段の項目ごと）だけを
+    /// 控えに写す（起動したときはほかの操作スペースが本人の壁紙のままで、移ったときに初めてそこへ入れるので）
+    private func updateStoreBackup() {
+        guard let current = Self.loadStore(storeURL) else { return }
+        Self.saveStore(WallpaperStore.backup(current: current, previous: Self.loadStore(storeBackupURL),
+                                             marker: Self.marker), to: storeBackupURL)
+    }
+
+    /// 設定ファイルの、自分の PNG を指している項目を控えの値に戻し、WallpaperAgent を起こし直して読ませる。
+    /// 全部の操作スペースと、写真などの壁紙まで元どおりになる。戻し方は WallpaperStore.restored
     private func restoreStore() -> Bool {
-        guard FileManager.default.fileExists(atPath: storeBackupURL.path),
-              FileManager.default.fileExists(atPath: storeURL.path) else { return false }
-        do {
-            _ = try FileManager.default.replaceItemAt(storeURL, withItemAt: storeBackupURL)
-        } catch {
-            NSLog("pixwall: 壁紙の設定ファイルを戻せない: \(error)")
+        guard let current = Self.loadStore(storeURL), WallpaperStore.mentions(current, Self.marker) else { return false }
+        guard let result = WallpaperStore.restored(current: current, backup: Self.loadStore(storeBackupURL),
+                                                   marker: Self.marker) else {
+            NSLog("pixwall: 壁紙の設定ファイルを戻せる形にできない")
             return false
         }
+        guard Self.saveStore(result, to: storeURL) else {
+            NSLog("pixwall: 壁紙の設定ファイルを戻せない")
+            return false
+        }
+        try? FileManager.default.removeItem(at: storeBackupURL)
         // WallpaperAgent は終わると launchd がすぐ起こし直し、そのときに設定ファイルを読む
         let kill = Process()
         kill.executableURL = URL(fileURLWithPath: "/usr/bin/killall")
@@ -139,6 +142,21 @@ final class OsWallpaper {
         try? kill.run()
         kill.waitUntilExit()
         return kill.terminationStatus == 0
+    }
+
+    /// 設定ファイルの中では、壁紙の場所は file URL の文字のまま入っている
+    private static let marker = Data("/pixwall/desktop/".utf8)
+
+    private static func loadStore(_ url: URL) -> [String: Any]? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any]
+    }
+
+    @discardableResult
+    private static func saveStore(_ store: [String: Any], to url: URL) -> Bool {
+        guard let data = try? PropertyListSerialization.data(fromPropertyList: store, format: .binary, options: 0)
+        else { return false }
+        return (try? data.write(to: url, options: .atomic)) != nil
     }
 
     private func isOurs(_ url: URL?) -> Bool {

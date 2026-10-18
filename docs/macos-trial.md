@@ -30,7 +30,8 @@ open /Applications/pixwall.app --args "$D/dot-64x64-30f.gif"
 - ドットがぼやけていない
 - 起動したあと、システム設定 > 一般 > ログイン項目の「ログイン時に開く」に pixwall.app が入っている。ログアウトしてログインし直すと pixwall が始まる。設定画面で「ログイン時に起動」を切ると一覧から消える
 
-- 動かしている間は OS の壁紙も1枚目になっている（`~/Library/Application Support/pixwall/desktop` に PNG と `original.json`、`wallpaper-store.plist`。`pkill -9 -x pixwall` で落とすと見える）。設定画面の「pixwall を終了」か ⌘Q で終えると、写真などの壁紙も含めて元に戻る（`~/Library/Application Support/com.apple.wallpaper/Store/Index.plist` が、日時を除いて控えと同じになる）
+- 動かしている間は OS の壁紙も1枚目になっている（`~/Library/Application Support/pixwall/desktop` に PNG と `original.json`、`wallpaper-store.plist`。`pkill -9 -x pixwall` で落とすと見える）。設定画面の「pixwall を終了」か ⌘Q で終えると、写真などの壁紙も含めて元に戻る（`~/Library/Application Support/com.apple.wallpaper/Store/Index.plist` のどの操作スペースも、pixwall の PNG を指していない）
+- 操作スペースの切り替えは、Mission Control をアプリとして開いて（`com.apple.exposelauncher`）縮小図を押せばできる（送ったキー操作は届かなかった）。写真の操作スペースがあるまま起動し、そこへ移ってから終える。また Mission Control の「＋」で操作スペースを足してから終える。どちらも全部の操作スペースが写真に戻る
 - 設定画面の「静止画を書き出す…」で、書き出す絵のつまみで選んだ枚が、画面の大きさの PNG に書かれる
 
 ## リソースを測る

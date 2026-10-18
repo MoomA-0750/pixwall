@@ -58,8 +58,8 @@ final class SettingsModel: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         exportResult = StillImage.export(image, imagePath: path, frame: frame, fit: config.fit,
                                          position: config.position, background: config.fillColor(for: image), to: url)
-            ? "書き出しました: \(url.path)"
-            : "書き出せませんでした: \(url.path)"
+            ? String(localized: "書き出しました: \(url.path)")
+            : String(localized: "書き出せませんでした: \(url.path)")
     }
 }
 
@@ -106,7 +106,7 @@ struct SettingsView: View {
                                     .frame(width: 160)
                                 Text("\(model.frame + 1) / \(image.frames.count) 枚目")
                                     .monospacedDigit()
-                                    .frame(width: 80, alignment: .trailing)
+                                    .frame(width: 100, alignment: .trailing)
                             }
                         }
                     }
@@ -185,7 +185,7 @@ struct SettingsView: View {
     }
 
     private var imageName: String {
-        model.config.image.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "選んでいない"
+        model.config.image.map { URL(fileURLWithPath: $0).lastPathComponent } ?? String(localized: "選んでいない")
     }
 
     private var frameValue: Binding<Double> {
@@ -242,11 +242,12 @@ struct SettingsView: View {
 
     private var positionLabel: String {
         let p = model.config.position
-        return abs(p - 0.5) < 0.001 ? "中央" : String(format: "%.0f", p * 100)
+        return abs(p - 0.5) < 0.001 ? String(localized: "中央") : String(format: "%.0f", p * 100)
     }
 
     private var speedLabel: String {
         let s = model.config.speed
-        return s < 1 ? String(format: "%.2g倍", s) : String(format: "%.0f倍", s)
+        let number = s < 1 ? String(format: "%.2g", s) : String(format: "%.0f", s)
+        return String(localized: "\(number)倍")
     }
 }

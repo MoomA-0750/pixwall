@@ -138,3 +138,9 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 - 描く順番・フレームの待ち時間・止める条件の判断は、OS に触らない部分に分けて単体テストする（Windows は C++ のテスト、Mac は XCTest）
 - 後ろに出ているか・アイコンが出ていないか・リソースの目安は、実機で確かめる手順を `docs/` に書く
+
+## 画面の文字の言語
+
+- Mac: SwiftUI の `Text`・`Button` などに書いた日本語の文がそのままキーになる。`Resources/en.lproj/Localizable.strings` に英語を置き、`build-app.sh` が `Contents/Resources` に写す。`Info.plist` は `CFBundleDevelopmentRegion` を `en`、`CFBundleLocalizations` を `en`・`ja` にする（どちらでもない言語では英語）。`ja.lproj` は中身の無い表で、日本語を選んでもらうためだけに置く。`String` で組み立てる文字（書き出しの結果・メニュー・「中央」など）は `String(localized:)` で引く
+- Windows の設定画面: XAML の部品に `x:Uid` を付け、`Strings/en-US/Resources.resw`・`Strings/ja-JP/Resources.resw` から引く（MRT Core。`PixwallSettings.pri` に入る）。コードの文字は `Strings.Get`・`Strings.Format`（`ResourceLoader`）。csproj の `DefaultLanguage` を `en-US` にして、どちらでもない言語では英語。同じ `x:Uid` を型の違う部品に付けると、無い・違う意味のプロパティ（`ComboBox.Text` など）にも当ててしまうので、`AutomationProperties.Name` だけの部品は `〜Control` の名前にする。試すときは環境変数 `PIXWALL_LANGUAGE` で `ApplicationLanguages.PrimaryLanguageOverride` を入れる（MSIX に包まないので、次に開いたときには残らない）
+- Windows の常駐側: 出す文字は設定画面が見つからないときのメッセージだけなので、`GetUserDefaultUILanguage` が日本語かで選ぶ

@@ -7,6 +7,7 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
+    <!-- 文字は x:Uid で Strings/<言語>/Resources.resw から引く。ここに書いた日本語は、引けなかったときのもの -->
     <Grid>
         <Grid.Resources>
             <!-- Windows の設定アプリと同じ、角の丸いカードの行 -->
@@ -29,7 +30,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <!-- 題名の帯も窓の中身として描く（タスクマネージャーや設定アプリと同じ、境目の無い見た目） -->
-        <TitleBar x:Name="AppTitleBar" Title="pixwall の設定" />
+        <TitleBar x:Uid="AppTitleBar" x:Name="AppTitleBar" Title="pixwall の設定" />
 
         <ScrollViewer Grid.Row="1">
             <StackPanel MaxWidth="640" Padding="24,16,24,24" Spacing="4">
@@ -39,11 +40,11 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="壁紙が画面に合っていないとき" VerticalAlignment="Center" />
-                    <Button Grid.Column="1" Content="表示を更新" Click="Refresh_Click" />
+                    <TextBlock x:Uid="RefreshLabel" Text="壁紙が画面に合っていないとき" VerticalAlignment="Center" />
+                    <Button x:Uid="RefreshButton" Grid.Column="1" Content="表示を更新" Click="Refresh_Click" />
                 </Grid>
 
-                <TextBlock Text="画像" Style="{StaticResource Heading}" />
+                <TextBlock x:Uid="ImageHeading" Text="画像" Style="{StaticResource Heading}" />
                 <Grid Style="{StaticResource Card}" RowSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -55,12 +56,12 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="すべての画面" />
+                        <TextBlock x:Uid="AllDisplays" Text="すべての画面" />
                         <TextBlock x:Name="ImageName" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    TextTrimming="CharacterEllipsis" />
                     </StackPanel>
-                    <Button Grid.Column="1" Content="選ぶ…" Click="ChooseImage_Click" VerticalAlignment="Center" />
+                    <Button x:Uid="ChooseButton" Grid.Column="1" Content="選ぶ…" Click="ChooseImage_Click" VerticalAlignment="Center" />
                     <TextBlock x:Name="LoadError" Grid.Row="1" Grid.ColumnSpan="2" Visibility="Collapsed"
                                Foreground="{ThemeResource SystemFillColorCriticalBrush}" TextWrapping="Wrap" />
                     <Image x:Name="Preview" Grid.Row="2" Grid.ColumnSpan="2" MaxHeight="160" Stretch="Uniform"
@@ -78,30 +79,30 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="静止画" />
+                        <TextBlock x:Uid="StillLabel" Text="静止画" />
                         <TextBlock x:Name="FrameLabel" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
-                    <Button x:Name="ExportButton" Grid.Column="1" Content="静止画を書き出す…" Click="Export_Click"
+                    <Button x:Uid="ExportButton" x:Name="ExportButton" Grid.Column="1" Content="静止画を書き出す…" Click="Export_Click"
                             VerticalAlignment="Center" />
-                    <Slider x:Name="FrameSlider" AutomationProperties.Name="書き出す絵" Grid.Row="1" Grid.ColumnSpan="2"
+                    <Slider x:Uid="FrameSliderControl" x:Name="FrameSlider" AutomationProperties.Name="書き出す絵" Grid.Row="1" Grid.ColumnSpan="2"
                             Minimum="0" Maximum="0" StepFrequency="1" ValueChanged="Frame_Changed" />
                     <TextBlock x:Name="ExportResult" Grid.Row="2" Grid.ColumnSpan="2" Visibility="Collapsed"
                                Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
                 </Grid>
 
-                <TextBlock Text="表示" Style="{StaticResource Heading}" />
+                <TextBlock x:Uid="DisplayHeading" Text="表示" Style="{StaticResource Heading}" />
                 <Grid Style="{StaticResource Card}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="並べ方" VerticalAlignment="Center" />
+                    <TextBlock x:Uid="Fit" Text="並べ方" VerticalAlignment="Center" />
                     <!-- 並び順は MainWindow.xaml.cs の Fits とそろえる -->
-                    <ComboBox x:Name="FitBox" AutomationProperties.Name="並べ方" Grid.Column="1" MinWidth="180" SelectionChanged="Fit_Changed">
-                        <ComboBoxItem Content="整数倍で最大" />
-                        <ComboBoxItem Content="画面に合わせる" />
-                        <ComboBoxItem Content="画面を埋める" />
+                    <ComboBox x:Uid="FitControl" x:Name="FitBox" AutomationProperties.Name="並べ方" Grid.Column="1" MinWidth="180" SelectionChanged="Fit_Changed">
+                        <ComboBoxItem x:Uid="FitInteger" Content="整数倍で最大" />
+                        <ComboBoxItem x:Uid="FitFit" Content="画面に合わせる" />
+                        <ComboBoxItem x:Uid="FitFill" Content="画面を埋める" />
                     </ComboBox>
                 </Grid>
                 <!-- 画面に合わせる・埋めるときだけ出す。余白（埋めるときははみ出し）が上下にできる画面では上下、左右にできる画面では左右に動く -->
@@ -112,10 +113,10 @@
                         <ColumnDefinition Width="48" />
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="位置" />
-                        <TextBlock Text="0 で上・左、100 で下・右" Style="{StaticResource CaptionTextBlockStyle}" />
+                        <TextBlock x:Uid="Position" Text="位置" />
+                        <TextBlock x:Uid="PositionHint" Text="0 で上・左、100 で下・右" Style="{StaticResource CaptionTextBlockStyle}" />
                     </StackPanel>
-                    <Slider x:Name="PositionSlider" AutomationProperties.Name="位置" Grid.Column="1" Width="180" Minimum="0" Maximum="100"
+                    <Slider x:Uid="PositionControl" x:Name="PositionSlider" AutomationProperties.Name="位置" Grid.Column="1" Width="180" Minimum="0" Maximum="100"
                             StepFrequency="1" TickFrequency="50" TickPlacement="Outside" SnapsTo="StepValues" IsThumbToolTipEnabled="False"
                             VerticalAlignment="Center" ValueChanged="Position_Changed" />
                     <TextBlock x:Name="PositionLabel" Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right" />
@@ -128,12 +129,12 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center">
-                        <TextBlock Text="余白の色" />
-                        <TextBlock Text="自動では画像の左上の色" Style="{StaticResource CaptionTextBlockStyle}"
+                        <TextBlock x:Uid="Background" Text="余白の色" />
+                        <TextBlock x:Uid="BackgroundHint" Text="自動では画像の左上の色" Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
                     <!-- 自分で選ぶときだけ出す。押すと色を選ぶ画面が開く -->
-                    <Button x:Name="ColorButton" AutomationProperties.Name="色を選ぶ" Grid.Column="1" Padding="4"
+                    <Button x:Uid="ColorButtonControl" x:Name="ColorButton" AutomationProperties.Name="色を選ぶ" Grid.Column="1" Padding="4"
                             VerticalAlignment="Center" Visibility="Collapsed">
                         <Border x:Name="ColorSwatch" Width="40" Height="20" CornerRadius="2"
                                 BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" />
@@ -144,10 +145,10 @@
                             </Flyout>
                         </Button.Flyout>
                     </Button>
-                    <ComboBox x:Name="BackgroundBox" AutomationProperties.Name="余白の色" Grid.Column="2" MinWidth="140"
+                    <ComboBox x:Uid="BackgroundControl" x:Name="BackgroundBox" AutomationProperties.Name="余白の色" Grid.Column="2" MinWidth="140"
                               VerticalAlignment="Center" SelectionChanged="Background_Changed">
-                        <ComboBoxItem Content="自動" />
-                        <ComboBoxItem Content="自分で選ぶ" />
+                        <ComboBoxItem x:Uid="BackgroundAuto" Content="自動" />
+                        <ComboBoxItem x:Uid="BackgroundCustom" Content="自分で選ぶ" />
                     </ComboBox>
                 </Grid>
                 <Grid Style="{StaticResource Card}">
@@ -156,22 +157,22 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="48" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="速さ" VerticalAlignment="Center" />
+                    <TextBlock x:Uid="Speed" Text="速さ" VerticalAlignment="Center" />
                     <!-- 0.25・0.5・1・2・4 倍の5段。つまみは 2 の何乗かで動かす -->
-                    <Slider x:Name="SpeedSlider" AutomationProperties.Name="速さ" Grid.Column="1" Width="180" Minimum="-2" Maximum="2" StepFrequency="1"
+                    <Slider x:Uid="SpeedControl" x:Name="SpeedSlider" AutomationProperties.Name="速さ" Grid.Column="1" Width="180" Minimum="-2" Maximum="2" StepFrequency="1"
                             TickFrequency="1" TickPlacement="Outside" SnapsTo="StepValues" IsThumbToolTipEnabled="False"
                             VerticalAlignment="Center" ValueChanged="Speed_Changed" />
                     <TextBlock x:Name="SpeedLabel" Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right" />
                 </Grid>
 
-                <TextBlock Text="止める" Style="{StaticResource Heading}" />
+                <TextBlock x:Uid="PauseHeading" Text="止める" Style="{StaticResource Heading}" />
                 <Grid Style="{StaticResource Card}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="省エネモードのときは止める" VerticalAlignment="Center" />
-                    <ToggleSwitch x:Name="LowPowerSwitch" AutomationProperties.Name="省エネモードのときは止める" Grid.Column="1" OnContent="" OffContent="" MinWidth="0"
+                    <TextBlock x:Uid="LowPower" Text="省エネモードのときは止める" VerticalAlignment="Center" />
+                    <ToggleSwitch x:Uid="LowPowerControl" x:Name="LowPowerSwitch" AutomationProperties.Name="省エネモードのときは止める" Grid.Column="1" OnContent="" OffContent="" MinWidth="0"
                                   Toggled="LowPower_Toggled" />
                 </Grid>
                 <Grid Style="{StaticResource Card}">
@@ -179,19 +180,19 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="一時停止" VerticalAlignment="Center" />
-                    <ToggleSwitch x:Name="PauseSwitch" AutomationProperties.Name="一時停止" Grid.Column="1" OnContent="" OffContent="" MinWidth="0"
+                    <TextBlock x:Uid="Pause" Text="一時停止" VerticalAlignment="Center" />
+                    <ToggleSwitch x:Uid="PauseControl" x:Name="PauseSwitch" AutomationProperties.Name="一時停止" Grid.Column="1" OnContent="" OffContent="" MinWidth="0"
                                   Toggled="Pause_Toggled" />
                 </Grid>
 
-                <TextBlock Text="起動" Style="{StaticResource Heading}" />
+                <TextBlock x:Uid="StartupHeading" Text="起動" Style="{StaticResource Heading}" />
                 <Grid Style="{StaticResource Card}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="ログイン時に起動" VerticalAlignment="Center" />
-                    <ToggleSwitch x:Name="LoginSwitch" AutomationProperties.Name="ログイン時に起動" Grid.Column="1" OnContent="" OffContent="" MinWidth="0"
+                    <TextBlock x:Uid="Login" Text="ログイン時に起動" VerticalAlignment="Center" />
+                    <ToggleSwitch x:Uid="LoginControl" x:Name="LoginSwitch" AutomationProperties.Name="ログイン時に起動" Grid.Column="1" OnContent="" OffContent="" MinWidth="0"
                                   Toggled="Login_Toggled" />
                 </Grid>
                 <Grid Style="{StaticResource Card}">
@@ -199,8 +200,8 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="壁紙を止めて、OS の壁紙に戻す" VerticalAlignment="Center" />
-                    <Button Grid.Column="1" Content="pixwall を終了" Click="Quit_Click" />
+                    <TextBlock x:Uid="QuitLabel" Text="壁紙を止めて、OS の壁紙に戻す" VerticalAlignment="Center" />
+                    <Button x:Uid="QuitButton" Grid.Column="1" Content="pixwall を終了" Click="Quit_Click" />
                 </Grid>
             </StackPanel>
         </ScrollViewer>

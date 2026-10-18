@@ -30,6 +30,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Title = Strings.Get("WindowTitle");
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         config = Config.Load();
@@ -45,7 +46,7 @@ public sealed partial class MainWindow : Window
     private void Show()
     {
         loading = true;
-        ImageName.Text = config.Image is null ? "選んでいない" : Path.GetFileName(config.Image);
+        ImageName.Text = config.Image is null ? Strings.Get("NoImage") : Path.GetFileName(config.Image);
         FitBox.SelectedIndex = Array.IndexOf(Fits, config.Fit);
         SpeedSlider.Value = Math.Round(Math.Log2(config.Speed));
         SpeedLabel.Text = SpeedText(config.Speed);
@@ -71,7 +72,7 @@ public sealed partial class MainWindow : Window
         FrameSlider.Value = 0;
         loading = false;
         FrameSlider.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
-        FrameLabel.Text = count > 1 ? $"書き出す絵: {count} 枚のうち 1 枚目" : "";
+        FrameLabel.Text = count > 1 ? Strings.Format("FrameOf", count, 1) : "";
         ExportButton.IsEnabled = count > 0;
         _ = ShowPreview(config.Image);
     }
@@ -84,9 +85,9 @@ public sealed partial class MainWindow : Window
         Resident.ReloadConfig();
     }
 
-    private static string SpeedText(double s) => s < 1 ? $"{s:0.##}倍" : $"{s:0}倍";
+    private static string SpeedText(double s) => Strings.Format("SpeedTimes", s < 1 ? $"{s:0.##}" : $"{s:0}");
 
-    private static string PositionText(double p) => Math.Abs(p - 0.5) < 0.001 ? "中央" : $"{p * 100:0}";
+    private static string PositionText(double p) => Math.Abs(p - 0.5) < 0.001 ? Strings.Get("Center") : $"{p * 100:0}";
 
     /// frame 枚目を、ドットがぼやけないよう最近傍で整数倍に広げて出す
     private async Task<bool> ShowPreview(string? path, int frame = 0)
@@ -148,7 +149,7 @@ public sealed partial class MainWindow : Window
         // 読めない画像は設定に書かない。壁紙はそのまま
         if (!await ShowPreview(file.Path))
         {
-            LoadError.Text = $"読めませんでした: {file.Path}";
+            LoadError.Text = Strings.Format("CouldNotRead", file.Path);
             LoadError.Visibility = Visibility.Visible;
             _ = ShowPreview(config.Image);
             return;
@@ -164,7 +165,7 @@ public sealed partial class MainWindow : Window
         // 画面を作っている途中（config を読む前）にも呼ばれる
         if (loading || FrameLabel is null || config is null) return;
         frame = (int)Math.Round(e.NewValue);
-        FrameLabel.Text = $"書き出す絵: {FrameSlider.Maximum + 1} 枚のうち {frame + 1} 枚目";
+        FrameLabel.Text = Strings.Format("FrameOf", FrameSlider.Maximum + 1, frame + 1);
         _ = ShowPreview(config.Image, frame);
     }
 
@@ -181,12 +182,12 @@ public sealed partial class MainWindow : Window
             var file = await picker.PickSaveFileAsync();
             if (file is null) return;
             ExportResult.Text = Resident.ExportStill(frame, file.Path)
-                ? $"書き出しました: {file.Path}"
-                : "書き出せませんでした（pixwall が動いていないか、そこには保存できません）";
+                ? Strings.Format("Exported", file.Path)
+                : Strings.Get("ExportFailedNotRunning");
         }
         catch (Exception ex) when (ex is COMException or InvalidCastException or ArgumentException)
         {
-            ExportResult.Text = $"書き出せませんでした: {ex.Message}";
+            ExportResult.Text = Strings.Format("ExportFailed", ex.Message);
         }
         ExportResult.Visibility = Visibility.Visible;
     }

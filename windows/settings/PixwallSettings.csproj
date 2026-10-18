@@ -19,6 +19,8 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <!-- .NET と Windows App SDK の訳のうち、日本語と英語だけ入れる -->
     <SatelliteResourceLanguages>ja;en-US</SatelliteResourceLanguages>
+    <!-- 画面の文字（Strings/<言語>/Resources.resw）で、日本語でも英語でもない言語のときに使う言語 -->
+    <DefaultLanguage>en-US</DefaultLanguage>
     <!-- publish で前もって機械語にする（Native AOT）。起動時の JIT が無くなり、メモリも減る。
          使っていない .NET と Windows の呼び出し口（Microsoft.Windows.SDK.NET.dll など）も削られる。
          ビルドには Visual Studio Build Tools の C++（リンカー）が要る -->

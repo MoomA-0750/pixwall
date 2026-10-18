@@ -455,7 +455,10 @@ void OpenSettings() {
     std::wstring path = exe;
     path = path.substr(0, path.find_last_of(L'\\')) + L"\\settings\\PixwallSettings.exe";
     if (reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL)) <= 32) {
-        MessageBoxW(nullptr, (L"設定画面が見つからない: " + path).c_str(), L"pixwall", MB_OK);
+        // 設定画面と同じく、Windows の表示言語が日本語なら日本語、ほかは英語
+        const bool japanese = PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_JAPANESE;
+        MessageBoxW(nullptr, ((japanese ? L"設定画面が見つからない: " : L"Couldn't find the settings app: ") + path).c_str(),
+                    L"pixwall", MB_OK);
     }
 }
 

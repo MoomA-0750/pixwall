@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 設定画面の文字（英語。言葉は Mac 版（macos/Resources/en.lproj/Localizable.strings）とそろえる）。「x:Uid の名前.プロパティ」と、コードから引く名前（{0} などは string.Format で埋める） -->
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AppTitleBar.Title" xml:space="preserve"><value>pixwall Settings</value></data>
+  <data name="RefreshLabel.Text" xml:space="preserve"><value>When the wallpaper doesn't fit the screen</value></data>
+  <data name="RefreshButton.Content" xml:space="preserve"><value>Refresh Display</value></data>
+  <data name="ImageHeading.Text" xml:space="preserve"><value>Image</value></data>
+  <data name="AllDisplays.Text" xml:space="preserve"><value>All Displays</value></data>
+  <data name="ChooseButton.Content" xml:space="preserve"><value>Choose…</value></data>
+  <data name="StillLabel.Text" xml:space="preserve"><value>Still Image</value></data>
+  <data name="ExportButton.Content" xml:space="preserve"><value>Export Still Image…</value></data>
+  <data name="FrameSliderControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Frame to Export</value></data>
+  <data name="DisplayHeading.Text" xml:space="preserve"><value>Display</value></data>
+  <data name="Fit.Text" xml:space="preserve"><value>Scaling</value></data>
+  <data name="FitControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Scaling</value></data>
+  <data name="FitInteger.Content" xml:space="preserve"><value>Largest Whole Multiple</value></data>
+  <data name="FitFit.Content" xml:space="preserve"><value>Fit to Screen</value></data>
+  <data name="FitFill.Content" xml:space="preserve"><value>Fill Screen</value></data>
+  <data name="Position.Text" xml:space="preserve"><value>Position</value></data>
+  <data name="PositionHint.Text" xml:space="preserve"><value>0 is top or left, 100 is bottom or right</value></data>
+  <data name="PositionControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Position</value></data>
+  <data name="Background.Text" xml:space="preserve"><value>Margin Color</value></data>
+  <data name="BackgroundHint.Text" xml:space="preserve"><value>Automatic uses the image's top-left pixel</value></data>
+  <data name="ColorButtonControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Choose Color</value></data>
+  <data name="BackgroundControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Margin Color</value></data>
+  <data name="BackgroundAuto.Content" xml:space="preserve"><value>Automatic</value></data>
+  <data name="BackgroundCustom.Content" xml:space="preserve"><value>Custom</value></data>
+  <data name="Speed.Text" xml:space="preserve"><value>Speed</value></data>
+  <data name="SpeedControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Speed</value></data>
+  <data name="PauseHeading.Text" xml:space="preserve"><value>Pause</value></data>
+  <data name="LowPower.Text" xml:space="preserve"><value>Pause in Energy Saver</value></data>
+  <data name="LowPowerControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Pause in Energy Saver</value></data>
+  <data name="Pause.Text" xml:space="preserve"><value>Paused</value></data>
+  <data name="PauseControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Paused</value></data>
+  <data name="StartupHeading.Text" xml:space="preserve"><value>Startup</value></data>
+  <data name="Login.Text" xml:space="preserve"><value>Open at Sign-in</value></data>
+  <data name="LoginControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open at Sign-in</value></data>
+  <data name="QuitLabel.Text" xml:space="preserve"><value>Stop the wallpaper and go back to the Windows wallpaper</value></data>
+  <data name="QuitButton.Content" xml:space="preserve"><value>Quit pixwall</value></data>
+  <data name="WindowTitle" xml:space="preserve"><value>pixwall Settings</value></data>
+  <data name="NoImage" xml:space="preserve"><value>None</value></data>
+  <data name="FrameOf" xml:space="preserve"><value>Frame to export: {1} of {0}</value></data>
+  <data name="SpeedTimes" xml:space="preserve"><value>{0}×</value></data>
+  <data name="Center" xml:space="preserve"><value>Center</value></data>
+  <data name="CouldNotRead" xml:space="preserve"><value>Couldn't read: {0}</value></data>
+  <data name="Exported" xml:space="preserve"><value>Exported: {0}</value></data>
+  <data name="ExportFailedNotRunning" xml:space="preserve"><value>Couldn't export (pixwall isn't running, or that location can't be written)</value></data>
+  <data name="ExportFailed" xml:space="preserve"><value>Couldn't export: {0}</value></data>
+</root>

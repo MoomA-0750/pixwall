@@ -4,7 +4,10 @@ param([string]$Fit, [string]$Background, [string]$Toggle, [double]$Speed = [doub
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 $A = [System.Windows.Automation.AutomationElement]
-$root = $A::RootElement.FindFirst('Children', (New-Object System.Windows.Automation.PropertyCondition($A::NameProperty, 'pixwall の設定')))
+# 窓の名前は表示言語で変わる（日本語か英語）。部品の名前は日本語のときのものなので、英語では -Fit などは使えない
+$root = $A::RootElement.FindFirst('Children', (New-Object System.Windows.Automation.OrCondition(
+    (New-Object System.Windows.Automation.PropertyCondition($A::NameProperty, 'pixwall の設定')),
+    (New-Object System.Windows.Automation.PropertyCondition($A::NameProperty, 'pixwall Settings')))))
 if (-not $root) { 'no window'; exit 1 }
 # 同じ名前の文字（TextBlock）と見分けるため、パターンを持つものだけ探す
 function Find($name, $pattern) {

@@ -1,12 +1,8 @@
 import AppKit
 import PixwallCore
-import ServiceManagement
-import SwiftUI
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
-    static let configURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("pixwall/config.json")
-
+/// 常駐側。壁紙の窓を動かす。設定画面は別のプロセス（SettingsApp）で開く
+final class AppDelegate: NSObject, NSApplicationDelegate {
     private var config: Config
     private var image: AnimatedImage?
     private var loadedPath: String?
@@ -21,23 +17,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var coverageTimer: DispatchSourceTimer?
     /// Dock に出るアプリの pid。アプリが起動・終了したときに数え直す
     private var regularApps: Set<pid_t>?
-    private lazy var settings = SettingsModel(config: config)
-    private var settingsWindow: NSWindow?
 
     /// imagePath は起動の引数で渡された画像。あれば設定より優先して、設定にも書く
+    private let imagePath: String?
+
     init(imagePath: String?) {
-        config = Config.load(from: Self.configURL)
-        if let imagePath { config.image = imagePath }
+        config = Config.load(from: Resident.configURL)
+        self.imagePath = imagePath
         super.init()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         pause.lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
-        settings.onChange = { [weak self] in self?.apply($0) }
-        settings.onPause = { [weak self] in self?.pause.userPaused = $0 }
-        settings.onRefresh = { [weak self] in self?.rebuild() }
         observe()
-        apply(config)
+        var first = config
+        if let imagePath {
+            first.image = imagePath
+            try? first.save(to: Resident.configURL)
+        }
+        apply(first)
         // 画像をまだ選んでいない・読めないときは、何も見えないので設定画面を出す
         if image == nil { showSettings() }
     }
@@ -54,66 +52,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // MARK: - 設定
 
+    /// 設定は書かない（書くのは設定画面のプロセスと、起動の引数で画像を渡されたとき）
     private func apply(_ new: Config) {
         config = new
-        try? config.save(to: Self.configURL)
         pause.pauseOnLowPower = config.pauseOnLowPower
-        updateLoginItem()
+        Resident.updateLoginItem(config.launchAtLogin)
         if config.image != loadedPath {
             loadedPath = config.image
             image = config.image.flatMap { AnimatedImage(url: URL(fileURLWithPath: $0)) }
-            settings.loadError = (config.image != nil && image == nil) ? config.image : nil
         }
         rebuild()
     }
 
-    /// ログイン項目に入れる・外す。入れたあと、システム設定で本人が切ったときは requiresApproval になり、入れ直さない
-    private func updateLoginItem() {
-        let service = SMAppService.mainApp
-        do {
-            if config.launchAtLogin, service.status == .notRegistered || service.status == .notFound {
-                try service.register()
-            } else if !config.launchAtLogin, service.status == .enabled || service.status == .requiresApproval {
-                try service.unregister()
-            }
-        } catch {
-            NSLog("pixwall: ログイン項目を変えられない: \(error)")
-        }
-        settings.loginItemNeedsApproval = config.launchAtLogin && service.status == .requiresApproval
-    }
-
+    /// 設定画面のプロセスを起動する。もう開いていれば、前に出てもらう
     private func showSettings() {
-        if settingsWindow == nil {
-            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: settings)))
-            window.title = "pixwall"
-            window.styleMask = [.titled, .closable, .miniaturizable]
-            window.isReleasedWhenClosed = false
-            window.delegate = self
-            window.center()
-            settingsWindow = window
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .filter { $0.processIdentifier != getpid() && !$0.isTerminated }
+        if !others.isEmpty {
+            Resident.post(.showSettings)
+            return
         }
-        // 設定画面を開いている間だけ Dock に出す
-        NSApp.setActivationPolicy(.regular)
-        NSApp.mainMenu = makeMainMenu()
-        settingsWindow?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        guard (notification.object as? NSWindow) === settingsWindow else { return }
-        NSApp.setActivationPolicy(.accessory)
-    }
-
-    private func makeMainMenu() -> NSMenu {
-        let main = NSMenu()
-        let appItem = NSMenuItem()
-        let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "設定を閉じる", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "pixwall を終了", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-        appItem.submenu = appMenu
-        main.addItem(appItem)
-        return main
+        let arguments = [Resident.settingsArgument] + (pause.userPaused ? [Resident.pausedArgument] : [])
+        if Bundle.main.bundleIdentifier != nil {
+            let launch = NSWorkspace.OpenConfiguration()
+            launch.createsNewApplicationInstance = true
+            launch.arguments = arguments
+            NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: launch) { _, error in
+                if let error { NSLog("pixwall: 設定画面を起動できない: \(error)") }
+            }
+        } else if let exe = Bundle.main.executableURL {
+            // .app にせずそのまま動かしているとき
+            _ = try? Process.run(exe, arguments: arguments)
+        }
     }
 
     // MARK: - 壁紙の窓
@@ -204,6 +174,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         ws.addObserver(forName: NSWorkspace.sessionDidBecomeActiveNotification, object: nil, queue: .main) {
             [weak self] _ in self?.pause.locked = false
         }
+
+        Resident.observe(.reloadConfig) { [weak self] _ in self?.apply(Config.load(from: Resident.configURL)) }
+        Resident.observe(.refresh) { [weak self] _ in self?.rebuild() }
+        Resident.observe(.setPaused) { [weak self] n in
+            self?.pause.userPaused = (n.userInfo?["paused"] as? Bool) ?? false
+        }
+        Resident.observe(.quit) { _ in NSApp.terminate(nil) }
 
         let dnc = DistributedNotificationCenter.default()
         dnc.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in

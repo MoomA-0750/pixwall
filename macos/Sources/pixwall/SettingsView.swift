@@ -20,6 +20,7 @@ final class SettingsModel: ObservableObject {
     var onChange: (Config) -> Void = { _ in }
     var onPause: (Bool) -> Void = { _ in }
     var onRefresh: () -> Void = {}
+    var onQuit: () -> Void = {}
 
     init(config: Config) {
         self.config = config
@@ -102,7 +103,7 @@ struct SettingsView: View {
                 }
             }
             Section {
-                Button("pixwall を終了", role: .destructive) { NSApp.terminate(nil) }
+                Button("pixwall を終了", role: .destructive) { model.onQuit() }
             }
         }
         .formStyle(.grouped)

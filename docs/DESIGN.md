@@ -59,7 +59,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ## Mac 版
 
-1つのアプリ（Swift）。Xcode のプロジェクトは持たず、SwiftPM（`macos/Package.swift`）でビルドし、`macos/build-app.sh` で `.app` に包んで ad-hoc 署名する。OS に触らない計算（並べ方・待ち時間・止める条件）は `PixwallCore` に分けて XCTest で確かめ、AppKit を使う部分は `pixwall` に置く。試し方は `docs/macos-trial.md`。`Info.plist` の `LSUIElement = YES` で Dock とアプリの切り替えに出さない。
+1つのアプリ（Swift）。同じ `pixwall.app` を、常駐側（壁紙を動かす）と設定画面（`--settings` を付けて起動、閉じたら終わる）の2つのプロセスで動かす。Xcode のプロジェクトは持たず、SwiftPM（`macos/Package.swift`）でビルドし、`macos/build-app.sh` で `.app` に包んで ad-hoc 署名する。OS に触らない計算（並べ方・待ち時間・止める条件）は `PixwallCore` に分けて XCTest で確かめ、AppKit を使う部分は `pixwall` に置く。試し方は `docs/macos-trial.md`。`Info.plist` の `LSUIElement = YES` で Dock とアプリの切り替えに出さない。
 
 ### 壁紙の後ろに窓を出す
 
@@ -96,10 +96,13 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ### 設定画面
 
-- 中身は SwiftUI（`SettingsView`、`Form` の grouped）。入れ物は AppKit の `NSWindow` + `NSHostingController` にした（SwiftUI の `Window` シーンにすると App のライフサイクルを SwiftUI に渡すことになり、`main.swift` で決めている起動の流れと Dock の出し入れを扱いにくいため）。もう一度起動されたら（`applicationShouldHandleReopen`）出す。開いている間だけ `NSApp.setActivationPolicy(.regular)` にして Dock に出し、閉じたら（`windowWillClose`）`.accessory` に戻す
-- 設定を変えると、`config.json` に書いて、画像が変わったときだけ読み直し、窓を作り直す
+- 別のプロセス（`SettingsApp`）。常駐側がもう一度起動されたら（`applicationShouldHandleReopen`）、`NSWorkspace.openApplication`（`createsNewApplicationInstance`、引数 `--settings`）で起動する。もう開いていれば、`showSettings` を送って前に出てもらう。SwiftUI は一度窓を出すと、窓を捨ててもメモリ（18MB ほど）が細切れに残り OS に返らないため、常駐側では SwiftUI を動かさない
+- 中身は SwiftUI（`SettingsView`、`Form` の grouped）。入れ物は AppKit の `NSWindow` + `NSHostingController` にした（SwiftUI の `Window` シーンにすると App のライフサイクルを SwiftUI に渡すことになり、`main.swift` で決めている起動の流れを扱いにくいため）。設定画面のプロセスは `.regular` で Dock に出て、窓を閉じたら終わる
+- やり取りは `DistributedNotificationCenter`（`dev.mooma.pixwall.<名前>`、`Resident.swift`）。設定画面 → 常駐側: `reloadConfig`・`refresh`・`setPaused`（userInfo の `paused`）・`quit`。常駐側 → 設定画面: `showSettings`。今一時停止しているかは、起動の引数 `--paused` で渡す
+- 設定を変えると、設定画面が `config.json` に書いてから `reloadConfig` を送る。常駐側は読み直し、画像が変わったときだけ画像を読み直して、窓を作り直す。読めない画像は設定画面が先に読んで確かめ、書かない
+- 「pixwall を終了」と ⌘Q は、`quit` を送ってから設定画面も終わる
 - メニューバーのアイコンは `MenuBarExtra`（設定で出したときだけ）
-- ログイン時の起動は `SMAppService.mainApp`。設定の `launchAtLogin` がオンで `notRegistered` なら `register()`、オフで入っていれば `unregister()`。システム設定で切られると `requiresApproval` になるので、そのときは入れ直さず、設定画面にシステム設定を開くボタンを出す
+- ログイン時の起動は `SMAppService.mainApp`（常駐側の起動時と、設定画面で変えたとき）。設定の `launchAtLogin` がオンで `notRegistered` なら `register()`、オフで入っていれば `unregister()`。システム設定で切られると `requiresApproval` になるので、そのときは入れ直さず、設定画面にシステム設定を開くボタンを出す
 
 ## 確かめ方
 

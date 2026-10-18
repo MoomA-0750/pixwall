@@ -32,6 +32,10 @@ namespace {
 constexpr UINT_PTR kRebuildTimer = 1;
 // 解像度などが変わってから、変化が落ち着くまで待つ時間
 constexpr UINT kRebuildDelayMs = 200;
+// 並べ方・位置・余白の色を変えてから、OS の壁紙を描き直すまで待つ時間。
+// 位置のつまみを動かしている間は窓だけを動かし、PNG を描いて OS に入れる重い処理は止まってから1回だけ行う
+constexpr UINT_PTR kWallpaperTimer = 2;
+constexpr UINT kWallpaperDelayMs = 500;
 // アイコンの後ろに入れる窓が見つからないとき（Explorer が立ち上がる途中など）に探し直す間隔と回数
 constexpr UINT kRetryDelayMs = 1000;
 constexpr int kMaxRetries = 30;
@@ -140,8 +144,16 @@ void Advance() {
     ArmNext();
 }
 
+// OS の壁紙にも1枚目を入れる（タスク ビューや Explorer の作り直しの間、壁紙が見えたときも同じ絵になる）
+void ApplyOsWallpaper() {
+    KillTimer(app.messageWindow, kWallpaperTimer);
+    app.osWallpaper.Apply(app.wic.Get(), app.image, Wide(app.config.image), app.config.fit, app.config.position,
+                          Byte(app.background.r), Byte(app.background.g), Byte(app.background.b));
+}
+
 // 画面を数え直して、画面ごとに窓を作り直す。フレームは読み直さない
 void Rebuild() {
+    KillTimer(app.messageWindow, kWallpaperTimer);
     app.windows.clear();
     if (app.image.frames.empty()) {
         // 画像をまだ選んでいない・読めない。OS の壁紙のまま（入れ替えていたら戻す）
@@ -182,9 +194,7 @@ void Rebuild() {
         if (w->ok()) app.windows.push_back(std::move(w));
     }
     UpdateRunning();
-    // OS の壁紙にも1枚目を入れる（タスク ビューや Explorer の作り直しの間、壁紙が見えたときも同じ絵になる）
-    app.osWallpaper.Apply(app.wic.Get(), app.image, Wide(app.config.image), app.config.fit, app.config.position,
-                          Byte(app.background.r), Byte(app.background.g), Byte(app.background.b));
+    ApplyOsWallpaper();
     // 起動と作り直しで触ったメモリ（ほとんどはドライバーの初期化）を手放す。
     // 動いている間に触るのは 1MB ほどで、to-fu ではプライベート ワーキング セットが 11.6MB から 1MB 未満になった
     SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1));
@@ -278,6 +288,7 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             if (wp == SPI_SETWORKAREA) ScheduleRebuild(hwnd);
             return 0;
         case WM_TIMER:
+            if (wp == kWallpaperTimer) ApplyOsWallpaper();
             if (wp == kRebuildTimer) {
                 KillTimer(hwnd, kRebuildTimer);
                 Rebuild();
@@ -386,12 +397,25 @@ void UpdateLaunchAtLogin(bool on) {
                     static_cast<DWORD>((command.size() + 1) * sizeof(wchar_t)));
 }
 
-// 設定を当てる。画像が変わったとき（と、まだ読めていないとき）だけ読み直す
+// 設定を当てる。画像が変わったとき（と、まだ読めていないとき）だけ読み直す。
+// 画像が同じなら窓は作り直さず、並べ方・位置・余白の色だけを変え、OS の壁紙は少し待ってから描き直す
 void ApplyConfig(const Config& next) {
     const bool reload = next.image != app.config.image || app.image.frames.empty();
+    const bool relayout = next.fit != app.config.fit || next.position != app.config.position;
     app.config = next;
     app.pause.pauseOnEnergySaver = next.pauseOnLowPower;
     UpdateLaunchAtLogin(next.launchAtLogin);
+    UpdateRunning();
+    if (!reload && !app.windows.empty()) {
+        bool ok = true;
+        for (auto& w : app.windows) ok = ok && w->SetLayout(app.background, app.config.fit, app.config.position);
+        if (ok) {
+            if (relayout) SetTimer(app.messageWindow, kWallpaperTimer, kWallpaperDelayMs, nullptr);
+            return;
+        }
+        // GPU が失われた。GPU の道具から作り直す
+        app.gpu.Reset();
+    }
     // 窓は今の画像を参照しているので、画像を替える前に消す
     app.windows.clear();
     if (reload) {

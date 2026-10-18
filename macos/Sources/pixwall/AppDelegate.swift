@@ -14,6 +14,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     private var rebuildWork: DispatchWorkItem?
+    /// 並べ方・位置を変えてから OS の壁紙を描き直すまで待つ。位置のつまみを動かしている間は窓だけを動かし、
+    /// PNG を描いて OS に入れる重い処理は止まってから1回だけ行う
+    private var osWallpaperWork: DispatchWorkItem?
     private var coverageTimer: DispatchSourceTimer?
     /// Dock に出るアプリの pid。アプリが起動・終了したときに数え直す
     private var regularApps: Set<pid_t>?
@@ -56,16 +59,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - 設定
 
-    /// 設定は書かない（書くのは設定画面のプロセスと、起動の引数で画像を渡されたとき）
+    /// 設定は書かない（書くのは設定画面のプロセスと、起動の引数で画像を渡されたとき）。
+    /// 画像が同じなら窓は作り直さず、並べ方・位置・速さだけを変え、OS の壁紙は少し待ってから描き直す
     private func apply(_ new: Config) {
+        let old = config
         config = new
         pause.pauseOnLowPower = config.pauseOnLowPower
         Resident.updateLoginItem(config.launchAtLogin)
         if config.image != loadedPath {
             loadedPath = config.image
             image = config.image.flatMap { AnimatedImage(url: URL(fileURLWithPath: $0)) }
+        } else if image != nil, !windows.isEmpty {
+            windows.forEach { $0.update(fit: config.fit, position: config.position, speed: config.speed) }
+            if config.fit != old.fit || config.position != old.position { scheduleOsWallpaper() }
+            return
         }
         rebuild()
+    }
+
+    private func scheduleOsWallpaper() {
+        osWallpaperWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.applyOsWallpaper() }
+        osWallpaperWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+
+    /// OS の壁紙にも1枚目を入れる（Mission Control・メニューバーの色・操作スペースの切り替えで見える）
+    private func applyOsWallpaper() {
+        osWallpaperWork?.cancel()
+        osWallpaperWork = nil
+        guard let image, let path = config.image else { return }
+        osWallpaper.apply(image, imagePath: path, fit: config.fit, position: config.position)
     }
 
     /// 設定画面のプロセスを起動する。もう開いていれば、前に出てもらう
@@ -94,9 +118,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 画面を数え直して、画面ごとに窓を作り直す。フレームは読み直さない
     private func rebuild() {
+        osWallpaperWork?.cancel()
+        osWallpaperWork = nil
         windows.forEach { $0.stop() }
         windows = []
-        guard let image, let path = config.image else {
+        guard let image, config.image != nil else {
             // 画像をまだ選んでいない・読めない。OS の壁紙も入れ替えていたら戻す
             osWallpaper.restore()
             return
@@ -108,8 +134,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return w
         }
         windows.forEach { $0.start() }
-        // OS の壁紙にも1枚目を入れる（Mission Control・メニューバーの色・操作スペースの切り替えで見える）
-        osWallpaper.apply(image, imagePath: path, fit: config.fit, position: config.position)
+        applyOsWallpaper()
         updateCoverageWatch()
         checkCoverage()
     }

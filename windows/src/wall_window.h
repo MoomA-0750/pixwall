@@ -44,10 +44,13 @@ public:
     bool ok() const { return ok_; }
     // GPU が失われたら false。そのときは Gpu から作り直す
     bool Render(size_t frame);
+    // 並べ方・位置・余白の色だけを変える。フレームの面は作り直さない（位置のつまみを動かしている間も軽いように）。
+    // GPU が失われたら false
+    bool SetLayout(Color background, Fit fit, double position);
 
 private:
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
-    bool CreateComposition(Color background);
+    bool CreateComposition(Color background, Fit fit, double position);
     Microsoft::WRL::ComPtr<IDCompositionSurface> MakeSurface(UINT w, UINT h, DXGI_ALPHA_MODE alpha,
                                                              const uint8_t* bgra);
 
@@ -57,7 +60,6 @@ private:
     bool ok_ = false;
     int width_ = 0;
     int height_ = 0;
-    PixelRect dest_;
     std::vector<Microsoft::WRL::ComPtr<IDCompositionSurface>> frames_;
     Microsoft::WRL::ComPtr<IDCompositionTarget> target_;
     Microsoft::WRL::ComPtr<IDCompositionVisual> root_;

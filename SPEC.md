@@ -16,7 +16,8 @@
 - 【仮】フレームごとの待ち時間は GIF に書かれた値を使う。10ms 以下はブラウザと同じく 100ms として扱う
 - 【仮】速さの倍率を 0.25・0.5・1・2・4 倍の5段から選べる
 - 【仮】Mac は今、すべての画面に同じ画像を出す（画面ごとに選ぶのはまだ）。起動の引数で画像を渡すと、それを動かして設定にも書く: `open pixwall.app --args <画像のパス>`
-- 【仮】試作の間、Windows も同じく画像を起動の引数で1つ渡し、すべての画面に同じ画像を「整数倍で最大」で出す: `pixwall.exe <画像のパス>`。終えるときは `taskkill /im pixwall.exe`
+- 【仮】Windows も今はすべての画面に同じ画像を出す。設定画面ができるまでは、画像は起動の引数で渡す: `pixwall.exe <画像のパス>`。渡すと設定にも書き、次からは引数なしで（スタートメニュー・ログイン時から）その画像で始まる。並べ方・速さ・省エネモードで止めるかは `config.json` の値を使う。画像がまだ選ばれていないときは、そのことを知らせて終わる。終えるときは `taskkill /im pixwall.exe`
+- 【仮】ふつうのアプリとして入れる。Mac は `/Applications/pixwall.app`（Launchpad・Spotlight に出る）。Windows は自分のユーザーにだけ入れ、`%LOCALAPPDATA%\Programs\pixwall\pixwall.exe` に置いてスタートメニューに「pixwall」を作る（管理者の権限は要らない）
 
 ## リソースを使わないこと
 
@@ -55,7 +56,7 @@
 
 - 【仮】設定は JSON で保存する。Windows は `%APPDATA%\pixwall\config.json`、Mac は `~/Library/Application Support/pixwall/config.json`。形は2つの OS でそろえる
 - 【仮】選んだ画像はコピーせず、場所だけ覚える。見つからなくなったら、その画面は OS の壁紙に戻す
-- 【仮】今の形（Mac）: `{"version": 1, "image": "<パス>", "fit": "integer" | "fit" | "fill", "speed": 1, "pauseOnLowPower": true, "launchAtLogin": true}`。足りない項目・読めない値は既定の値にする（壊れていても起動できる）。画面ごとの画像を入れるときに形を変える
+- 【仮】今の形（Mac・Windows 共通）: `{"version": 1, "image": "<パス>", "fit": "integer" | "fit" | "fill", "speed": 1, "pauseOnLowPower": true, "launchAtLogin": true}`。足りない項目・読めない値は既定の値にする（壊れていても起動できる）。画面ごとの画像を入れるときに形を変える
 
 ## 未決事項
 

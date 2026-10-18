@@ -23,9 +23,15 @@ g++ -std=c++20 -I windows/core windows/core/core.cpp windows/tests/core_tests.cp
 
 ## 動かす
 
+ビルドしたら入れる。`%LOCALAPPDATA%\Programs\pixwall` に置き、スタートメニューに「pixwall」を作って、その画像で始める（動いていた pixwall は終わらせる）:
+
 ```bat
-build\pixwall.exe C:\path\to\samples\dot-64x64-30f.gif
+powershell -ExecutionPolicy Bypass -File install.ps1 -Image C:\path\to\samples\dot-64x64-30f.gif
 ```
+
+画像は `%APPDATA%\pixwall\config.json` に書かれるので、次からはスタートメニューから（引数なしで）始められる。外すときは `install.ps1 -Uninstall`（`config.json` は残す）。入れずに試すだけなら `build\pixwall.exe <画像のパス>`。
+
+ssh から入れるときは、ssh のセッションには画面が無いので、`install.ps1` は画面のあるセッションで動かす（下の注意を参照）。
 
 終えるときは `taskkill /im pixwall.exe`（`/f` を付けない。付けると片付けずに終わる）。
 

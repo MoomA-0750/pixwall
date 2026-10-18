@@ -1,15 +1,20 @@
-// pixwall.exe（常駐側）。試作の間は、動かす画像を引数で1つ渡す: pixwall.exe <画像のパス>
+// pixwall.exe（常駐側）。動かす画像は %APPDATA%\pixwall\config.json から読む。
+// 引数で画像を渡すと（pixwall.exe <画像のパス>）、それを動かして設定にも書く
 // 終えるときは taskkill /im pixwall.exe（隠れた窓に WM_CLOSE が届いて片付けてから終わる）
 #include <windows.h>
 #include <shellapi.h>
+#include <shlobj.h>
 #include <wincodec.h>
 #include <wrl/client.h>
 #include <wtsapi32.h>
 
+#include <fstream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <vector>
 
+#include "config.h"
 #include "core.h"
 #include "desktop.h"
 #include "image_loader.h"
@@ -35,6 +40,7 @@ constexpr GUID kPowerSaving = {0xe00958c0, 0xc213, 0x4ace, {0xac, 0x77, 0xfe, 0x
 struct App {
     ComPtr<IWICImagingFactory> wic;
     Gpu gpu;
+    Config config;
     LoadedImage image;
     Color background;
     std::vector<std::unique_ptr<WallWindow>> windows;
@@ -79,7 +85,7 @@ void RenderAll() {
 }
 
 void ArmNext() {
-    const long long delay = static_cast<long long>(FrameDelay(app.image.delays[app.frame]) * 10'000'000);
+    const long long delay = static_cast<long long>(FrameDelay(app.image.delays[app.frame], app.config.speed) * 10'000'000);
     const long long now = Now();
     app.nextDue += delay;
     // 遅れすぎたら（止めていた・眠っていた）今から数え直す
@@ -139,7 +145,7 @@ void Rebuild() {
         },
         reinterpret_cast<LPARAM>(&monitors));
     for (const RECT& rc : monitors) {
-        auto w = std::make_unique<WallWindow>(app.gpu, app.image, rc, desktop, app.background, Fit::Integer);
+        auto w = std::make_unique<WallWindow>(app.gpu, app.image, rc, desktop, app.background, app.config.fit);
         if (w->ok()) app.windows.push_back(std::move(w));
     }
     UpdateRunning();
@@ -211,16 +217,62 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
 }
 
-// ログインしたときに、今と同じ画像で始まるようにする（HKCU の Run）。
-// 設定画面ができるまでは切る場所が無いので、いつも入れる。外すときは Run の pixwall の値を消す
-void RegisterLaunchAtLogin(const std::wstring& imagePath) {
+std::wstring Wide(const std::string& s) {
+    if (s.empty()) return {};
+    std::wstring w(MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), nullptr, 0), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), w.data(), static_cast<int>(w.size()));
+    return w;
+}
+
+std::string Utf8(const std::wstring& w) {
+    if (w.empty()) return {};
+    std::string s(WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr),
+                  '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), s.data(), static_cast<int>(s.size()),
+                        nullptr, nullptr);
+    return s;
+}
+
+// %APPDATA%\pixwall\config.json
+std::wstring ConfigPath() {
+    PWSTR dir = nullptr;
+    if (FAILED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &dir))) return {};
+    std::wstring path = std::wstring(dir) + L"\\pixwall\\config.json";
+    CoTaskMemFree(dir);
+    return path;
+}
+
+Config LoadConfig(const std::wstring& path) {
+    std::ifstream in(path, std::ios::binary);
+    std::stringstream text;
+    text << in.rdbuf();
+    return ParseConfig(text.str());
+}
+
+void SaveConfig(const std::wstring& path, const Config& config) {
+    CreateDirectoryW(path.substr(0, path.find_last_of(L'\\')).c_str(), nullptr);
+    // 書きかけで落ちても壊れないよう、別のファイルに書いてから入れ替える
+    const std::wstring temp = path + L".tmp";
+    {
+        std::ofstream out(temp, std::ios::binary | std::ios::trunc);
+        out << FormatConfig(config);
+        if (!out) return;
+    }
+    MoveFileExW(temp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING);
+}
+
+// ログインしたときに始まるよう、HKCU の Run に今の exe を入れる。設定で切っていたら消す
+void UpdateLaunchAtLogin(bool on) {
+    const wchar_t key[] = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+    if (!on) {
+        RegDeleteKeyValueW(HKEY_CURRENT_USER, key, L"pixwall");
+        return;
+    }
     wchar_t exe[MAX_PATH];
     if (!GetModuleFileNameW(nullptr, exe, MAX_PATH)) return;
-    wchar_t full[MAX_PATH];
-    if (!GetFullPathNameW(imagePath.c_str(), MAX_PATH, full, nullptr)) return;
-    const std::wstring command = L"\"" + std::wstring(exe) + L"\" \"" + full + L"\"";
-    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", L"pixwall", REG_SZ,
-                    command.c_str(), static_cast<DWORD>((command.size() + 1) * sizeof(wchar_t)));
+    const std::wstring command = L"\"" + std::wstring(exe) + L"\"";
+    RegSetKeyValueW(HKEY_CURRENT_USER, key, L"pixwall", REG_SZ, command.c_str(),
+                    static_cast<DWORD>((command.size() + 1) * sizeof(wchar_t)));
 }
 
 // OS の通知を受けるための、見えない最上位の窓。WM_DISPLAYCHANGE などは最上位の窓にしか来ない
@@ -244,23 +296,37 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\pixwall");
     if (GetLastError() == ERROR_ALREADY_EXISTS) return 0;
 
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    const std::wstring configPath = ConfigPath();
+    app.config = LoadConfig(configPath);
+
     int argc = 0;
     wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
-    if (argc < 2) {
-        MessageBoxW(nullptr, L"使い方: pixwall.exe <画像のパス>", L"pixwall", MB_OK);
+    if (argc >= 2) {
+        wchar_t full[MAX_PATH];
+        if (GetFullPathNameW(argv[1], MAX_PATH, full, nullptr)) {
+            app.config.image = Utf8(full);
+            SaveConfig(configPath, app.config);
+        }
+    }
+    LocalFree(argv);
+    if (app.config.image.empty()) {
+        // 設定画面ができるまでは、画像を選ぶ場所が無い
+        MessageBoxW(nullptr,
+                    L"動かす画像がまだ選ばれていません。\n一度だけ「pixwall.exe <画像のパス>」で起動すると、次からはその画像で始まります。",
+                    L"pixwall", MB_OK);
         return 2;
     }
-    const std::wstring path = argv[1];
-    LocalFree(argv);
+    const std::wstring path = Wide(app.config.image);
 
-    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&app.wic));
     if (!app.wic || !LoadImageFile(app.wic.Get(), path, app.image)) {
         MessageBoxW(nullptr, (L"画像を読めない: " + path).c_str(), L"pixwall", MB_OK);
         return 1;
     }
     app.background = TopLeftColor(app.image);
-    RegisterLaunchAtLogin(path);
+    app.pause.pauseOnEnergySaver = app.config.pauseOnLowPower;
+    UpdateLaunchAtLogin(app.config.launchAtLogin);
 
     app.messageWindow = CreateMessageWindow(inst);
     app.taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");

@@ -12,13 +12,13 @@ swift test          # 並べ方・待ち時間・止める条件
 
 ## 動かす
 
-`.app` は `~/Applications` に置いてから起動する（`~/Documents` の中から起動すると、書類フォルダへのアクセスの許可を求められる）。画像も `~/Library/Application Support/pixwall/` など、許可の要らない場所に置く。
+`./install-app.sh` でビルドして `/Applications/pixwall.app` に入れ、入れたものから始める（動いていた pixwall は終わらせ、前に `~/Applications` に入れていたものは消す）。`build/` の中から直接起動しない（`~/Documents` の中から起動すると、書類フォルダへのアクセスの許可を求められる）。画像も `~/Library/Application Support/pixwall/` など、許可の要らない場所に置く。
 
 ```sh
-rm -rf ~/Applications/pixwall.app && cp -R build/pixwall.app ~/Applications/
+./install-app.sh
 D="$HOME/Library/Application Support/pixwall"; mkdir -p "$D"
 cp ../samples/dot-64x64-30f.gif "$D/"
-open ~/Applications/pixwall.app --args "$D/dot-64x64-30f.gif"
+open /Applications/pixwall.app --args "$D/dot-64x64-30f.gif"
 ```
 
 終えるときは `pkill -x pixwall`。

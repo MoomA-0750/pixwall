@@ -53,7 +53,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 - 設定画面は `config.json` を書いてから、常駐側の隠れた窓へ `WM_COPYDATA` で「読み直して」と送る
 - 常駐側の2回目の起動は、名前付きミューテックスで既にいると分かったら、設定画面を起こして自分は終わる
-- ログイン時の起動は `HKCU\...\Run`
+- ログイン時の起動は `HKCU\...\Run`。今は起動するたびに `"<exe>" "<画像の絶対パス>"` を書く。設定画面ができたら、`config.json` の `launchAtLogin` で入れる・消すに替える
 
 ## Mac 版
 
@@ -97,7 +97,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - 中身は SwiftUI（`SettingsView`、`Form` の grouped）。入れ物は AppKit の `NSWindow` + `NSHostingController` にした（SwiftUI の `Window` シーンにすると App のライフサイクルを SwiftUI に渡すことになり、`main.swift` で決めている起動の流れと Dock の出し入れを扱いにくいため）。もう一度起動されたら（`applicationShouldHandleReopen`）出す。開いている間だけ `NSApp.setActivationPolicy(.regular)` にして Dock に出し、閉じたら（`windowWillClose`）`.accessory` に戻す
 - 設定を変えると、`config.json` に書いて、画像が変わったときだけ読み直し、窓を作り直す
 - メニューバーのアイコンは `MenuBarExtra`（設定で出したときだけ）
-- ログイン時の起動は `SMAppService.mainApp`
+- ログイン時の起動は `SMAppService.mainApp`。設定の `launchAtLogin` がオンで `notRegistered` なら `register()`、オフで入っていれば `unregister()`。システム設定で切られると `requiresApproval` になるので、そのときは入れ直さず、設定画面にシステム設定を開くボタンを出す
 
 ## 確かめ方
 

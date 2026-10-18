@@ -38,6 +38,7 @@ build\pixwall.exe C:\path\to\samples\dot-64x64-30f.gif
 - ドットがぼやけていない（表示スケール 100% と 150% などで、ドットの大きさが物理ピクセルでそろう）
 - 解像度を変えたら描き直す。Explorer を作り直しても（タスクマネージャーで再起動）付け直す
 - 終えたら OS の壁紙に戻る
+- 起動したあと、`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` の `pixwall` に exe と画像のパスが入っている。サインアウトしてサインインし直すと pixwall が始まる。外すときは `reg delete HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v pixwall /f`
 
 ## リソースを測る
 

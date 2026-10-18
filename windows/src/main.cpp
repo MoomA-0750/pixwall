@@ -211,6 +211,18 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     }
 }
 
+// ログインしたときに、今と同じ画像で始まるようにする（HKCU の Run）。
+// 設定画面ができるまでは切る場所が無いので、いつも入れる。外すときは Run の pixwall の値を消す
+void RegisterLaunchAtLogin(const std::wstring& imagePath) {
+    wchar_t exe[MAX_PATH];
+    if (!GetModuleFileNameW(nullptr, exe, MAX_PATH)) return;
+    wchar_t full[MAX_PATH];
+    if (!GetFullPathNameW(imagePath.c_str(), MAX_PATH, full, nullptr)) return;
+    const std::wstring command = L"\"" + std::wstring(exe) + L"\" \"" + full + L"\"";
+    RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", L"pixwall", REG_SZ,
+                    command.c_str(), static_cast<DWORD>((command.size() + 1) * sizeof(wchar_t)));
+}
+
 // OS の通知を受けるための、見えない最上位の窓。WM_DISPLAYCHANGE などは最上位の窓にしか来ない
 HWND CreateMessageWindow(HINSTANCE inst) {
     WNDCLASSEXW wc{sizeof(wc)};
@@ -248,6 +260,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
         return 1;
     }
     app.background = TopLeftColor(app.image);
+    RegisterLaunchAtLogin(path);
 
     app.messageWindow = CreateMessageWindow(inst);
     app.taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");

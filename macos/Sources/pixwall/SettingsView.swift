@@ -1,5 +1,6 @@
 import AppKit
 import PixwallCore
+import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -13,6 +14,8 @@ final class SettingsModel: ObservableObject {
     }
     /// 読めなかった画像のパス。画面に出す
     @Published var loadError: String?
+    /// ログイン項目に入れたが、システム設定で切られている
+    @Published var loginItemNeedsApproval = false
 
     var onChange: (Config) -> Void = { _ in }
     var onPause: (Bool) -> Void = { _ in }
@@ -86,6 +89,17 @@ struct SettingsView: View {
             Section("止める") {
                 Toggle("低電力モードのときは止める", isOn: $model.config.pauseOnLowPower)
                 Toggle("一時停止", isOn: $model.paused)
+            }
+            Section {
+                Toggle("ログイン時に起動", isOn: $model.config.launchAtLogin)
+                if model.loginItemNeedsApproval {
+                    HStack {
+                        Text("システム設定の「ログイン項目」でオフになっています")
+                            .foregroundStyle(.secondary)
+                            .font(.callout)
+                        Button("開く…") { SMAppService.openSystemSettingsLoginItems() }
+                    }
+                }
             }
             Section {
                 Button("pixwall を終了", role: .destructive) { NSApp.terminate(nil) }

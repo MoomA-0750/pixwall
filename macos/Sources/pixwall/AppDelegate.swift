@@ -1,5 +1,6 @@
 import AppKit
 import PixwallCore
+import ServiceManagement
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
@@ -57,12 +58,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         config = new
         try? config.save(to: Self.configURL)
         pause.pauseOnLowPower = config.pauseOnLowPower
+        updateLoginItem()
         if config.image != loadedPath {
             loadedPath = config.image
             image = config.image.flatMap { AnimatedImage(url: URL(fileURLWithPath: $0)) }
             settings.loadError = (config.image != nil && image == nil) ? config.image : nil
         }
         rebuild()
+    }
+
+    /// ログイン項目に入れる・外す。入れたあと、システム設定で本人が切ったときは requiresApproval になり、入れ直さない
+    private func updateLoginItem() {
+        let service = SMAppService.mainApp
+        do {
+            if config.launchAtLogin, service.status == .notRegistered || service.status == .notFound {
+                try service.register()
+            } else if !config.launchAtLogin, service.status == .enabled || service.status == .requiresApproval {
+                try service.unregister()
+            }
+        } catch {
+            NSLog("pixwall: ログイン項目を変えられない: \(error)")
+        }
+        settings.loginItemNeedsApproval = config.launchAtLogin && service.status == .requiresApproval
     }
 
     private func showSettings() {

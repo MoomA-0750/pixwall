@@ -31,7 +31,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 ### 描く
 
 - WIC で GIF を全フレーム読み、GIF の重ね方（disposal）を当てて元の大きさの完成した絵にする。重ね方は `core` の `GifCompositor`（WIC は GIF のフレームを重ねずに返すため）。`Background` は背景色ではなく透明に戻す（ブラウザと同じ）
-- **DirectComposition の面を差し替える**（Mac の `CALayer.contents` の差し替えと同じ）: 最初に全フレームを、元の大きさのまま `IDCompositionSurface`（premultiplied）にして GPU に置く。絵が変わる瞬間には、絵の visual の `SetContent` で面を差し替えて `Commit` するだけで、Direct3D の描画も `Present` もしない。拡大は visual の変換（拡大と位置）で行い、`SetBitmapInterpolationMode(NEAREST_NEIGHBOR)` と `SetBorderMode(HARD)` でぼかさない。余白は 1×1 の面を画面いっぱいに広げた visual を絵の下に置く
+- **DirectComposition の面を差し替える**（Mac で layer を切り替えるのと同じく、絵を送り直さない）: 最初に全フレームを、元の大きさのまま `IDCompositionSurface`（premultiplied）にして GPU に置く。絵が変わる瞬間には、絵の visual の `SetContent` で面を差し替えて `Commit` するだけで、Direct3D の描画も `Present` もしない。拡大は visual の変換（拡大と位置）で行い、`SetBitmapInterpolationMode(NEAREST_NEIGHBOR)` と `SetBorderMode(HARD)` でぼかさない。余白は 1×1 の面を画面いっぱいに広げた visual を絵の下に置く
 - Direct3D 11 の装置は全画面で1つ（`Gpu`）。`SINGLETHREADED` と `PREVENT_INTERNAL_THREADING_OPTIMIZATIONS` を付ける。GPU が失われたら（`GetDeviceRemovedReason`）装置から作り直す。GPU が使えないときは WARP
 - 今は窓ごとに面を作るので、フレームの面も窓（画面）の数だけ GPU に置く。画面ごとに別の画像になれば同じことなので、そのままにする。全画面に同じ画像のとき、タイマーは1つで全部の窓を進める
 - 次のフレームまでは `CreateWaitableTimerEx`（高精度）で待ち、`MsgWaitForMultipleObjectsEx` でメッセージと一緒に眠る
@@ -78,7 +78,8 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 ### 描く
 
 - ImageIO（`CGImageSourceCreateWithURL`）で全フレームを `CGImage` にして持つ。待ち時間は `kCGImagePropertyGIFUnclampedDelayTime` など
-- `CALayer` の `contents` を差し替えるだけで描く。`magnificationFilter = .nearest`。差し替えたときの既定のふわっとした切り替えは `actions` で切る
+- フレームごとの `CALayer` を最初に全部重ねて置き（`contents` は元の大きさの `CGImage`、`magnificationFilter = .nearest`）、絵が変わる瞬間には見せる layer の `isHidden` を切り替えるだけで描く。`contents` を差し替えると、そのたびに Core Animation が絵を WindowServer へ送り直す。切り替えたときの既定のふわっとした動きは `actions` で切る
+- 次のフレームまでは `DispatchSourceTimer` を1つ使い回し、フレームごとに次の時刻を入れ直す
 - 窓の root の layer は layer-hosting（`view.layer` を先に渡してから `wantsLayer`）にして、AppKit に中身を描かせない
 - 次のフレームまでは `DispatchSourceTimer`（`leeway` を少し付けて、まとめて起こしてもらう）
 

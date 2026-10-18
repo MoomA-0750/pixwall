@@ -2,13 +2,15 @@ import AppKit
 import PixwallCore
 import QuartzCore
 
-/// 1つの画面の、デスクトップのアイコンの後ろに置く窓。絵が変わる瞬間だけ layer の contents を差し替える
+/// 1つの画面の、デスクトップのアイコンの後ろに置く窓。フレームごとの layer を最初に全部置いておき、
+/// 絵が変わる瞬間には、見せる layer を切り替えるだけ（contents を差し替えると、そのたびに絵を WindowServer へ送り直す）
 final class WallpaperWindow: NSWindow {
     private let targetScreen: NSScreen
     private let image: AnimatedImage
     private let fit: Fit
     private let speed: Double
     private let imageLayer = CALayer()
+    private var frameLayers: [CALayer] = []
     private var frameIndex = 0
     private var timer: DispatchSourceTimer?
     private var nextDeadline = DispatchTime.now()
@@ -39,12 +41,19 @@ final class WallpaperWindow: NSWindow {
 
         let root = CALayer()
         root.backgroundColor = image.cornerColor
-        imageLayer.magnificationFilter = .nearest
-        imageLayer.minificationFilter = .nearest
-        imageLayer.contentsGravity = .resize
-        // 差し替えたときにふわっと切り替わる既定の動きを切る
-        imageLayer.actions = ["contents": NSNull(), "bounds": NSNull(), "position": NSNull()]
-        imageLayer.contents = image.frames[0]
+        imageLayer.actions = ["bounds": NSNull(), "position": NSNull()]
+        frameLayers = image.frames.enumerated().map { i, frame in
+            let layer = CALayer()
+            layer.magnificationFilter = .nearest
+            layer.minificationFilter = .nearest
+            layer.contentsGravity = .resize
+            // 切り替えたときにふわっと切り替わる既定の動きを切る
+            layer.actions = ["hidden": NSNull(), "bounds": NSNull(), "position": NSNull(), "contentsScale": NSNull()]
+            layer.contents = frame
+            layer.isHidden = i != 0
+            imageLayer.addSublayer(layer)
+            return layer
+        }
         root.addSublayer(imageLayer)
 
         let view = NSView(frame: NSRect(origin: .zero, size: screen.frame.size))
@@ -85,9 +94,12 @@ final class WallpaperWindow: NSWindow {
                           screenHeight: Int((size.height * scale).rounded()),
                           fit: fit)
         // CALayer は左下が原点の点（ポイント）で置く
-        imageLayer.contentsScale = scale
         imageLayer.frame = CGRect(x: CGFloat(rect.x) / scale, y: CGFloat(rect.y) / scale,
                                   width: CGFloat(rect.width) / scale, height: CGFloat(rect.height) / scale)
+        for layer in frameLayers {
+            layer.contentsScale = scale
+            layer.frame = imageLayer.bounds
+        }
         contentView?.layer?.frame = CGRect(origin: .zero, size: size)
         contentView?.layer?.contentsScale = scale
     }
@@ -116,8 +128,12 @@ final class WallpaperWindow: NSWindow {
         reasons.occluded = occluded || covered
         let run = isVisible && image.frames.count > 1 && !reasons.shouldPause
         if run, timer == nil {
+            let t = DispatchSource.makeTimerSource(queue: .main)
+            t.setEventHandler { [weak self] in self?.advance() }
+            timer = t
             nextDeadline = .now()
             scheduleNext()
+            t.resume()
         } else if !run, let t = timer {
             t.cancel()
             timer = nil
@@ -130,19 +146,15 @@ final class WallpaperWindow: NSWindow {
         // 遅れすぎたら（止めていた・眠っていた）今から数え直す
         if nextDeadline < .now() { nextDeadline = .now() + delay }
 
-        let t = DispatchSource.makeTimerSource(queue: .main)
-        // まとめて起こしてもらえるよう、待ち時間の1割（最大 10ms）の遅れを許す
+        // まとめて起こしてもらえるよう、待ち時間の1割（最大 10ms）の遅れを許す。タイマーは作り直さず、次の時刻を入れ直す
         let leeway = Int(min(delay * 0.1, 0.01) * 1_000_000)
-        t.schedule(deadline: nextDeadline, repeating: .never, leeway: .microseconds(leeway))
-        t.setEventHandler { [weak self] in self?.advance() }
-        timer?.cancel()
-        timer = t
-        t.resume()
+        timer?.schedule(deadline: nextDeadline, repeating: .never, leeway: .microseconds(leeway))
     }
 
     private func advance() {
+        frameLayers[frameIndex].isHidden = true
         frameIndex = (frameIndex + 1) % image.frames.count
-        imageLayer.contents = image.frames[frameIndex]
+        frameLayers[frameIndex].isHidden = false
         scheduleNext()
     }
 }

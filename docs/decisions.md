@@ -138,4 +138,5 @@
 - Windows の置き場所は、管理者の権限が要らない `%LOCALAPPDATA%\Programs`（VS Code や Discord のユーザー向けの入れ方と同じ）。スタートメニューにはショートカットを置くだけで、`Get-StartApps` に pixwall が出た
 - ログイン時の起動（Run）は、画像の引数をやめて exe だけにした。画像は `config.json` から読む
 - install.ps1 は日本語を含むので BOM 付きの UTF-8 にした（Windows PowerShell 5.1 は BOM の無いファイルを日本語の Windows では Shift_JIS として読む）
+- Mac のログイン項目は、入れ替えたあとも pixwall.app が1つだけだった（本人が見た）
 - まだ無いもの: アプリのアイコン（Mac・Windows とも OS の既定のアイコン）、Windows の「設定 > アプリ」からのアンインストール

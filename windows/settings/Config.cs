@@ -14,7 +14,7 @@ public sealed record Config
     public string? Image { get; init; }
     /// integer / fit / fill
     public string Fit { get; init; } = "integer";
-    /// 画面に合わせるときの、余白の中の位置（0 で上・左、0.5 で中央、1 で下・右）
+    /// 画面に合わせる・埋めるときの位置（0 で上・左、0.5 で中央、1 で下・右）
     public double Position { get; init; } = 0.5;
     /// 速さの倍率（0.25〜4）
     public double Speed { get; init; } = 1;

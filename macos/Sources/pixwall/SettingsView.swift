@@ -122,8 +122,8 @@ struct SettingsView: View {
                     Text("画面に合わせる").tag(Fit.fit)
                     Text("画面を埋める").tag(Fit.fill)
                 }
-                // 画面に合わせるときだけ。余白が上下にできる画面では上下、左右にできる画面では左右に動く
-                if model.config.fit == .fit {
+                // 画面に合わせる・埋めるときだけ。余白（埋めるときははみ出し）が上下にできる画面では上下、左右にできる画面では左右に動く
+                if model.config.fit != .integer {
                     LabeledContent {
                         HStack {
                             Slider(value: $model.config.position, in: 0...1, step: 0.05)

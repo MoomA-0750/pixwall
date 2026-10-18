@@ -31,12 +31,10 @@ PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHei
     } else {
         Scaled(imageWidth, imageHeight, std::min(sx, sy), width, height);
     }
-    if (fit != Fit::Fit) position = 0.5;
+    if (fit == Fit::Integer) position = 0.5;
     position = std::clamp(position, 0.0, 1.0);
-    // 余白×位置を切り捨てる（0.5 のとき、余白を半分にして切り捨てるのと同じ）
-    const auto place = [&](int slack) {
-        return slack <= 0 ? slack / 2 : static_cast<int>(std::floor(slack * position));
-    };
+    // 余白×位置を 0 の側へ切り捨てる（0.5 のとき、余白を半分にして切り捨てるのと同じ。はみ出す負の余白でも）
+    const auto place = [&](int slack) { return static_cast<int>(std::trunc(slack * position)); };
     return {place(screenWidth - width), place(screenHeight - height), width, height};
 }
 

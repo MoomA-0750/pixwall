@@ -51,7 +51,7 @@ public sealed partial class MainWindow : Window
         SpeedLabel.Text = SpeedText(config.Speed);
         PositionSlider.Value = Math.Round(config.Position * 100);
         PositionLabel.Text = PositionText(config.Position);
-        PositionCard.Visibility = config.Fit == "fit" ? Visibility.Visible : Visibility.Collapsed;
+        PositionCard.Visibility = config.Fit != "integer" ? Visibility.Visible : Visibility.Collapsed;
         LowPowerSwitch.IsOn = config.PauseOnLowPower;
         LoginSwitch.IsOn = config.LaunchAtLogin;
         PauseSwitch.IsOn = Resident.IsPaused;
@@ -192,7 +192,7 @@ public sealed partial class MainWindow : Window
     private void Fit_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (FitBox.SelectedIndex < 0) return;
-        PositionCard.Visibility = Fits[FitBox.SelectedIndex] == "fit" ? Visibility.Visible : Visibility.Collapsed;
+        PositionCard.Visibility = Fits[FitBox.SelectedIndex] != "integer" ? Visibility.Visible : Visibility.Collapsed;
         Apply(config with { Fit = Fits[FitBox.SelectedIndex] });
     }
 

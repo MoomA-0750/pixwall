@@ -22,7 +22,8 @@ struct PixelRect {
 // 画像を画面のどこにどの大きさで置くかを、物理ピクセルで決める。
 // 画面の中央に置く。Fill では画面より大きくなり、x・y が負になる。
 // Integer で整数倍に収まらない大きな画像は Fit と同じ。
-// Fit のときだけ、余白の中のどこに置くかを position で決める（0 で上・左、0.5 で中央、1 で下・右）
+// Fit と Fill では、余白（Fill でははみ出し）の中のどこに置くかを position で決める（0 で上・左、0.5 で中央、1 で下・右）。
+// Fill の 0 は、画像の上・左の端を画面の端にそろえる（はみ出すのは下・右）
 PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHeight, Fit fit,
                  double position = 0.5);
 

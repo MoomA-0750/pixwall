@@ -41,7 +41,12 @@ void TestLayout() {
     CHECK((Layout(320, 180, 2880, 1800, Fit::Fit, 5) == PixelRect{0, 180, 2880, 1620}));
     // ほかの並べ方では中央のまま
     CHECK((Layout(64, 64, 1920, 1080, Fit::Integer, 0) == PixelRect{448, 28, 1024, 1024}));
-    CHECK((Layout(320, 180, 2880, 1800, Fit::Fill, 0) == PixelRect{-160, 0, 3200, 1800}));
+    // 画面を埋めるときは、はみ出す向きに動く。0 で左の端、1 で右の端がそろう
+    CHECK((Layout(320, 180, 2880, 1800, Fit::Fill, 0) == PixelRect{0, 0, 3200, 1800}));
+    CHECK((Layout(320, 180, 2880, 1800, Fit::Fill, 1) == PixelRect{-320, 0, 3200, 1800}));
+    CHECK((Layout(100, 200, 1000, 1000, Fit::Fill, 0.25) == PixelRect{0, -250, 1000, 2000}));
+    // 中央は前と同じ（はみ出しが奇数でも）
+    CHECK((Layout(3, 1, 4, 3, Fit::Fill) == PixelRect{-2, 0, 9, 3}));
 }
 
 void TestTiming() {

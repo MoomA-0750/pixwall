@@ -104,7 +104,7 @@
                         <ComboBoxItem Content="画面を埋める" />
                     </ComboBox>
                 </Grid>
-                <!-- 画面に合わせるときだけ出す。余白が上下にできる画面では上下、左右にできる画面では左右に動く -->
+                <!-- 画面に合わせる・埋めるときだけ出す。余白（埋めるときははみ出し）が上下にできる画面では上下、左右にできる画面では左右に動く -->
                 <Grid x:Name="PositionCard" Style="{StaticResource Card}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />

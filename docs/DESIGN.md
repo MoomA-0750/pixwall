@@ -8,8 +8,8 @@
 
 | プロセス | 言語・部品 | 寿命 |
 |---|---|---|
-| `pixwall.exe`（常駐） | C++ / Win32 / Direct2D / WIC | ログインから終了まで |
-| `pixwall-settings.exe`（設定画面） | C# / WinUI 3（Windows App SDK、非パッケージ） | 開いている間だけ |
+| `pixwall.exe`（常駐） | C++ / Win32 / DirectComposition / WIC | ログインから終了まで |
+| `settings\PixwallSettings.exe`（設定画面） | C# / WinUI 3（Windows App SDK、非パッケージ） | 開いている間だけ |
 
 WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れない。
 
@@ -51,11 +51,27 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ### 設定画面とのやり取り
 
-- 設定画面は `config.json` を書いてから、常駐側の隠れた窓へ `WM_COPYDATA` で「読み直して」と送る
-- 常駐側の2回目の起動は、名前付きミューテックスで既にいると分かったら、設定画面を起こして自分は終わる
+- 設定画面は `config.json` を書いてから、常駐側の隠れた窓（クラス名 `pixwall-message`）へ `WM_COPYDATA` で頼む。`dwData` が頼みごと: 1 読み直す、2 表示を更新、3 一時停止（`lpData` の1バイト）、4 終わる、5 一時停止しているか（2 している・1 していない を返す）。値は `main.cpp` の `Request` と `settings/Resident.cs` でそろえる
+- 一時停止は設定に書かない（Mac と同じく、起動し直すと動く）。設定画面は開いたときに 5 で今の状態を聞く
+- 読み直しでは、画像のパスが変わったときだけ画像を読み直す。窓は画像を参照しているので、先に窓を消してから画像を替える
+- 設定画面で「読み直して」と頼んだときに常駐側がいなければ、`..\pixwall.exe` を起動する（起動すると `config.json` を読む）
+- 常駐側の2回目の起動は、名前付きミューテックスで既にいると分かったら、設定画面を開いて自分は終わる。設定画面も名前付きミューテックスで1つだけにし、2つ目は開いている方を前に出して終わる
+- 画像をまだ選んでいない・読めないときは、常駐側は窓を出さずに待ち（OS の壁紙のまま）、設定画面を開く
+
+### 設定画面
+
+- `windows/settings/`（`PixwallSettings.csproj`）。WinUI 3 で、中身は Mac の設定画面とそろえる。Windows の設定アプリと同じ角の丸いカードの行に並べ、背景は Mica。題名の帯も窓の中身として描く（`ExtendsContentIntoTitleBar` と `TitleBar`）
+- MSIX に包まず（`WindowsPackageType=None`）、.NET と Windows App SDK を一緒に置く（`SelfContained`・`WindowsAppSDKSelfContained`）。入れる先に .NET が無くても動く
+- 参照するのは `Microsoft.WindowsAppSDK.WinUI` だけ。全部入りの `Microsoft.WindowsAppSDK` は AI・検索の部品（onnxruntime・DirectML など）まで連れてくる。言語ごとのフォルダは日本語と英語だけ残す
+- publish は Native AOT（`PublishAot`）で、前もって機械語にする。起動時の JIT が無くなり、使っていない .NET も削られる。ビルドには Visual Studio Build Tools の C++（リンカー）が要る
+- AOT では、XAML に書いた `Tag` などの値を C# でキャストすると落ちることがある（`InvalidCastException`）。並べ方の選択肢は `SelectedIndex` と C# 側の並び（`Fits`）で対応させる
+- `EnableMsixTooling` を付けないと、publish に画面の `PixwallSettings.pri` が入らず、起動してすぐ落ちる
+- プレビューは `BitmapDecoder` で最近傍の整数倍に広げてから出す（`Image` は拡大するとぼかすため）
+- 読めない画像を選んだときは設定に書かず、その場で「読めませんでした」と出す
+- `config.json` は `Utf8JsonWriter` で、キーを名前順に、日本語は `\u` にせずそのまま書く
 - ログイン時の起動は `HKCU\...\Run`。起動するたびに、`config.json` の `launchAtLogin` がオンなら `"<exe>"` を書き、オフなら消す（入れ直すと exe の場所が変わっても追いつく）
 - `config.json` は `core/config.cpp`（OS に触らない）で読み書きする。Mac の `JSONEncoder` と同じく、キーを名前順に並べて字下げする。書くときは `.tmp` に書いてから `MoveFileEx` で入れ替える
-- 入れるのは `windows/install.ps1`。`build\pixwall.exe` を `%LOCALAPPDATA%\Programs\pixwall` に置き、`%APPDATA%\Microsoft\Windows\Start Menu\Programs\pixwall.lnk` を作って、入れた exe から始める（Run もそれを指すよう書き直される）
+- 入れるのは `windows/install.ps1`。`build\pixwall.exe` と、設定画面を `dotnet publish` したものを `%LOCALAPPDATA%\Programs\pixwall`（設定画面は `settings` フォルダ）に置き、`%APPDATA%\Microsoft\Windows\Start Menu\Programs\pixwall.lnk` を作って、入れた exe から始める（Run もそれを指すよう書き直される）
 
 ## Mac 版
 

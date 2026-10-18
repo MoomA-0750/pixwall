@@ -1,6 +1,6 @@
 # Windows 版の試し方
 
-to-fu（Windows 11）で試す。Visual Studio 2022 の Build Tools（C++ のビルド ツール）と CMake が要る。to-fu には入っている（Build Tools 17.14、MSVC 14.44、CMake は `C:\Program Files\CMake\bin`）。
+to-fu（Windows 11）で試す。Visual Studio 2022 の Build Tools（C++ のビルド ツール）と CMake、設定画面には .NET 9 SDK が要る（設定画面は Native AOT で publish するので、C++ の Build Tools も使う）。to-fu には入っている（Build Tools 17.14、MSVC 14.44、CMake は `C:\Program Files\CMake\bin`、.NET SDK 9.0.319）。
 
 ## ビルドと単体テスト
 
@@ -18,18 +18,18 @@ ssh から試すときは、ssh のセッションには画面が無いので、
 `core` の単体テストだけなら Linux でも動かせる:
 
 ```sh
-g++ -std=c++20 -I windows/core windows/core/core.cpp windows/tests/core_tests.cpp -o core_tests && ./core_tests
+g++ -std=c++20 -I windows/core windows/core/core.cpp windows/core/config.cpp windows/tests/core_tests.cpp -o core_tests && ./core_tests
 ```
 
 ## 動かす
 
-ビルドしたら入れる。`%LOCALAPPDATA%\Programs\pixwall` に置き、スタートメニューに「pixwall」を作って、その画像で始める（動いていた pixwall は終わらせる）:
+ビルドしたら入れる。設定画面も `dotnet publish` して一緒に `%LOCALAPPDATA%\Programs\pixwall` に置き、スタートメニューに「pixwall」を作って、その画像で始める（動いていた pixwall と設定画面は終わらせる）:
 
 ```bat
 powershell -ExecutionPolicy Bypass -File install.ps1 -Image C:\path\to\samples\dot-64x64-30f.gif
 ```
 
-画像は `%APPDATA%\pixwall\config.json` に書かれるので、次からはスタートメニューから（引数なしで）始められる。外すときは `install.ps1 -Uninstall`（`config.json` は残す）。入れずに試すだけなら `build\pixwall.exe <画像のパス>`。
+画像は `%APPDATA%\pixwall\config.json` に書かれるので、次からはスタートメニューから（引数なしで）始められる。動いているときにスタートメニューからもう一度開くと、設定画面が出る。設定画面だけ試すなら `dotnet build -c Release -p:Platform=x64`（`windows\settings` で）で `bin\x64\Release\...\PixwallSettings.exe` ができる。外すときは `install.ps1 -Uninstall`（`config.json` は残す）。入れずに試すだけなら `build\pixwall.exe <画像のパス>`。
 
 ssh から入れるときは、ssh のセッションには画面が無いので、`install.ps1` は画面のあるセッションで動かす（下の注意を参照）。
 
@@ -44,6 +44,8 @@ ssh から入れるときは、ssh のセッションには画面が無いので
 - ドットがぼやけていない（表示スケール 100% と 150% などで、ドットの大きさが物理ピクセルでそろう）
 - 解像度を変えたら描き直す。Explorer を作り直しても（タスクマネージャーで再起動）付け直す
 - 終えたら OS の壁紙に戻る
+- 設定画面: スタートメニューから開き直すと出る。2回開いても1つだけ。並べ方・速さ・一時停止・省エネモード・ログイン時に起動を変えるとすぐ壁紙と `config.json`（ログイン時に起動は Run）に反映する。読めない画像を選ぶと「読めませんでした」と出て、設定は変わらない。「pixwall を終了」で壁紙も設定画面も終わる。`config.json` が無い・画像が無いときは、起動すると設定画面が出る
+- 設定画面は、画面のあるセッションで `windows\tools\settings-ui.ps1`（部品を名前で動かす。例 `-Fit fill`、`-Toggle 一時停止`、`-Speed 2`、`-Button 表示を更新`）と `windows\tools\pick-file.ps1 -Path <画像>`（開いているファイルを選ぶ画面で選ぶ）で動かせる。止まったか・速さが変わったかは `windows\tools\cycles.ps1`（10 秒のサイクル数）で見る
 - 起動したあと、`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` の `pixwall` に exe と画像のパスが入っている。サインアウトしてサインインし直すと pixwall が始まる。外すときは `reg delete HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v pixwall /f`
 
 ## リソースを測る

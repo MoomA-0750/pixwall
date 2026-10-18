@@ -8,3 +8,4 @@ DerivedData/
 .build/
 xcuserdata/
 .DS_Store
+windows/settings/publish/

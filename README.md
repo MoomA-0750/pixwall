@@ -12,7 +12,7 @@
 
 | 場所 | 中身 |
 |---|---|
-| `windows/` | Windows 版（常駐: C++ / Win32 / Direct2D、設定画面: C# / WinUI 3） |
+| `windows/` | Windows 版（常駐: C++ / Win32 / DirectComposition、設定画面: C# / WinUI 3） |
 | `macos/` | Mac 版（Swift、常駐と設定画面を1つのアプリで） |
 | `samples/` | 試す・測るための画像 |
 | `SPEC.md` | 今どう動くべきか（正本） |

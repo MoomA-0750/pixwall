@@ -36,7 +36,7 @@ struct Gpu {
 class WallWindow {
 public:
     WallWindow(Gpu& gpu, const LoadedImage& image, const RECT& monitor, const DesktopParent& desktop,
-               Color background, Fit fit);
+               Color background, Fit fit, double position);
     ~WallWindow();
     WallWindow(const WallWindow&) = delete;
     WallWindow& operator=(const WallWindow&) = delete;

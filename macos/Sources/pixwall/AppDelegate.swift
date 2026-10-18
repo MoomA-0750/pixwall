@@ -102,13 +102,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         windows = NSScreen.screens.map { screen in
-            let w = WallpaperWindow(screen: screen, image: image, fit: config.fit, speed: config.speed)
+            let w = WallpaperWindow(screen: screen, image: image, fit: config.fit, position: config.position,
+                                    speed: config.speed)
             w.sharedPause = pause
             return w
         }
         windows.forEach { $0.start() }
         // OS の壁紙にも1枚目を入れる（Mission Control・メニューバーの色・操作スペースの切り替えで見える）
-        osWallpaper.apply(image, imagePath: path, fit: config.fit)
+        osWallpaper.apply(image, imagePath: path, fit: config.fit, position: config.position)
         updateCoverageWatch()
         checkCoverage()
     }
@@ -176,7 +177,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ws.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) {
             [weak self] _ in
             guard let self, let image = self.image, let path = self.config.image, !self.windows.isEmpty else { return }
-            self.osWallpaper.apply(image, imagePath: path, fit: self.config.fit)
+            self.osWallpaper.apply(image, imagePath: path, fit: self.config.fit, position: self.config.position)
         }
         ws.addObserver(forName: NSWorkspace.willPowerOffNotification, object: nil, queue: .main) { [weak self] _ in
             self?.poweringOff = true

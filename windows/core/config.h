@@ -13,6 +13,7 @@ struct Config {
     int version = 1;
     std::string image;  // 動かす画像のパス（UTF-8）。空なら選んでいない
     Fit fit = Fit::Integer;
+    double position = 0.5;  // 画面に合わせるときの、余白の中の位置（0 で上・左、1 で下・右）
     double speed = 1;  // 速さの倍率（0.25〜4）
     bool pauseOnLowPower = true;
     bool launchAtLogin = true;

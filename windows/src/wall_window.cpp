@@ -55,7 +55,7 @@ bool Gpu::Create() {
 }
 
 WallWindow::WallWindow(Gpu& gpu, const LoadedImage& image, const RECT& monitor, const DesktopParent& desktop,
-                       Color background, Fit fit)
+                       Color background, Fit fit, double position)
     : gpu_(gpu), image_(image) {
     HINSTANCE inst = GetModuleHandleW(nullptr);
     RegisterClassOnce(inst, WndProc);
@@ -65,7 +65,7 @@ WallWindow::WallWindow(Gpu& gpu, const LoadedImage& image, const RECT& monitor, 
     MapWindowPoints(HWND_DESKTOP, desktop.parent, reinterpret_cast<POINT*>(&rc), 2);
     width_ = rc.right - rc.left;
     height_ = rc.bottom - rc.top;
-    dest_ = Layout(image.width, image.height, width_, height_, fit);
+    dest_ = Layout(image.width, image.height, width_, height_, fit, position);
 
     // 絵は DirectComposition で渡すので、GDI の面は持たない（WS_EX_NOREDIRECTIONBITMAP）。
     // 24H2 の Progman も同じく面を持たないので、ふつうの子の窓に GDI や HwndRenderTarget で描いても画面に出ない

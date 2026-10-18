@@ -14,7 +14,8 @@ void Scaled(int w, int h, double scale, int& outW, int& outH) {
 
 }  // namespace
 
-PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHeight, Fit fit) {
+PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHeight, Fit fit,
+                 double position) {
     if (imageWidth <= 0 || imageHeight <= 0 || screenWidth <= 0 || screenHeight <= 0) return {};
     const double sx = static_cast<double>(screenWidth) / imageWidth;
     const double sy = static_cast<double>(screenHeight) / imageHeight;
@@ -30,12 +31,18 @@ PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHei
     } else {
         Scaled(imageWidth, imageHeight, std::min(sx, sy), width, height);
     }
-    return {(screenWidth - width) / 2, (screenHeight - height) / 2, width, height};
+    if (fit != Fit::Fit) position = 0.5;
+    position = std::clamp(position, 0.0, 1.0);
+    // 余白×位置を切り捨てる（0.5 のとき、余白を半分にして切り捨てるのと同じ）
+    const auto place = [&](int slack) {
+        return slack <= 0 ? slack / 2 : static_cast<int>(std::floor(slack * position));
+    };
+    return {place(screenWidth - width), place(screenHeight - height), width, height};
 }
 
 std::vector<uint8_t> RenderStill(const uint8_t* frame, int imageWidth, int imageHeight,
                                  int canvasWidth, int canvasHeight, Fit fit,
-                                 uint8_t r, uint8_t g, uint8_t b) {
+                                 uint8_t r, uint8_t g, uint8_t b, double position) {
     if (canvasWidth <= 0 || canvasHeight <= 0) return {};
     std::vector<uint8_t> out(static_cast<size_t>(canvasWidth) * canvasHeight * 4);
     for (size_t i = 0; i < out.size(); i += 4) {
@@ -44,7 +51,7 @@ std::vector<uint8_t> RenderStill(const uint8_t* frame, int imageWidth, int image
         out[i + 2] = r;
         out[i + 3] = 255;
     }
-    const PixelRect rect = Layout(imageWidth, imageHeight, canvasWidth, canvasHeight, fit);
+    const PixelRect rect = Layout(imageWidth, imageHeight, canvasWidth, canvasHeight, fit, position);
     if (rect.width <= 0 || rect.height <= 0 || !frame) return out;
     const int x0 = std::max(0, rect.x);
     const int y0 = std::max(0, rect.y);

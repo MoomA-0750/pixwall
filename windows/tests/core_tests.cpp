@@ -33,6 +33,15 @@ void TestLayout() {
     CHECK((Layout(320, 180, 2880, 1800, Fit::Fit) == PixelRect{0, 90, 2880, 1620}));
     CHECK((Layout(320, 180, 2880, 1800, Fit::Fill) == PixelRect{-160, 0, 3200, 1800}));
     CHECK((Layout(0, 64, 1920, 1080, Fit::Integer) == PixelRect{}));
+    // 画面に合わせるときは、余白の中の位置を選べる（上下に余白・左右に余白のどちらでも）
+    CHECK((Layout(320, 180, 2880, 1800, Fit::Fit, 0) == PixelRect{0, 0, 2880, 1620}));
+    CHECK((Layout(320, 180, 2880, 1800, Fit::Fit, 1) == PixelRect{0, 180, 2880, 1620}));
+    CHECK((Layout(320, 180, 2880, 1800, Fit::Fit, 0.25) == PixelRect{0, 45, 2880, 1620}));
+    CHECK((Layout(100, 200, 1000, 1000, Fit::Fit, 1) == PixelRect{500, 0, 500, 1000}));
+    CHECK((Layout(320, 180, 2880, 1800, Fit::Fit, 5) == PixelRect{0, 180, 2880, 1620}));
+    // ほかの並べ方では中央のまま
+    CHECK((Layout(64, 64, 1920, 1080, Fit::Integer, 0) == PixelRect{448, 28, 1024, 1024}));
+    CHECK((Layout(320, 180, 2880, 1800, Fit::Fill, 0) == PixelRect{-160, 0, 3200, 1800}));
 }
 
 void TestTiming() {
@@ -146,7 +155,11 @@ void TestConfig() {
     c.speed = 0.5;
     c.pauseOnLowPower = false;
     c.launchAtLogin = false;
+    c.position = 0.25;
     CHECK(ParseConfig(FormatConfig(c)) == c);
+    // 位置は 0〜1 に収める。前の版の設定には無く、既定の中央
+    CHECK(Near(ParseConfig(R"({"position": -3})").position, 0));
+    CHECK(Near(mac.position, 0.5));
     CHECK(FormatConfig(Config{}).find("\"fit\" : \"integer\"") != std::string::npos);
 }
 

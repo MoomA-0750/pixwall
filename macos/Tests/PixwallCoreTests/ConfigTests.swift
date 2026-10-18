@@ -19,6 +19,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertNil(c.image)
         XCTAssertEqual(c.fit, .integer)
         XCTAssertEqual(c.speed, 1)
+        XCTAssertEqual(c.position, 0.5)
         XCTAssertTrue(c.pauseOnLowPower)
         XCTAssertTrue(c.launchAtLogin)
     }
@@ -28,6 +29,7 @@ final class ConfigTests: XCTestCase {
         c.image = "/Users/a/b c.gif"
         c.fit = .fill
         c.speed = 2
+        c.position = 0.25
         c.pauseOnLowPower = false
         c.launchAtLogin = false
         let url = dir.appendingPathComponent("pixwall/config.json")
@@ -48,10 +50,11 @@ final class ConfigTests: XCTestCase {
     func testBrokenOrUnknownValuesFallBack() throws {
         let url = dir.appendingPathComponent("config.json")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try #"{"fit": "tile?", "speed": 100, "image": "/x.gif"}"#.write(to: url, atomically: true, encoding: .utf8)
+        try #"{"fit": "tile?", "speed": 100, "position": 3, "image": "/x.gif"}"#.write(to: url, atomically: true, encoding: .utf8)
         let c = Config.load(from: url)
         XCTAssertEqual(c.fit, .integer)
         XCTAssertEqual(c.speed, 4)
+        XCTAssertEqual(c.position, 1)
         XCTAssertEqual(c.image, "/x.gif")
         // 前の版の設定には launchAtLogin が無い。既定のオンにする
         XCTAssertTrue(c.launchAtLogin)

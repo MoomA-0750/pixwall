@@ -56,7 +56,8 @@ final class SettingsModel: ObservableObject {
         panel.nameFieldStringValue = "\(stem)-\(size.width)x\(size.height).png"
         panel.directoryURL = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        exportResult = StillImage.export(image, imagePath: path, frame: frame, fit: config.fit, to: url)
+        exportResult = StillImage.export(image, imagePath: path, frame: frame, fit: config.fit,
+                                         position: config.position, to: url)
             ? "書き出しました: \(url.path)"
             : "書き出せませんでした: \(url.path)"
     }
@@ -121,6 +122,21 @@ struct SettingsView: View {
                     Text("画面に合わせる").tag(Fit.fit)
                     Text("画面を埋める").tag(Fit.fill)
                 }
+                // 画面に合わせるときだけ。余白が上下にできる画面では上下、左右にできる画面では左右に動く
+                if model.config.fit == .fit {
+                    LabeledContent {
+                        HStack {
+                            Slider(value: $model.config.position, in: 0...1, step: 0.05)
+                                .frame(width: 160)
+                            Text(positionLabel)
+                                .monospacedDigit()
+                                .frame(width: 48, alignment: .trailing)
+                        }
+                    } label: {
+                        Text("位置")
+                        Text("0 で上・左、100 で下・右")
+                    }
+                }
                 LabeledContent("速さ") {
                     HStack {
                         Slider(value: speedExponent, in: -2...2, step: 1)
@@ -169,6 +185,11 @@ struct SettingsView: View {
             get: { log2(model.config.speed).rounded() },
             set: { model.config.speed = pow(2, $0) }
         )
+    }
+
+    private var positionLabel: String {
+        let p = model.config.position
+        return abs(p - 0.5) < 0.001 ? "中央" : String(format: "%.0f", p * 100)
     }
 
     private var speedLabel: String {

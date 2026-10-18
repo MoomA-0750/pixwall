@@ -63,9 +63,9 @@ final class OsWallpaper {
         }
         saveOriginals(originals)
 
-        // 同じ名前だと OS が前の絵を使い回すので、毎回名前を変える。前の PNG は、ほかの操作スペースが
-        // まだ使っているかもしれないので、ここでは消さない（restore で消す）
+        // 同じ名前だと OS が前の絵を使い回すので、毎回名前を変える
         let stamp = Int(Date().timeIntervalSince1970 * 1000)
+        var keep: Set<String> = []
         for (screen, id) in screens {
             let size = StillImage.pixelSize(of: screen)
             let url = dir.appendingPathComponent("\(id)-\(size.width)x\(size.height)-\(stamp).png")
@@ -77,6 +77,7 @@ final class OsWallpaper {
                 .allowClipping: false,
                 .fillColor: NSColor(cgColor: image.cornerColor) ?? .black,
             ]
+            keep.insert(url.lastPathComponent)
             do {
                 try NSWorkspace.shared.setDesktopImageURL(url, for: screen, options: options)
             } catch {
@@ -84,6 +85,8 @@ final class OsWallpaper {
             }
         }
         applied = mark
+        // 前の PNG を消す。ほかの操作スペースがまだ使っているもの（設定ファイルが名前を挙げているもの）は残る
+        removePNGs(except: keep)
     }
 
     /// 入れる前の壁紙に戻す。本人がその間に壁紙を替えていた画面はそのままにする

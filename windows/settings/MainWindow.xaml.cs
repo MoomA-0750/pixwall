@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
@@ -23,6 +24,8 @@ public sealed partial class MainWindow : Window
     private bool loading;
     /// 並べ方の選択肢の並び（MainWindow.xaml の FitBox と同じ順）
     private static readonly string[] Fits = ["integer", "fit", "fill"];
+    /// 書き出す絵（何枚目か、0 から）
+    private int frame;
 
     public MainWindow()
     {
@@ -32,7 +35,7 @@ public sealed partial class MainWindow : Window
         config = Config.Load();
         // 中身に合う大きさ（96dpi の大きさを、画面の倍率に合わせる）
         var scale = GetDpiScale();
-        AppWindow.Resize(new SizeInt32((int)(560 * scale), (int)(980 * scale)));
+        AppWindow.Resize(new SizeInt32((int)(560 * scale), (int)(1100 * scale)));
         if (AppWindow.Presenter is OverlappedPresenter p) p.IsMaximizable = false;
         Show();
     }
@@ -50,6 +53,21 @@ public sealed partial class MainWindow : Window
         LoginSwitch.IsOn = config.LaunchAtLogin;
         PauseSwitch.IsOn = Resident.IsPaused;
         loading = false;
+        UpdateFrames();
+    }
+
+    /// 動かしている画像のフレームの数に合わせて、書き出す絵のつまみを作り直す。1枚目に戻す
+    private void UpdateFrames()
+    {
+        var count = Resident.FrameCount;
+        frame = 0;
+        loading = true;
+        FrameSlider.Maximum = Math.Max(0, count - 1);
+        FrameSlider.Value = 0;
+        loading = false;
+        FrameSlider.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
+        FrameLabel.Text = count > 1 ? $"書き出す絵: {count} 枚のうち 1 枚目" : "";
+        ExportButton.IsEnabled = count > 0;
         _ = ShowPreview(config.Image);
     }
 
@@ -63,14 +81,21 @@ public sealed partial class MainWindow : Window
 
     private static string SpeedText(double s) => s < 1 ? $"{s:0.##}倍" : $"{s:0}倍";
 
-    /// 1枚目を、ドットがぼやけないよう最近傍で整数倍に広げて出す
-    private async Task<bool> ShowPreview(string? path)
+    /// frame 枚目を、ドットがぼやけないよう最近傍で整数倍に広げて出す
+    private async Task<bool> ShowPreview(string? path, int frame = 0)
     {
         Preview.Visibility = Visibility.Collapsed;
         if (path is null) return false;
+        var source = path;
+        // 動かしている画像なら、常駐側に描いてもらう（GIF の重ね方と余白の色を当てた、壁紙と同じ絵になる）
+        if (path == config.Image)
+        {
+            var temp = Path.Combine(Path.GetTempPath(), "pixwall-preview.png");
+            if (Resident.RenderPreview(frame, (int)(160 * GetDpiScale()), temp)) source = temp;
+        }
         try
         {
-            var file = await StorageFile.GetFileFromPathAsync(path);
+            var file = await StorageFile.GetFileFromPathAsync(source);
             using var stream = await file.OpenReadAsync();
             var decoder = await BitmapDecoder.CreateAsync(stream);
             var w = decoder.OrientedPixelWidth;
@@ -124,6 +149,39 @@ public sealed partial class MainWindow : Window
         LoadError.Visibility = Visibility.Collapsed;
         ImageName.Text = file.Name;
         Apply(config with { Image = file.Path });
+        UpdateFrames();
+    }
+
+    private void Frame_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        // 画面を作っている途中（config を読む前）にも呼ばれる
+        if (loading || FrameLabel is null || config is null) return;
+        frame = (int)Math.Round(e.NewValue);
+        FrameLabel.Text = $"書き出す絵: {FrameSlider.Maximum + 1} 枚のうち {frame + 1} 枚目";
+        _ = ShowPreview(config.Image, frame);
+    }
+
+    /// 画面ごとに、その画面の大きさで書き出す。描くのは常駐側（壁紙と同じ並べ方・余白の色）
+    private async void Export_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var picker = new FileSavePicker { SuggestedStartLocation = PickerLocationId.PicturesLibrary };
+            InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
+            var screen = DisplayArea.Primary.OuterBounds;
+            picker.SuggestedFileName = $"{Path.GetFileNameWithoutExtension(config.Image)}-{screen.Width}x{screen.Height}";
+            picker.FileTypeChoices.Add("PNG", new List<string> { ".png" });
+            var file = await picker.PickSaveFileAsync();
+            if (file is null) return;
+            ExportResult.Text = Resident.ExportStill(frame, file.Path)
+                ? $"書き出しました: {file.Path}"
+                : "書き出せませんでした（pixwall が動いていないか、そこには保存できません）";
+        }
+        catch (Exception ex) when (ex is COMException or InvalidCastException or ArgumentException)
+        {
+            ExportResult.Text = $"書き出せませんでした: {ex.Message}";
+        }
+        ExportResult.Visibility = Visibility.Visible;
     }
 
     private void Fit_Changed(object sender, SelectionChangedEventArgs e)

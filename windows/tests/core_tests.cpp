@@ -150,6 +150,43 @@ void TestConfig() {
     CHECK(FormatConfig(Config{}).find("\"fit\" : \"integer\"") != std::string::npos);
 }
 
+// 1 画素の BGRA を比べる
+bool PixelIs(const std::vector<uint8_t>& img, int width, int x, int y, uint8_t b, uint8_t g, uint8_t r) {
+    const uint8_t* p = img.data() + (static_cast<size_t>(y) * width + x) * 4;
+    return p[0] == b && p[1] == g && p[2] == r && p[3] == 255;
+}
+
+void TestStill() {
+    // 赤と、半分透けた青（premultiplied で B=128, A=128）の 2×1
+    const uint8_t frame[8] = {0, 0, 255, 255, 128, 0, 0, 128};
+    // 6×3 に整数倍 → 3 倍でちょうど埋まる
+    auto img = RenderStill(frame, 2, 1, 6, 3, Fit::Integer, 0, 255, 0);
+    CHECK(img.size() == 6 * 3 * 4);
+    CHECK(PixelIs(img, 6, 0, 0, 0, 0, 255));
+    CHECK(PixelIs(img, 6, 2, 2, 0, 0, 255));
+    // 透けたところは余白の色（緑）が半分見える
+    CHECK(PixelIs(img, 6, 3, 0, 128, 127, 0));
+    CHECK(PixelIs(img, 6, 5, 2, 128, 127, 0));
+
+    // 8×3 に整数倍 → 3 倍で 6×3、左右 1 画素ずつ余白
+    img = RenderStill(frame, 2, 1, 8, 3, Fit::Integer, 10, 20, 30);
+    CHECK(PixelIs(img, 8, 0, 1, 30, 20, 10));
+    CHECK(PixelIs(img, 8, 1, 1, 0, 0, 255));
+    CHECK(PixelIs(img, 8, 3, 1, 0, 0, 255));
+    CHECK(PixelIs(img, 8, 4, 1, 128 + 15, 10, 5));
+    CHECK(PixelIs(img, 8, 7, 1, 30, 20, 10));
+
+    // 画面を埋める（はみ出す）: 2×1 を 3×3 に → 6×3 で左右が切れる。真ん中の列は赤と青の境目の右
+    img = RenderStill(frame, 2, 1, 3, 3, Fit::Fill, 0, 0, 0);
+    CHECK(PixelIs(img, 3, 0, 0, 0, 0, 255));
+    CHECK(PixelIs(img, 3, 2, 0, 128, 0, 0));
+
+    // 画像が無ければ余白の色だけ
+    img = RenderStill(nullptr, 0, 0, 2, 2, Fit::Integer, 1, 2, 3);
+    CHECK(PixelIs(img, 2, 1, 1, 3, 2, 1));
+    CHECK(RenderStill(frame, 2, 1, 0, 3, Fit::Integer, 0, 0, 0).empty());
+}
+
 }  // namespace
 
 int main() {
@@ -157,6 +194,7 @@ int main() {
     TestTiming();
     TestCompositor();
     TestConfig();
+    TestStill();
     if (failures == 0) std::printf("すべて通った\n");
     return failures == 0 ? 0 : 1;
 }

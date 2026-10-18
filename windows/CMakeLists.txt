@@ -18,6 +18,7 @@ add_executable(pixwall WIN32
   src/main.cpp
   src/desktop.cpp
   src/image_loader.cpp
+  src/still.cpp
   src/wall_window.cpp
   src/pixwall.manifest)
 target_compile_definitions(pixwall PRIVATE UNICODE _UNICODE NOMINMAX _WIN32_WINNT=0x0A00)

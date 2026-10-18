@@ -61,7 +61,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ### 設定画面とのやり取り
 
-- 設定画面は `config.json` を書いてから、常駐側の隠れた窓（クラス名 `pixwall-message`）へ `WM_COPYDATA` で頼む。`dwData` が頼みごと: 1 読み直す、2 表示を更新、3 一時停止（`lpData` の1バイト）、4 終わる、5 一時停止しているか（2 している・1 していない を返す）。値は `main.cpp` の `Request` と `settings/Resident.cs` でそろえる
+- 設定画面は `config.json` を書いてから、常駐側の隠れた窓（クラス名 `pixwall-message`）へ `WM_COPYDATA` で頼む。`dwData` が頼みごと: 1 読み直す、2 表示を更新、3 一時停止（`lpData` の1バイト）、4 終わる、5 一時停止しているか（2 している・1 していない を返す）。値は `main.cpp` の `Request` と `settings/Resident.cs` でそろえる。`WM_COPYDATA` は相手が返事を待つ送り方なので、その処理の中ではほかのプロセスの COM（`IDesktopWallpaper`）を呼べない（`RPC_E_CANTCALLOUT_ININPUTSYNCCALL`）。OS の壁紙に触る 1・2・4 は、返事をしてから自分宛てに `WM_APP + 1` で送り直して行う
 - 一時停止は設定に書かない（Mac と同じく、起動し直すと動く）。設定画面は開いたときに 5 で今の状態を聞く
 - 読み直しでは、画像のパスが変わったときだけ画像を読み直す。窓は画像を参照しているので、先に窓を消してから画像を替える
 - 設定画面で「読み直して」と頼んだときに常駐側がいなければ、`..\pixwall.exe` を起動する（起動すると `config.json` を読む）

@@ -8,6 +8,7 @@ final class WallpaperWindow: NSWindow {
     private let targetScreen: NSScreen
     private let image: AnimatedImage
     private let fit: Fit
+    private let position: Double
     private let speed: Double
     private let imageLayer = CALayer()
     private var frameLayers: [CALayer] = []
@@ -24,10 +25,11 @@ final class WallpaperWindow: NSWindow {
     /// 窓に覆われたかを見る範囲。メニューバーと Dock のまわりは、隠れていなくても見ない
     var coverageTarget: CGRect { (screen ?? targetScreen).visibleFrame }
 
-    init(screen: NSScreen, image: AnimatedImage, fit: Fit, speed: Double) {
+    init(screen: NSScreen, image: AnimatedImage, fit: Fit, position: Double, speed: Double) {
         targetScreen = screen
         self.image = image
         self.fit = fit
+        self.position = position
         self.speed = speed
         super.init(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
 
@@ -92,9 +94,11 @@ final class WallpaperWindow: NSWindow {
         let rect = PixwallCore.layout(imageWidth: image.width, imageHeight: image.height,
                           screenWidth: Int((size.width * scale).rounded()),
                           screenHeight: Int((size.height * scale).rounded()),
-                          fit: fit)
-        // CALayer は左下が原点の点（ポイント）で置く
-        imageLayer.frame = CGRect(x: CGFloat(rect.x) / scale, y: CGFloat(rect.y) / scale,
+                          fit: fit, position: position)
+        // layout は左上が原点、CALayer は左下が原点の点（ポイント）で置く
+        let screenHeight = Int((size.height * scale).rounded())
+        imageLayer.frame = CGRect(x: CGFloat(rect.x) / scale,
+                                  y: CGFloat(screenHeight - rect.y - rect.height) / scale,
                                   width: CGFloat(rect.width) / scale, height: CGFloat(rect.height) / scale)
         for layer in frameLayers {
             layer.contentsScale = scale

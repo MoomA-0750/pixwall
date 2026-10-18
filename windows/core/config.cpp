@@ -216,6 +216,7 @@ Config ParseConfig(std::string_view json) {
             if (*s == "fit") c.fit = Fit::Fit;
             if (*s == "fill") c.fit = Fit::Fill;
         }
+        if (key == "position" && n) c.position = std::clamp(*n, 0.0, 1.0);
         if (key == "speed" && n) c.speed = std::clamp(*n, 0.25, 4.0);
         if (key == "pauseOnLowPower" && b) c.pauseOnLowPower = *b;
         if (key == "launchAtLogin" && b) c.launchAtLogin = *b;
@@ -226,6 +227,8 @@ Config ParseConfig(std::string_view json) {
 std::string FormatConfig(const Config& c) {
     char speed[32];
     std::snprintf(speed, sizeof(speed), "%g", c.speed);
+    char position[32];
+    std::snprintf(position, sizeof(position), "%g", c.position);
     std::string out = "{\n";
     out += "  \"fit\" : \"";
     out += FitName(c.fit);
@@ -237,6 +240,7 @@ std::string FormatConfig(const Config& c) {
     }
     out += std::string("  \"launchAtLogin\" : ") + (c.launchAtLogin ? "true" : "false") + ",\n";
     out += std::string("  \"pauseOnLowPower\" : ") + (c.pauseOnLowPower ? "true" : "false") + ",\n";
+    out += std::string("  \"position\" : ") + position + ",\n";
     out += std::string("  \"speed\" : ") + speed + ",\n";
     out += "  \"version\" : " + std::to_string(c.version) + "\n}";
     return out;

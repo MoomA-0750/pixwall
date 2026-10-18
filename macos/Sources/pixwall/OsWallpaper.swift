@@ -27,12 +27,12 @@ final class OsWallpaper {
     /// 最後に入れたときの中身の印
     private var applied: String?
 
-    /// 画面ごとに1枚目を描いて入れる。画像・並べ方・画面の大きさが前と同じで、自分の PNG が入ったままなら何もしない
-    func apply(_ image: AnimatedImage, imagePath: String, fit: Fit) {
+    /// 画面ごとに1枚目を描いて入れる。画像・並べ方・位置・画面の大きさが前と同じで、自分の PNG が入ったままなら何もしない
+    func apply(_ image: AnimatedImage, imagePath: String, fit: Fit, position: Double) {
         var originals = loadOriginals()
         let screens = NSScreen.screens.compactMap { screen in Self.uuid(of: screen).map { (screen, $0) } }
         guard !screens.isEmpty else { return }
-        let mark = ([imagePath, fit.rawValue] + screens.map { screen, id in
+        let mark = ([imagePath, fit.rawValue, String(position)] + screens.map { screen, id in
             let size = StillImage.pixelSize(of: screen)
             return "\(id)=\(size.width)x\(size.height)"
         }).joined(separator: "|")
@@ -62,7 +62,8 @@ final class OsWallpaper {
         for (screen, id) in screens {
             let size = StillImage.pixelSize(of: screen)
             let url = dir.appendingPathComponent("\(id)-\(size.width)x\(size.height)-\(stamp).png")
-            guard let still = StillImage.render(image, frame: 0, width: size.width, height: size.height, fit: fit),
+            guard let still = StillImage.render(image, frame: 0, width: size.width, height: size.height, fit: fit,
+                                                    position: position),
                   StillImage.writePNG(still, to: url) else { continue }
             // 画面の大きさちょうどに描いたので、OS には縦横をそのまま合わせてもらう（物理ピクセルで 1 対 1 になる）
             let options: [NSWorkspace.DesktopImageOptionKey: Any] = [

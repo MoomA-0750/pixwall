@@ -6,6 +6,8 @@ public struct Config: Codable, Equatable {
     /// 動かす画像のパス。今はすべての画面に同じ画像を出す
     public var image: String?
     public var fit: Fit = .integer
+    /// 画面に合わせるときの、余白の中の位置（0 で上・左、0.5 で中央、1 で下・右）
+    public var position: Double = 0.5
     /// 速さの倍率（0.25〜4）
     public var speed: Double = 1
     /// 低電力モードのときに止める
@@ -22,6 +24,7 @@ public struct Config: Codable, Equatable {
         version = (try? c.decodeIfPresent(Int.self, forKey: .version)) ?? d.version
         image = (try? c.decodeIfPresent(String.self, forKey: .image)) ?? d.image
         fit = (try? c.decodeIfPresent(Fit.self, forKey: .fit)) ?? d.fit
+        position = min(max((try? c.decodeIfPresent(Double.self, forKey: .position)) ?? d.position, 0), 1)
         speed = min(max((try? c.decodeIfPresent(Double.self, forKey: .speed)) ?? d.speed, 0.25), 4)
         pauseOnLowPower = (try? c.decodeIfPresent(Bool.self, forKey: .pauseOnLowPower)) ?? d.pauseOnLowPower
         launchAtLogin = (try? c.decodeIfPresent(Bool.self, forKey: .launchAtLogin)) ?? d.launchAtLogin

@@ -23,15 +23,15 @@ std::vector<SIZE> MonitorSizes();
 // 「静止画を書き出す」。frame 枚目を、画面ごとにその画面の大きさで描く。主の画面は path に、
 // ほかの画面は同じフォルダに <画像の名前>-<幅>x<高さ>.png（あれば -2, -3…）で書く
 bool ExportStill(IWICImagingFactory* wic, const LoadedImage& image, const std::wstring& imagePath, size_t frame,
-                 Fit fit, uint8_t r, uint8_t g, uint8_t b, const std::wstring& path);
+                 Fit fit, double position, uint8_t r, uint8_t g, uint8_t b, const std::wstring& path);
 
 // OS の壁紙（IDesktopWallpaper）に、動かしている画像の1枚目を入れる。
 // 入れる前の壁紙は画面ごとに %LOCALAPPDATA%\pixwall\desktop\original.txt に覚え、Restore で戻す
 class OsWallpaper {
 public:
-    // 画面ごとに1枚目を描いて入れる。画像・並べ方・余白の色・画面の大きさが前と同じなら何もしない
+    // 画面ごとに1枚目を描いて入れる。画像・並べ方・位置・余白の色・画面の大きさが前と同じなら何もしない
     void Apply(IWICImagingFactory* wic, const LoadedImage& image, const std::wstring& imagePath, Fit fit,
-               uint8_t r, uint8_t g, uint8_t b);
+               double imagePosition, uint8_t r, uint8_t g, uint8_t b);
     // 入れる前の壁紙に戻す。本人がその間に壁紙を替えていた画面はそのままにする
     void Restore();
 

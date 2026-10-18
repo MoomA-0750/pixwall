@@ -53,6 +53,11 @@ enum Request : ULONG_PTR {
     kFrameCount = 8,    // 動かしている画像のフレームの数を返す（無ければ 0）
 };
 
+// WM_COPYDATA は相手が返事を待つ送り方で届き、その間はほかのプロセスの COM（IDesktopWallpaper）を呼べない
+// （RPC_E_CANTCALLOUT_ININPUTSYNCCALL）。OS の壁紙に触る頼みは、返事をしてから自分宛てに送り直して行う。
+// wParam は Request
+constexpr UINT kDeferredRequest = WM_APP + 1;
+
 struct App {
     ComPtr<IWICImagingFactory> wic;
     Gpu gpu;
@@ -172,13 +177,14 @@ void Rebuild() {
         },
         reinterpret_cast<LPARAM>(&monitors));
     for (const RECT& rc : monitors) {
-        auto w = std::make_unique<WallWindow>(app.gpu, app.image, rc, desktop, app.background, app.config.fit);
+        auto w = std::make_unique<WallWindow>(app.gpu, app.image, rc, desktop, app.background, app.config.fit,
+                                              app.config.position);
         if (w->ok()) app.windows.push_back(std::move(w));
     }
     UpdateRunning();
     // OS の壁紙にも1枚目を入れる（タスク ビューや Explorer の作り直しの間、壁紙が見えたときも同じ絵になる）
-    app.osWallpaper.Apply(app.wic.Get(), app.image, Wide(app.config.image), app.config.fit, Byte(app.background.r),
-                          Byte(app.background.g), Byte(app.background.b));
+    app.osWallpaper.Apply(app.wic.Get(), app.image, Wide(app.config.image), app.config.fit, app.config.position,
+                          Byte(app.background.r), Byte(app.background.g), Byte(app.background.b));
     // 起動と作り直しで触ったメモリ（ほとんどはドライバーの初期化）を手放す。
     // 動いている間に触るのは 1MB ほどで、to-fu ではプライベート ワーキング セットが 11.6MB から 1MB 未満になった
     SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1));
@@ -208,18 +214,13 @@ std::vector<std::wstring> Lines(const COPYDATASTRUCT* data) {
 LRESULT OnRequest(const COPYDATASTRUCT* data) {
     switch (data->dwData) {
         case kReloadConfig:
-            ApplyConfig(LoadConfig(ConfigPath()));
-            return 1;
         case kRefresh:
-            app.retries = 0;
-            Rebuild();
+        case kQuit:
+            PostMessageW(app.messageWindow, kDeferredRequest, data->dwData, 0);
             return 1;
         case kSetPaused:
             app.pause.userPaused = data->cbData >= 1 && static_cast<const uint8_t*>(data->lpData)[0] != 0;
             UpdateRunning();
-            return 1;
-        case kQuit:
-            DestroyWindow(app.messageWindow);
             return 1;
         case kIsPaused:
             return app.pause.userPaused ? 2 : 1;
@@ -227,7 +228,7 @@ LRESULT OnRequest(const COPYDATASTRUCT* data) {
             const auto lines = Lines(data);
             if (lines.size() < 2) return 0;
             return ExportStill(app.wic.Get(), app.image, Wide(app.config.image), _wtoi(lines[0].c_str()),
-                               app.config.fit, Byte(app.background.r), Byte(app.background.g),
+                               app.config.fit, app.config.position, Byte(app.background.r), Byte(app.background.g),
                                Byte(app.background.b), lines[1])
                        ? 1
                        : 0;
@@ -300,6 +301,20 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_COPYDATA:
             return OnRequest(reinterpret_cast<const COPYDATASTRUCT*>(lp));
+        case kDeferredRequest:
+            switch (wp) {
+                case kReloadConfig:
+                    ApplyConfig(LoadConfig(ConfigPath()));
+                    break;
+                case kRefresh:
+                    app.retries = 0;
+                    Rebuild();
+                    break;
+                case kQuit:
+                    DestroyWindow(hwnd);
+                    break;
+            }
+            return 0;
         case WM_CLOSE:
             DestroyWindow(hwnd);
             return 0;

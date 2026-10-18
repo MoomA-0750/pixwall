@@ -49,6 +49,9 @@ public sealed partial class MainWindow : Window
         FitBox.SelectedIndex = Array.IndexOf(Fits, config.Fit);
         SpeedSlider.Value = Math.Round(Math.Log2(config.Speed));
         SpeedLabel.Text = SpeedText(config.Speed);
+        PositionSlider.Value = Math.Round(config.Position * 100);
+        PositionLabel.Text = PositionText(config.Position);
+        PositionCard.Visibility = config.Fit == "fit" ? Visibility.Visible : Visibility.Collapsed;
         LowPowerSwitch.IsOn = config.PauseOnLowPower;
         LoginSwitch.IsOn = config.LaunchAtLogin;
         PauseSwitch.IsOn = Resident.IsPaused;
@@ -80,6 +83,8 @@ public sealed partial class MainWindow : Window
     }
 
     private static string SpeedText(double s) => s < 1 ? $"{s:0.##}倍" : $"{s:0}倍";
+
+    private static string PositionText(double p) => Math.Abs(p - 0.5) < 0.001 ? "中央" : $"{p * 100:0}";
 
     /// frame 枚目を、ドットがぼやけないよう最近傍で整数倍に広げて出す
     private async Task<bool> ShowPreview(string? path, int frame = 0)
@@ -186,7 +191,17 @@ public sealed partial class MainWindow : Window
 
     private void Fit_Changed(object sender, SelectionChangedEventArgs e)
     {
-        if (FitBox.SelectedIndex >= 0) Apply(config with { Fit = Fits[FitBox.SelectedIndex] });
+        if (FitBox.SelectedIndex < 0) return;
+        PositionCard.Visibility = Fits[FitBox.SelectedIndex] == "fit" ? Visibility.Visible : Visibility.Collapsed;
+        Apply(config with { Fit = Fits[FitBox.SelectedIndex] });
+    }
+
+    private void Position_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        if (PositionLabel is null) return;
+        var position = Math.Round(e.NewValue) / 100;
+        PositionLabel.Text = PositionText(position);
+        Apply(config with { Position = position });
     }
 
     private void Speed_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)

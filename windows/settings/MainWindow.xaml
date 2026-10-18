@@ -104,6 +104,22 @@
                         <ComboBoxItem Content="画面を埋める" />
                     </ComboBox>
                 </Grid>
+                <!-- 画面に合わせるときだけ出す。余白が上下にできる画面では上下、左右にできる画面では左右に動く -->
+                <Grid x:Name="PositionCard" Style="{StaticResource Card}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="48" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="位置" />
+                        <TextBlock Text="0 で上・左、100 で下・右" Style="{StaticResource CaptionTextBlockStyle}" />
+                    </StackPanel>
+                    <Slider x:Name="PositionSlider" AutomationProperties.Name="位置" Grid.Column="1" Width="180" Minimum="0" Maximum="100"
+                            StepFrequency="5" TickFrequency="50" TickPlacement="Outside" SnapsTo="StepValues" IsThumbToolTipEnabled="False"
+                            VerticalAlignment="Center" ValueChanged="Position_Changed" />
+                    <TextBlock x:Name="PositionLabel" Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right" />
+                </Grid>
                 <Grid Style="{StaticResource Card}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />

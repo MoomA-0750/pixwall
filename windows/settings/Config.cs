@@ -14,6 +14,8 @@ public sealed record Config
     public string? Image { get; init; }
     /// integer / fit / fill
     public string Fit { get; init; } = "integer";
+    /// 画面に合わせるときの、余白の中の位置（0 で上・左、0.5 で中央、1 で下・右）
+    public double Position { get; init; } = 0.5;
     /// 速さの倍率（0.25〜4）
     public double Speed { get; init; } = 1;
     public bool PauseOnLowPower { get; init; } = true;
@@ -38,6 +40,7 @@ public sealed record Config
                     "version" when v.ValueKind == JsonValueKind.Number => c with { Version = v.GetInt32() },
                     "image" when v.ValueKind == JsonValueKind.String => c with { Image = v.GetString() },
                     "fit" when v.GetString() is "integer" or "fit" or "fill" => c with { Fit = v.GetString()! },
+                    "position" when v.ValueKind == JsonValueKind.Number => c with { Position = Math.Clamp(v.GetDouble(), 0, 1) },
                     "speed" when v.ValueKind == JsonValueKind.Number => c with { Speed = Math.Clamp(v.GetDouble(), 0.25, 4) },
                     "pauseOnLowPower" when v.ValueKind is JsonValueKind.True or JsonValueKind.False => c with { PauseOnLowPower = v.GetBoolean() },
                     "launchAtLogin" when v.ValueKind is JsonValueKind.True or JsonValueKind.False => c with { LaunchAtLogin = v.GetBoolean() },
@@ -70,6 +73,7 @@ public sealed record Config
             if (Image is not null) w.WriteString("image", Image);
             w.WriteBoolean("launchAtLogin", LaunchAtLogin);
             w.WriteBoolean("pauseOnLowPower", PauseOnLowPower);
+            w.WriteNumber("position", Position);
             w.WriteNumber("speed", Speed);
             w.WriteNumber("version", Version);
             w.WriteEndObject();

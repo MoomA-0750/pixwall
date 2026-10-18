@@ -1,6 +1,6 @@
 ﻿# 設定画面の部品を、UI Automation で名前から探して動かす
-#   settings-ui.ps1 -Fit fill / -Toggle 一時停止 / -Speed 2 / -Frame 5（0 から） / -Button 表示を更新
-param([string]$Fit, [string]$Toggle, [double]$Speed = [double]::NaN, [int]$Frame = -1, [string]$Button)
+#   settings-ui.ps1 -Fit fill / -Toggle 一時停止 / -Speed 2 / -Position 25（0〜100） / -Frame 5（0 から） / -Button 表示を更新
+param([string]$Fit, [string]$Toggle, [double]$Speed = [double]::NaN, [double]$Position = [double]::NaN, [int]$Frame = -1, [string]$Button)
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 $A = [System.Windows.Automation.AutomationElement]
@@ -25,6 +25,7 @@ if ($Fit) {
 }
 if ($Toggle) { (Find $Toggle $A::IsTogglePatternAvailableProperty).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle() }
 if (-not [double]::IsNaN($Speed)) { (Find '速さ' $A::IsRangeValuePatternAvailableProperty).GetCurrentPattern([System.Windows.Automation.RangeValuePattern]::Pattern).SetValue([Math]::Log($Speed, 2)) }
+if (-not [double]::IsNaN($Position)) { (Find '位置' $A::IsRangeValuePatternAvailableProperty).GetCurrentPattern([System.Windows.Automation.RangeValuePattern]::Pattern).SetValue($Position) }
 if ($Frame -ge 0) { (Find '書き出す絵' $A::IsRangeValuePatternAvailableProperty).GetCurrentPattern([System.Windows.Automation.RangeValuePattern]::Pattern).SetValue($Frame) }
 if ($Button) { (Find $Button $A::IsInvokePatternAvailableProperty).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() }
 Start-Sleep -Milliseconds 500

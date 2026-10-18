@@ -56,6 +56,40 @@ std::wstring Stem(const std::wstring& path) {
 
 std::wstring Size(SIZE s) { return std::to_wstring(s.cx) + L"x" + std::to_wstring(s.cy); }
 
+// 今つながっていない画面も含めて、どれかの画面の壁紙になっているパス
+std::vector<std::wstring> WallpapersInUse(IDesktopWallpaper* desktop) {
+    std::vector<std::wstring> paths;
+    UINT count = 0;
+    desktop->GetMonitorDevicePathCount(&count);
+    for (UINT i = 0; i < count; ++i) {
+        PWSTR id = nullptr;
+        if (FAILED(desktop->GetMonitorDevicePathAt(i, &id))) continue;
+        PWSTR current = nullptr;
+        if (SUCCEEDED(desktop->GetWallpaper(id, &current)) && current) paths.push_back(current);
+        CoTaskMemFree(current);
+        CoTaskMemFree(id);
+    }
+    return paths;
+}
+
+// 作った PNG のうち、keep にも、どの画面の壁紙にもなっていないものを消す
+// （つながっていない画面の壁紙が消えると、つなぎ直したときに壁紙が無くなるので）
+void RemovePngs(IDesktopWallpaper* desktop, const std::vector<std::wstring>& keep) {
+    std::vector<std::wstring> used = WallpapersInUse(desktop);
+    used.insert(used.end(), keep.begin(), keep.end());
+    const std::wstring dir = DesktopDir();
+    WIN32_FIND_DATAW fd;
+    HANDLE find = FindFirstFileW((dir + L"\\*.png").c_str(), &fd);
+    if (find == INVALID_HANDLE_VALUE) return;
+    do {
+        const std::wstring path = dir + L"\\" + fd.cFileName;
+        bool inUse = false;
+        for (const auto& u : used) inUse = inUse || CompareStringOrdinal(u.c_str(), -1, path.c_str(), -1, TRUE) == CSTR_EQUAL;
+        if (!inUse) DeleteFileW(path.c_str());
+    } while (FindNextFileW(find, &fd));
+    FindClose(find);
+}
+
 }  // namespace
 
 bool WritePng(IWICImagingFactory* wic, const std::wstring& path, const std::vector<uint8_t>& bgra, int width,
@@ -228,9 +262,14 @@ void OsWallpaper::Apply(IWICImagingFactory* wic, const LoadedImage& image, const
     for (const Monitor& m : monitors) {
         if (!IsOurs(m.current)) originals_[m.id] = m.current;
     }
-    // 置き方は全画面で1つ。どの画面にも自分の PNG が無いときの値が、本人の置き方
+    // 置き方は全画面で1つ。どの画面にも自分の PNG が無いときの値が、本人の置き方。
+    // ただし中央は自分が替えたあとのことがある（つながっていない画面に自分の PNG が残ったまま、別の画面に替えたとき）
+    // ので、前に覚えた値があればそちらを使う
     DESKTOP_WALLPAPER_POSITION position = DWPOS_FILL;
-    if (noneOurs && SUCCEEDED(desktop->GetPosition(&position))) originalPosition_ = position;
+    if (noneOurs && SUCCEEDED(desktop->GetPosition(&position)) &&
+        (position != DWPOS_CENTER || originalPosition_ < 0)) {
+        originalPosition_ = position;
+    }
     if (originalPosition_ < 0) originalPosition_ = DWPOS_FILL;
     SaveOriginals();
 
@@ -250,19 +289,7 @@ void OsWallpaper::Apply(IWICImagingFactory* wic, const LoadedImage& image, const
         }
     }
     applied_ = mark;
-
-    // 前に作った PNG を消す
-    WIN32_FIND_DATAW fd;
-    HANDLE find = FindFirstFileW((dir + L"\\*.png").c_str(), &fd);
-    if (find != INVALID_HANDLE_VALUE) {
-        do {
-            const std::wstring path = dir + L"\\" + fd.cFileName;
-            bool used = false;
-            for (const auto& k : keep) used = used || CompareStringOrdinal(k.c_str(), -1, path.c_str(), -1, TRUE) == CSTR_EQUAL;
-            if (!used) DeleteFileW(path.c_str());
-        } while (FindNextFileW(find, &fd));
-        FindClose(find);
-    }
+    RemovePngs(desktop.Get(), keep);
 }
 
 void OsWallpaper::Restore() {
@@ -272,30 +299,33 @@ void OsWallpaper::Restore() {
     ComPtr<IDesktopWallpaper> desktop;
     if (FAILED(CoCreateInstance(CLSID_DesktopWallpaper, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&desktop)))) return;
     bool restored = false;
+    // 戻せなかった画面（今つながっていないなど）は覚えたままにして、次に終えたときに戻す
+    std::map<std::wstring, std::wstring> remaining;
     for (const auto& [id, wallpaper] : originals_) {
         PWSTR current = nullptr;
-        if (FAILED(desktop->GetWallpaper(id.c_str(), &current))) continue;
+        if (FAILED(desktop->GetWallpaper(id.c_str(), &current))) {
+            remaining[id] = wallpaper;
+            continue;
+        }
         const bool ours = current && IsOurs(current);
         CoTaskMemFree(current);
-        if (ours && SUCCEEDED(desktop->SetWallpaper(id.c_str(), wallpaper.c_str()))) restored = true;
+        // 本人がその間に替えた画面はそのまま
+        if (!ours) continue;
+        if (SUCCEEDED(desktop->SetWallpaper(id.c_str(), wallpaper.c_str()))) {
+            restored = true;
+        } else {
+            remaining[id] = wallpaper;
+        }
     }
     // 置き方は、自分が中央に替えたままなら戻す（その間に本人が壁紙だけ替えたときも、置き方は元のものにする）
     DESKTOP_WALLPAPER_POSITION position = DWPOS_FILL;
     if (originalPosition_ >= 0 && (restored || (SUCCEEDED(desktop->GetPosition(&position)) && position == DWPOS_CENTER))) {
         desktop->SetPosition(static_cast<DESKTOP_WALLPAPER_POSITION>(originalPosition_));
     }
-    originals_.clear();
+    originals_ = std::move(remaining);
     SaveOriginals();
-    // 戻したので、作った PNG は要らない
-    const std::wstring dir = DesktopDir();
-    WIN32_FIND_DATAW fd;
-    HANDLE find = FindFirstFileW((dir + L"\\*.png").c_str(), &fd);
-    if (find != INVALID_HANDLE_VALUE) {
-        do {
-            DeleteFileW((dir + L"\\" + fd.cFileName).c_str());
-        } while (FindNextFileW(find, &fd));
-        FindClose(find);
-    }
+    // 戻した画面の PNG は要らない。まだ壁紙になっているもの（戻せなかった画面）は残す
+    RemovePngs(desktop.Get(), {});
 }
 
 }  // namespace pixwall

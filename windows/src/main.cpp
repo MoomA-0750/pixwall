@@ -1,5 +1,7 @@
 // pixwall.exe（常駐側）。動かす画像は %APPDATA%\pixwall\config.json から読む。
-// 引数で画像を渡すと（pixwall.exe <画像のパス>）、それを動かして設定にも書く
+// 引数で画像を渡すと（pixwall.exe <画像のパス>）、それを動かして設定にも書く。
+// もう一度起動されたら、設定画面（settings\PixwallSettings.exe）を開いて自分は終わる。
+// 設定画面とは、隠れた窓（pixwall-message）への WM_COPYDATA でやり取りする。
 // 終えるときは taskkill /im pixwall.exe（隠れた窓に WM_CLOSE が届いて片付けてから終わる）
 #include <windows.h>
 #include <shellapi.h>
@@ -36,6 +38,15 @@ constexpr int kMaxRetries = 30;
 // SDK の定義を使うと INITGUID やリンクするライブラリに左右されるので、ここで持つ
 constexpr GUID kDisplayState = {0x6fe69556, 0x704a, 0x47a0, {0x8f, 0x24, 0xc2, 0x8d, 0x93, 0x6f, 0xda, 0x47}};
 constexpr GUID kPowerSaving = {0xe00958c0, 0xc213, 0x4ace, {0xac, 0x77, 0xfe, 0xcc, 0xed, 0x2e, 0xee, 0xa5}};
+
+// 設定画面から WM_COPYDATA で届く頼みごと（COPYDATASTRUCT の dwData）。設定画面の Resident.cs と値をそろえる
+enum Request : ULONG_PTR {
+    kReloadConfig = 1,  // config.json を読み直して当てる
+    kRefresh = 2,       // 画面を数え直して作り直す（「表示を更新」）
+    kSetPaused = 3,     // lpData の 1 バイト目が 0 以外なら一時停止
+    kQuit = 4,          // 終わる
+    kIsPaused = 5,      // 一時停止しているか。している 2、していない 1 を返す
+};
 
 struct App {
     ComPtr<IWICImagingFactory> wic;
@@ -117,6 +128,11 @@ void Advance() {
 // 画面を数え直して、画面ごとに窓を作り直す。フレームは読み直さない
 void Rebuild() {
     app.windows.clear();
+    if (app.image.frames.empty()) {
+        // 画像をまだ選んでいない・読めない。OS の壁紙のまま
+        UpdateRunning();
+        return;
+    }
     if (!app.gpu.dcomp && !app.gpu.Create()) {
         OutputDebugStringW(L"pixwall: GPU の道具を作れない\n");
         UpdateRunning();
@@ -157,6 +173,33 @@ void Rebuild() {
 void ScheduleRebuild(HWND hwnd) {
     app.retries = 0;
     SetTimer(hwnd, kRebuildTimer, kRebuildDelayMs, nullptr);
+}
+
+std::wstring ConfigPath();
+Config LoadConfig(const std::wstring& path);
+void ApplyConfig(const Config& next);
+
+LRESULT OnRequest(const COPYDATASTRUCT* data) {
+    switch (data->dwData) {
+        case kReloadConfig:
+            ApplyConfig(LoadConfig(ConfigPath()));
+            return 1;
+        case kRefresh:
+            app.retries = 0;
+            Rebuild();
+            return 1;
+        case kSetPaused:
+            app.pause.userPaused = data->cbData >= 1 && static_cast<const uint8_t*>(data->lpData)[0] != 0;
+            UpdateRunning();
+            return 1;
+        case kQuit:
+            DestroyWindow(app.messageWindow);
+            return 1;
+        case kIsPaused:
+            return app.pause.userPaused ? 2 : 1;
+        default:
+            return 0;
+    }
 }
 
 void OnPowerSetting(const POWERBROADCAST_SETTING* s) {
@@ -206,6 +249,8 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
             UpdateRunning();
             return 0;
+        case WM_COPYDATA:
+            return OnRequest(reinterpret_cast<const COPYDATASTRUCT*>(lp));
         case WM_CLOSE:
             DestroyWindow(hwnd);
             return 0;
@@ -275,6 +320,38 @@ void UpdateLaunchAtLogin(bool on) {
                     static_cast<DWORD>((command.size() + 1) * sizeof(wchar_t)));
 }
 
+// 設定を当てる。画像が変わったとき（と、まだ読めていないとき）だけ読み直す
+void ApplyConfig(const Config& next) {
+    const bool reload = next.image != app.config.image || app.image.frames.empty();
+    app.config = next;
+    app.pause.pauseOnEnergySaver = next.pauseOnLowPower;
+    UpdateLaunchAtLogin(next.launchAtLogin);
+    // 窓は今の画像を参照しているので、画像を替える前に消す
+    app.windows.clear();
+    if (reload) {
+        app.image = {};
+        app.frame = 0;
+        if (!next.image.empty() && app.wic && !LoadImageFile(app.wic.Get(), Wide(next.image), app.image)) {
+            OutputDebugStringW(L"pixwall: 画像を読めない\n");
+            app.image = {};
+        }
+        if (!app.image.frames.empty()) app.background = TopLeftColor(app.image);
+    }
+    app.retries = 0;
+    Rebuild();
+}
+
+// 設定画面を開く。pixwall.exe の隣の settings フォルダにある
+void OpenSettings() {
+    wchar_t exe[MAX_PATH];
+    if (!GetModuleFileNameW(nullptr, exe, MAX_PATH)) return;
+    std::wstring path = exe;
+    path = path.substr(0, path.find_last_of(L'\\')) + L"\\settings\\PixwallSettings.exe";
+    if (reinterpret_cast<INT_PTR>(ShellExecuteW(nullptr, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL)) <= 32) {
+        MessageBoxW(nullptr, (L"設定画面が見つからない: " + path).c_str(), L"pixwall", MB_OK);
+    }
+}
+
 // OS の通知を受けるための、見えない最上位の窓。WM_DISPLAYCHANGE などは最上位の窓にしか来ない
 HWND CreateMessageWindow(HINSTANCE inst) {
     WNDCLASSEXW wc{sizeof(wc)};
@@ -292,42 +369,29 @@ HWND CreateMessageWindow(HINSTANCE inst) {
 int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-    // 2回目の起動。設定画面ができたらそれを起こす。今は何もせず終わる
+    // 2回目の起動（スタートメニューから開き直したなど）。設定画面を開いて終わる
     HANDLE mutex = CreateMutexW(nullptr, TRUE, L"Local\\pixwall");
-    if (GetLastError() == ERROR_ALREADY_EXISTS) return 0;
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        OpenSettings();
+        return 0;
+    }
 
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     const std::wstring configPath = ConfigPath();
-    app.config = LoadConfig(configPath);
+    Config config = LoadConfig(configPath);
 
     int argc = 0;
     wchar_t** argv = CommandLineToArgvW(GetCommandLineW(), &argc);
     if (argc >= 2) {
         wchar_t full[MAX_PATH];
         if (GetFullPathNameW(argv[1], MAX_PATH, full, nullptr)) {
-            app.config.image = Utf8(full);
-            SaveConfig(configPath, app.config);
+            config.image = Utf8(full);
+            SaveConfig(configPath, config);
         }
     }
     LocalFree(argv);
-    if (app.config.image.empty()) {
-        // 設定画面ができるまでは、画像を選ぶ場所が無い
-        MessageBoxW(nullptr,
-                    L"動かす画像がまだ選ばれていません。\n一度だけ「pixwall.exe <画像のパス>」で起動すると、次からはその画像で始まります。",
-                    L"pixwall", MB_OK);
-        return 2;
-    }
-    const std::wstring path = Wide(app.config.image);
 
     CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&app.wic));
-    if (!app.wic || !LoadImageFile(app.wic.Get(), path, app.image)) {
-        MessageBoxW(nullptr, (L"画像を読めない: " + path).c_str(), L"pixwall", MB_OK);
-        return 1;
-    }
-    app.background = TopLeftColor(app.image);
-    app.pause.pauseOnEnergySaver = app.config.pauseOnLowPower;
-    UpdateLaunchAtLogin(app.config.launchAtLogin);
-
     app.messageWindow = CreateMessageWindow(inst);
     app.taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
     RegisterPowerSettingNotification(app.messageWindow, &kDisplayState, DEVICE_NOTIFY_WINDOW_HANDLE);
@@ -337,7 +401,9 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, PWSTR, int) {
     app.timer = CreateWaitableTimerExW(nullptr, nullptr, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
     if (!app.timer) app.timer = CreateWaitableTimerExW(nullptr, nullptr, 0, TIMER_ALL_ACCESS);
 
-    Rebuild();
+    ApplyConfig(config);
+    // 画像をまだ選んでいない・読めないときは、何も見えないので設定画面を出す（Mac と同じ）
+    if (app.image.frames.empty()) OpenSettings();
 
     // 次のフレームまでは、メッセージとタイマーのどちらかが来るまで眠る
     for (;;) {

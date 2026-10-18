@@ -1,0 +1,31 @@
+<!-- pixwall の設定画面（WinUI 3）。常駐側（pixwall.exe、C++）とは別のプロセスで、閉じたら終わる -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>Pixwall.Settings</RootNamespace>
+    <AssemblyName>PixwallSettings</AssemblyName>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <Nullable>enable</Nullable>
+    <!-- MSIX に包まず、pixwall.exe の隣に置いて動かす。Windows App SDK も .NET も一緒に置く -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- MSIX に包まなくても、publish に画面の resources.pri（PixwallSettings.pri）を入れる。無いと起動してすぐ落ちる -->
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- .NET と Windows App SDK の訳のうち、日本語と英語だけ入れる -->
+    <SatelliteResourceLanguages>ja;en-US</SatelliteResourceLanguages>
+    <!-- 使っていない .NET と Windows の呼び出し口（Microsoft.Windows.SDK.NET.dll など）を publish で削る -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <!-- LibraryImport（user32 の呼び出し）に要る -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 全部入りの Microsoft.WindowsAppSDK は AI・検索など（onnxruntime・DirectML で数十 MB）も連れてくるので、WinUI だけにする -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="2.3.9" />
+  </ItemGroup>
+</Project>

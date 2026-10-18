@@ -19,6 +19,7 @@ public static partial class Resident
         ExportStill = 6,
         RenderPreview = 7,
         FrameCount = 8,
+        AutoColor = 9,
     }
 
     /// config.json を読み直してもらう。常駐側が動いていなければ起動する（起動すると config.json を読む）
@@ -44,6 +45,9 @@ public static partial class Resident
 
     /// 動かしている画像のフレームの数。動いていない・画像が無ければ 0
     public static int FrameCount => (int)Send(Request.FrameCount);
+
+    /// 自動の余白の色（画像の左上の1ドット、0xRRGGBB）。動いていない・画像が無ければ null
+    public static int? AutoColor => Send(Request.AutoColor) is var v && v >= 0x1000000 ? (int)(v & 0xFFFFFF) : null;
 
     private static byte[] Text(string s) => System.Text.Encoding.Unicode.GetBytes(s);
 

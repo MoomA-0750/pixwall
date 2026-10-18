@@ -60,7 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 設定
 
     /// 設定は書かない（書くのは設定画面のプロセスと、起動の引数で画像を渡されたとき）。
-    /// 画像が同じなら窓は作り直さず、並べ方・位置・速さだけを変え、OS の壁紙は少し待ってから描き直す
+    /// 画像が同じなら窓は作り直さず、並べ方・位置・余白の色・速さだけを変え、OS の壁紙は少し待ってから描き直す
     private func apply(_ new: Config) {
         let old = config
         config = new
@@ -69,9 +69,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if config.image != loadedPath {
             loadedPath = config.image
             image = config.image.flatMap { AnimatedImage(url: URL(fileURLWithPath: $0)) }
-        } else if image != nil, !windows.isEmpty {
-            windows.forEach { $0.update(fit: config.fit, position: config.position, speed: config.speed) }
-            if config.fit != old.fit || config.position != old.position { scheduleOsWallpaper() }
+        } else if let image, !windows.isEmpty {
+            let background = config.fillColor(for: image)
+            windows.forEach {
+                $0.update(fit: config.fit, position: config.position, background: background, speed: config.speed)
+            }
+            if config.fit != old.fit || config.position != old.position || config.customBackground != old.customBackground {
+                scheduleOsWallpaper()
+            }
             return
         }
         rebuild()
@@ -89,7 +94,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         osWallpaperWork?.cancel()
         osWallpaperWork = nil
         guard let image, let path = config.image else { return }
-        osWallpaper.apply(image, imagePath: path, fit: config.fit, position: config.position)
+        osWallpaper.apply(image, imagePath: path, fit: config.fit, position: config.position,
+                          background: config.fillColor(for: image))
     }
 
     /// 設定画面のプロセスを起動する。もう開いていれば、前に出てもらう
@@ -129,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         windows = NSScreen.screens.map { screen in
             let w = WallpaperWindow(screen: screen, image: image, fit: config.fit, position: config.position,
-                                    speed: config.speed)
+                                    background: config.fillColor(for: image), speed: config.speed)
             w.sharedPause = pause
             return w
         }
@@ -202,7 +208,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ws.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) {
             [weak self] _ in
             guard let self, let image = self.image, let path = self.config.image, !self.windows.isEmpty else { return }
-            self.osWallpaper.apply(image, imagePath: path, fit: self.config.fit, position: self.config.position)
+            self.osWallpaper.apply(image, imagePath: path, fit: self.config.fit, position: self.config.position,
+                                   background: self.config.fillColor(for: image))
         }
         ws.addObserver(forName: NSWorkspace.willPowerOffNotification, object: nil, queue: .main) { [weak self] _ in
             self?.poweringOff = true

@@ -55,6 +55,7 @@ enum Request : ULONG_PTR {
     kExportStill = 6,   // 静止画を書き出す。lpData は UTF-16 の「フレームの番号\n保存先」。できたら 1
     kRenderPreview = 7, // プレビューを描く。lpData は UTF-16 の「フレームの番号\n長い辺の上限（画素）\n保存先」。上限に収まる整数倍で描く。できたら 1
     kFrameCount = 8,    // 動かしている画像のフレームの数を返す（無ければ 0）
+    kAutoColor = 9,     // 自動の余白の色（画像の左上の1ドット）を 0x1RRGGBB で返す（画像が無ければ 0）
 };
 
 // WM_COPYDATA は相手が返事を待つ送り方で届き、その間はほかのプロセスの COM（IDesktopWallpaper）を呼べない
@@ -67,7 +68,8 @@ struct App {
     Gpu gpu;
     Config config;
     LoadedImage image;
-    Color background;
+    Color cornerColor;  // 画像の1枚目の左上の1ドット（自動の余白の色）
+    Color background;   // 今使っている余白の色
     std::vector<std::unique_ptr<WallWindow>> windows;
     OsWallpaper osWallpaper;
     HWND messageWindow = nullptr;
@@ -100,6 +102,13 @@ Color TopLeftColor(const LoadedImage& image) {
 std::wstring Wide(const std::string& s);
 
 uint8_t Byte(float v) { return static_cast<uint8_t>(std::clamp(v, 0.0f, 1.0f) * 255 + 0.5f); }
+
+// 自分で選んだ色があればそれ、無ければ画像の左上の1ドットの色
+Color BackgroundFor(const Config& config, Color corner) {
+    if (!config.customBackground || config.backgroundColor < 0) return corner;
+    const int c = config.backgroundColor;
+    return {((c >> 16) & 0xFF) / 255.0f, ((c >> 8) & 0xFF) / 255.0f, (c & 0xFF) / 255.0f, 1};
+}
 
 void Rebuild();
 
@@ -255,6 +264,9 @@ LRESULT OnRequest(const COPYDATASTRUCT* data) {
                                            Byte(app.background.b));
             return WritePng(app.wic.Get(), lines[2], still, w, h) ? 1 : 0;
         }
+        case kAutoColor:
+            if (app.image.frames.empty()) return 0;
+            return 0x1000000 | (Byte(app.cornerColor.r) << 16) | (Byte(app.cornerColor.g) << 8) | Byte(app.cornerColor.b);
         case kFrameCount:
             return static_cast<LRESULT>(app.image.frames.size());
         default:
@@ -400,9 +412,13 @@ void UpdateLaunchAtLogin(bool on) {
 // 設定を当てる。画像が変わったとき（と、まだ読めていないとき）だけ読み直す。
 // 画像が同じなら窓は作り直さず、並べ方・位置・余白の色だけを変え、OS の壁紙は少し待ってから描き直す
 void ApplyConfig(const Config& next) {
-    const bool reload = next.image != app.config.image || app.image.frames.empty();
-    const bool relayout = next.fit != app.config.fit || next.position != app.config.position;
+    const Config old = app.config;
+    const bool reload = next.image != old.image || app.image.frames.empty();
+    const Color oldBackground = app.background;
     app.config = next;
+    app.background = BackgroundFor(next, app.cornerColor);
+    const bool relayout = next.fit != old.fit || next.position != old.position || app.background.r != oldBackground.r ||
+                          app.background.g != oldBackground.g || app.background.b != oldBackground.b;
     app.pause.pauseOnEnergySaver = next.pauseOnLowPower;
     UpdateLaunchAtLogin(next.launchAtLogin);
     UpdateRunning();
@@ -425,7 +441,8 @@ void ApplyConfig(const Config& next) {
             OutputDebugStringW(L"pixwall: 画像を読めない\n");
             app.image = {};
         }
-        if (!app.image.frames.empty()) app.background = TopLeftColor(app.image);
+        if (!app.image.frames.empty()) app.cornerColor = TopLeftColor(app.image);
+        app.background = BackgroundFor(next, app.cornerColor);
     }
     app.retries = 0;
     Rebuild();

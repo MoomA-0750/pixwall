@@ -27,12 +27,12 @@ final class OsWallpaper {
     /// 最後に入れたときの中身の印
     private var applied: String?
 
-    /// 画面ごとに1枚目を描いて入れる。画像・並べ方・位置・画面の大きさが前と同じで、自分の PNG が入ったままなら何もしない
-    func apply(_ image: AnimatedImage, imagePath: String, fit: Fit, position: Double) {
+    /// 画面ごとに1枚目を描いて入れる。画像・並べ方・位置・余白の色・画面の大きさが前と同じで、自分の PNG が入ったままなら何もしない
+    func apply(_ image: AnimatedImage, imagePath: String, fit: Fit, position: Double, background: CGColor) {
         var originals = loadOriginals()
         let screens = NSScreen.screens.compactMap { screen in Self.uuid(of: screen).map { (screen, $0) } }
         guard !screens.isEmpty else { return }
-        let mark = ([imagePath, fit.rawValue, String(position)] + screens.map { screen, id in
+        let mark = ([imagePath, fit.rawValue, String(position), "\(background.components ?? [])"] + screens.map { screen, id in
             let size = StillImage.pixelSize(of: screen)
             return "\(id)=\(size.width)x\(size.height)"
         }).joined(separator: "|")
@@ -63,13 +63,13 @@ final class OsWallpaper {
             let size = StillImage.pixelSize(of: screen)
             let url = dir.appendingPathComponent("\(id)-\(size.width)x\(size.height)-\(stamp).png")
             guard let still = StillImage.render(image, frame: 0, width: size.width, height: size.height, fit: fit,
-                                                    position: position),
+                                                    position: position, background: background),
                   StillImage.writePNG(still, to: url) else { continue }
             // 画面の大きさちょうどに描いたので、OS には縦横をそのまま合わせてもらう（物理ピクセルで 1 対 1 になる）
             let options: [NSWorkspace.DesktopImageOptionKey: Any] = [
                 .imageScaling: NSImageScaling.scaleAxesIndependently.rawValue,
                 .allowClipping: false,
-                .fillColor: NSColor(cgColor: image.cornerColor) ?? .black,
+                .fillColor: NSColor(cgColor: background) ?? .black,
             ]
             keep.insert(url.lastPathComponent)
             do {

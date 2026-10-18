@@ -20,6 +20,9 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.fit, .integer)
         XCTAssertEqual(c.speed, 1)
         XCTAssertEqual(c.position, 0.5)
+        XCTAssertEqual(c.background, .auto)
+        XCTAssertNil(c.backgroundColor)
+        XCTAssertNil(c.customBackground)
         XCTAssertTrue(c.pauseOnLowPower)
         XCTAssertTrue(c.launchAtLogin)
     }
@@ -30,6 +33,8 @@ final class ConfigTests: XCTestCase {
         c.fit = .fill
         c.speed = 2
         c.position = 0.25
+        c.background = .custom
+        c.backgroundColor = "#1E2A3B"
         c.pauseOnLowPower = false
         c.launchAtLogin = false
         let url = dir.appendingPathComponent("pixwall/config.json")
@@ -59,7 +64,30 @@ final class ConfigTests: XCTestCase {
         // 前の版の設定には launchAtLogin が無い。既定のオンにする
         XCTAssertTrue(c.launchAtLogin)
 
+        // 余白の色: 読めない色は選んでいないのと同じ。小文字は大文字にそろえる
+        try ##"{"background": "custom", "backgroundColor": "#12345"}"##.write(to: url, atomically: true, encoding: .utf8)
+        XCTAssertEqual(Config.load(from: url).background, .custom)
+        XCTAssertNil(Config.load(from: url).backgroundColor)
+        XCTAssertNil(Config.load(from: url).customBackground)
+        try ##"{"background": "rainbow", "backgroundColor": "#a0b0c0"}"##.write(to: url, atomically: true, encoding: .utf8)
+        XCTAssertEqual(Config.load(from: url).background, .auto)
+        XCTAssertEqual(Config.load(from: url).backgroundColor, "#A0B0C0")
+        XCTAssertNil(Config.load(from: url).customBackground)
+
         try "not json".write(to: url, atomically: true, encoding: .utf8)
         XCTAssertEqual(Config.load(from: url), Config())
+    }
+
+    func testCustomBackground() {
+        var c = Config()
+        c.backgroundColor = "#FF8000"
+        // 色を覚えていても、auto なら使わない
+        XCTAssertNil(c.customBackground)
+        c.background = .custom
+        XCTAssertEqual(c.customBackground, RGB(r: 255, g: 128, b: 0))
+        XCTAssertEqual(hex(rgb: RGB(r: 1, g: 2, b: 300)), "#0102FF")
+        XCTAssertNil(rgb(hex: "FF8000"))
+        XCTAssertNil(rgb(hex: "#GG8000"))
+        XCTAssertNil(rgb(hex: "#-FFFFF"))
     }
 }

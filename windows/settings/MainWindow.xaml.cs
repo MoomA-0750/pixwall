@@ -52,6 +52,8 @@ public sealed partial class MainWindow : Window
         PositionSlider.Value = Math.Round(config.Position * 100);
         PositionLabel.Text = PositionText(config.Position);
         PositionCard.Visibility = config.Fit != "integer" ? Visibility.Visible : Visibility.Collapsed;
+        BackgroundBox.SelectedIndex = config.Background == "custom" ? 1 : 0;
+        ShowBackgroundColor();
         LowPowerSwitch.IsOn = config.PauseOnLowPower;
         LoginSwitch.IsOn = config.LaunchAtLogin;
         PauseSwitch.IsOn = Resident.IsPaused;
@@ -202,6 +204,52 @@ public sealed partial class MainWindow : Window
         var position = Math.Round(e.NewValue) / 100;
         PositionLabel.Text = PositionText(position);
         Apply(config with { Position = position });
+    }
+
+    /// 自分で選ぶときだけ色のボタンを出し、今の色を見せる
+    private void ShowBackgroundColor()
+    {
+        var custom = config.Background == "custom";
+        ColorButton.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
+        if (!custom || config.BackgroundColor is null || Config.ParseColor(config.BackgroundColor) is not { } rgb) return;
+        var color = Windows.UI.Color.FromArgb(255, (byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
+        ColorSwatch.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(color);
+        var was = loading;
+        loading = true;
+        BackgroundPicker.Color = color;
+        loading = was;
+    }
+
+    private void Background_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (loading || BackgroundBox.SelectedIndex < 0 || config is null) return;
+        var custom = BackgroundBox.SelectedIndex == 1;
+        // 初めて自分で選ぶときは、今の自動の色から始める
+        var color = config.BackgroundColor;
+        if (custom && color is null) color = Config.FormatColor(Resident.AutoColor ?? 0);
+        Apply(config with { Background = custom ? "custom" : "auto", BackgroundColor = color });
+        ShowBackgroundColor();
+        RefreshPreviewSoon();
+    }
+
+    private void Background_ColorChanged(ColorPicker sender, ColorChangedEventArgs e)
+    {
+        if (loading || config is null) return;
+        var c = e.NewColor;
+        Apply(config with { BackgroundColor = Config.FormatColor(c.R << 16 | c.G << 8 | c.B) });
+        ColorSwatch.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(c);
+        RefreshPreviewSoon();
+    }
+
+    /// プレビューの透明なところにも余白の色が入るので、描き直す。常駐側が読み直してから頼むよう、少し待つ。
+    /// 色を選ぶ画面を動かしている間は、止まるまで待つ
+    private int previewRequests;
+
+    private async void RefreshPreviewSoon()
+    {
+        var mine = ++previewRequests;
+        await Task.Delay(300);
+        if (mine == previewRequests) _ = ShowPreview(config.Image, frame);
     }
 
     private void Speed_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)

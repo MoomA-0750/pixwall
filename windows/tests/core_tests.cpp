@@ -127,6 +127,8 @@ void TestConfig() {
     CHECK(ParseConfig("") == Config{});
     CHECK(ParseConfig("not json") == Config{});
     CHECK(ParseConfig("{}") == Config{});
+    // 先頭に BOM があっても読める
+    CHECK(ParseConfig("\xEF\xBB\xBF{\"fit\": \"fill\"}").fit == Fit::Fill);
 
     // Mac 版が書いた形をそのまま読める
     const Config mac = ParseConfig(R"({
@@ -161,7 +163,16 @@ void TestConfig() {
     c.pauseOnLowPower = false;
     c.launchAtLogin = false;
     c.position = 0.25;
+    c.customBackground = true;
+    c.backgroundColor = 0x1E2A3B;
     CHECK(ParseConfig(FormatConfig(c)) == c);
+    CHECK(FormatConfig(c).find("\"backgroundColor\" : \"#1E2A3B\"") != std::string::npos);
+    // 余白の色。前の版の設定には無く、既定は自動。読めない色は選んでいないのと同じ。小文字も読む
+    CHECK(!mac.customBackground && mac.backgroundColor == -1);
+    const Config color = ParseConfig(R"({"background": "custom", "backgroundColor": "#a0b0c0"})");
+    CHECK(color.customBackground && color.backgroundColor == 0xA0B0C0);
+    CHECK(ParseConfig(R"({"background": "rainbow", "backgroundColor": "#12345"})") == Config{});
+    CHECK(ParseHexColor("#GG0000") == -1 && ParseHexColor("FF0000") == -1 && ParseHexColor("#FF0000") == 0xFF0000);
     // 位置は 0〜1 に収める。前の版の設定には無く、既定の中央
     CHECK(Near(ParseConfig(R"({"position": -3})").position, 0));
     CHECK(Near(mac.position, 0.5));

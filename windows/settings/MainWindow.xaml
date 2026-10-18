@@ -116,9 +116,39 @@
                         <TextBlock Text="0 で上・左、100 で下・右" Style="{StaticResource CaptionTextBlockStyle}" />
                     </StackPanel>
                     <Slider x:Name="PositionSlider" AutomationProperties.Name="位置" Grid.Column="1" Width="180" Minimum="0" Maximum="100"
-                            StepFrequency="5" TickFrequency="50" TickPlacement="Outside" SnapsTo="StepValues" IsThumbToolTipEnabled="False"
+                            StepFrequency="1" TickFrequency="50" TickPlacement="Outside" SnapsTo="StepValues" IsThumbToolTipEnabled="False"
                             VerticalAlignment="Center" ValueChanged="Position_Changed" />
                     <TextBlock x:Name="PositionLabel" Grid.Column="2" VerticalAlignment="Center" TextAlignment="Right" />
+                </Grid>
+                <!-- 余白と、画像の透明なところの色 -->
+                <Grid Style="{StaticResource Card}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="余白の色" />
+                        <TextBlock Text="自動では画像の左上の色" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <!-- 自分で選ぶときだけ出す。押すと色を選ぶ画面が開く -->
+                    <Button x:Name="ColorButton" AutomationProperties.Name="色を選ぶ" Grid.Column="1" Padding="4"
+                            VerticalAlignment="Center" Visibility="Collapsed">
+                        <Border x:Name="ColorSwatch" Width="40" Height="20" CornerRadius="2"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" />
+                        <Button.Flyout>
+                            <Flyout>
+                                <ColorPicker x:Name="BackgroundPicker" IsAlphaEnabled="False" IsMoreButtonVisible="True"
+                                             ColorChanged="Background_ColorChanged" />
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                    <ComboBox x:Name="BackgroundBox" AutomationProperties.Name="余白の色" Grid.Column="2" MinWidth="140"
+                              VerticalAlignment="Center" SelectionChanged="Background_Changed">
+                        <ComboBoxItem Content="自動" />
+                        <ComboBoxItem Content="自分で選ぶ" />
+                    </ComboBox>
                 </Grid>
                 <Grid Style="{StaticResource Card}">
                     <Grid.ColumnDefinitions>

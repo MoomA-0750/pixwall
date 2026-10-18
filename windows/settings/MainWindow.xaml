@@ -66,6 +66,29 @@
                     <Image x:Name="Preview" Grid.Row="2" Grid.ColumnSpan="2" MaxHeight="160" Stretch="Uniform"
                            HorizontalAlignment="Center" Visibility="Collapsed" />
                 </Grid>
+                <!-- pixwall が動いていないときにも、同じ見た目を静止画で壁紙にできるように -->
+                <Grid Style="{StaticResource Card}" RowSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="静止画" />
+                        <TextBlock x:Name="FrameLabel" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <Button x:Name="ExportButton" Grid.Column="1" Content="静止画を書き出す…" Click="Export_Click"
+                            VerticalAlignment="Center" />
+                    <Slider x:Name="FrameSlider" AutomationProperties.Name="書き出す絵" Grid.Row="1" Grid.ColumnSpan="2"
+                            Minimum="0" Maximum="0" StepFrequency="1" ValueChanged="Frame_Changed" />
+                    <TextBlock x:Name="ExportResult" Grid.Row="2" Grid.ColumnSpan="2" Visibility="Collapsed"
+                               Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap" />
+                </Grid>
 
                 <TextBlock Text="表示" Style="{StaticResource Heading}" />
                 <Grid Style="{StaticResource Card}">

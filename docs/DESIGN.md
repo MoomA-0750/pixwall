@@ -44,10 +44,20 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - ロック・ユーザー切り替え: `WTSRegisterSessionNotification`
 - 省エネモード・バッテリー: `GUID_POWER_SAVING_STATUS`、`GUID_ACDC_POWER_SOURCE`
 
-### 静止画を書き出す
+### 静止画を描く（OS の壁紙と「静止画を書き出す」）
 
-- 設定画面（C#）から、常駐側と同じ並べ方の計算で PNG を描く。並べ方の計算は C++ と C# で二重に持たないよう、常駐側の C++ を小さな DLL（`pixwall-core.dll`）に分けて両方から呼ぶ。描くのは WIC の `IWICBitmap` へニアレストネイバーで、`IWICBitmapEncoder`（PNG）で書く
-- 保存先は WinUI 3 の `FileSavePicker`
+- 描くのは常駐側だけ。並べ方の計算と画素は `core` の `RenderStill`（最近傍、余白と透けたところは余白の色、Linux でもテストする）。書くのは WIC の PNG エンコーダー（24bit、`.tmp` に書いてから入れ替える）。`src/still.cpp`
+- 設定画面は、常駐側が読み込んでいるフレーム（GIF の重ね方を当てた絵）をそのまま使いたいので、自分で描かずに `WM_COPYDATA` で頼む: 6 = 書き出す（「フレームの番号\n保存先」）、7 = プレビューを描く（「フレームの番号\n長い辺の上限\n保存先」、上限に収まる整数倍）、8 = フレームの数。中身は UTF-16。C# と C++ に並べ方の計算を二重に持たずに済む
+- 保存先は WinUI 3 の `FileSavePicker`。既定の名前の主の画面の大きさは `DisplayArea.Primary`
+- Native AOT では、`FileTypeChoices.Add` にコレクション式（`[".png"]`）を渡すと落ちる（`0x80004002`、WinRT のインターフェイスが作られない）。`new List<string>` を渡す
+
+### OS の壁紙
+
+- `IDesktopWallpaper` で、画面（`GetMonitorDevicePathAt`）ごとに `GetMonitorRECT` の大きさの PNG を `%LOCALAPPDATA%\pixwall\desktop` に描いて `SetWallpaper`、置き方は `SetPosition(DWPOS_CENTER)`（拡大しない）。同じ名前だと Explorer が前の絵を使い回すことがあるので、名前に時刻を入れる
+- 入れる前の壁紙のパスと置き方は `desktop\original.txt`（画面の ID<TAB>パス）に書く。自分の PNG が入っている画面は覚え直さない（落ちて戻せなかったとき）
+- 窓を作り直すたび（`Rebuild`）に入れる。画像・並べ方・余白の色・画面の大きさの印が前と同じで、自分の PNG が入ったままなら何もしない
+- 戻すのは `WM_DESTROY`（`taskkill`・「pixwall を終了」）と、画像が無くなったとき。今の壁紙が自分の PNG の画面だけ戻す。置き方は、自分の中央のままなら戻す
+- 戻せなかった画面（つないでいない）は `original.txt` に残す。PNG は、どれかの画面（つないでいない画面も含む）の壁紙になっている間は消さない。置き方は全画面で1つなので、中央（自分の置き方）は前に覚えた値を優先する
 
 ### 設定画面とのやり取り
 
@@ -87,11 +97,14 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ### OS の壁紙に1枚目を入れる
 
-- 1枚目を、窓に描くのと同じ並べ方で画面の物理ピクセルの大きさの `CGContext`（`interpolationQuality = .none`）に描き、`~/Library/Application Support/pixwall/desktop/<画面のID>-<解像度>.png` に書く
-- `NSWorkspace.shared.setDesktopImageURL(_:for:options:)` で、その画面に入れる。`options` は拡大なし（`imageScaling = .scaleNone` 相当）
-- 入れる前に `desktopImageURL(for:)` と `desktopImageOptions(for:)` を `config.json` に覚え、外したとき・終えたとき（`applicationWillTerminate`）に戻す。落ちて戻せなかったときは、次に起動したときに覚えた値を見て判断する
-- 設定画面の「静止画を書き出す」も同じ描き方を使い、保存先だけ `NSSavePanel` で選ぶ。OS の壁紙は変えない
-- 確かめること: macOS の版によっては、今の操作スペースにしか入らない。すべての操作スペースに入るかを MacBook Air M1 で見る。入らなければ、操作スペースが切り替わったとき（`NSWorkspace.activeSpaceDidChangeNotification`）に入れ直す
+- 1枚目を、窓に描くのと同じ並べ方で画面の物理ピクセルの大きさの `CGContext`（`interpolationQuality = .none`）に描き（`StillImage.render`）、`~/Library/Application Support/pixwall/desktop/<画面の UUID>-<幅>x<高さ>-<時刻>.png` に書く。同じ名前だと OS が前の絵を使い回すので、時刻を入れる
+- `NSWorkspace.shared.setDesktopImageURL(_:for:options:)` で、その画面に入れる。画面の大きさちょうどに描いたので `imageScaling = .scaleAxesIndependently`（物理ピクセルで 1 対 1）。余白の色も渡す（`OsWallpaper.swift`）
+- 入れる前の `desktopImageURL(for:)` と `desktopImageOptions(for:)` を `desktop/original.json` に覚える（`config.json` は設定画面のプロセスも書くので別にする）
+- **写真・ダイナミック・空撮などの壁紙は `desktopImageURL` では読めない**（`/System/Library/CoreServices/DefaultDesktop.heic` と返り、それを入れ直すと別の絵になる）。また、入れるのは今の操作スペースだけで、ほかの操作スペースの壁紙を替える方法が無い。そこで、入れるたびに macOS の壁紙の設定ファイル（`~/Library/Application Support/com.apple.wallpaper/Store/Index.plist`、WallpaperAgent が読む）を `desktop/wallpaper-store.plist` に控える。控えは項目ごと（`Spaces` の下の操作スペースごとと、`SystemDefault`・`Displays`・`AllSpacesAndDisplays` の上の段の項目ごと）で、自分の PNG（`/pixwall/desktop/` の文字）を含まない項目だけを写す。戻すときは、自分の PNG を含む項目だけを控えの値にし、控えが無い項目は中の `Desktop` の `Content` だけを本人の壁紙（一番目の操作スペースの控え）に差し替える。項目は消さない（消すと WallpaperAgent が設定ファイル全部を初期の状態に作り直す）。項目がそろわない・自分の PNG が残るときは書かない。書いたら `killall WallpaperAgent`（launchd がすぐ起こし直し、そのときに読む）。組み替えは `PixwallCore.WallpaperStore`。公開されていないファイルなので、無ければ `original.json` で今の操作スペースだけ戻す
+- PNG は、設定ファイルとその控えが名前を挙げている間は消さない（ほかの操作スペースの壁紙になったままのことがある）
+- 窓を作り直すたびと、操作スペースが切り替わったとき（`activeSpaceDidChangeNotification`）に入れる。画像・並べ方・画面の大きさの印が前と同じで、自分の PNG が入ったままなら何もしない
+- 戻すのは `applicationWillTerminate`（⌘Q・「pixwall を終了」）と、画像が無くなったとき。`NSWorkspace.willPowerOffNotification`（ログアウト・再起動）のあとは戻さない。`pkill`（SIGTERM）では `applicationWillTerminate` が呼ばれないので戻らず、次に起動して終えたときに戻る
+- 設定画面の「静止画を書き出す」も同じ描き方（`StillImage.export`）を使い、保存先だけ `NSSavePanel` で選ぶ。OS の壁紙は変えない。プレビューは ImageIO が重ね方を当てたフレームをそのまま出す
 
 ### 描く
 

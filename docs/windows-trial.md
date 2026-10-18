@@ -43,9 +43,10 @@ ssh から入れるときは、ssh のセッションには画面が無いので
 - タスクバーにも Alt+Tab にも pixwall が出ない
 - ドットがぼやけていない（表示スケール 100% と 150% などで、ドットの大きさが物理ピクセルでそろう）
 - 解像度を変えたら描き直す。Explorer を作り直しても（タスクマネージャーで再起動）付け直す
-- 終えたら OS の壁紙に戻る
+- 動かしている間は OS の壁紙も1枚目になっている（`%LOCALAPPDATA%\pixwall\desktop` に PNG と `original.txt`。`taskkill /f` で落とすと見える）。`taskkill`（`/f` なし）で終えると元の壁紙と置き方に戻り、`desktop` の中が空になる。`taskkill /f` で落としてから起動し直して終えても元に戻る。動かしている間に壁紙を替えると、終えたあともその壁紙のまま
+- 設定画面の「静止画を書き出す…」で、書き出す絵のつまみで選んだ枚が、画面の大きさの PNG に書かれる（既定の名前は `<画像の名前>-<幅>x<高さ>.png`）。保存の画面は `windows\tools\save-default.ps1` で、名前を変えずに「保存」を押せる
 - 設定画面: スタートメニューから開き直すと出る。2回開いても1つだけ。並べ方・速さ・一時停止・省エネモード・ログイン時に起動を変えるとすぐ壁紙と `config.json`（ログイン時に起動は Run）に反映する。読めない画像を選ぶと「読めませんでした」と出て、設定は変わらない。「pixwall を終了」で壁紙も設定画面も終わる。`config.json` が無い・画像が無いときは、起動すると設定画面が出る
-- 設定画面は、画面のあるセッションで `windows\tools\settings-ui.ps1`（部品を名前で動かす。例 `-Fit fill`、`-Toggle 一時停止`、`-Speed 2`、`-Button 表示を更新`）と `windows\tools\pick-file.ps1 -Path <画像>`（開いているファイルを選ぶ画面で選ぶ）で動かせる。止まったか・速さが変わったかは `windows\tools\cycles.ps1`（10 秒のサイクル数）で見る
+- 設定画面は、画面のあるセッションで `windows\tools\settings-ui.ps1`（部品を名前で動かす。例 `-Fit fill`、`-Toggle 一時停止`、`-Speed 2`、`-Frame 16`、`-Button 表示を更新`）と `windows\tools\pick-file.ps1 -Path <画像>`（開いているファイルを選ぶ画面で選ぶ）で動かせる。止まったか・速さが変わったかは `windows\tools\cycles.ps1`（10 秒のサイクル数）で見る
 - 起動したあと、`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` の `pixwall` に exe と画像のパスが入っている。サインアウトしてサインインし直すと pixwall が始まる。外すときは `reg delete HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v pixwall /f`
 
 ## リソースを測る

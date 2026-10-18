@@ -33,6 +33,41 @@ PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHei
     return {(screenWidth - width) / 2, (screenHeight - height) / 2, width, height};
 }
 
+std::vector<uint8_t> RenderStill(const uint8_t* frame, int imageWidth, int imageHeight,
+                                 int canvasWidth, int canvasHeight, Fit fit,
+                                 uint8_t r, uint8_t g, uint8_t b) {
+    if (canvasWidth <= 0 || canvasHeight <= 0) return {};
+    std::vector<uint8_t> out(static_cast<size_t>(canvasWidth) * canvasHeight * 4);
+    for (size_t i = 0; i < out.size(); i += 4) {
+        out[i] = b;
+        out[i + 1] = g;
+        out[i + 2] = r;
+        out[i + 3] = 255;
+    }
+    const PixelRect rect = Layout(imageWidth, imageHeight, canvasWidth, canvasHeight, fit);
+    if (rect.width <= 0 || rect.height <= 0 || !frame) return out;
+    const int x0 = std::max(0, rect.x);
+    const int y0 = std::max(0, rect.y);
+    const int x1 = std::min(canvasWidth, rect.x + rect.width);
+    const int y1 = std::min(canvasHeight, rect.y + rect.height);
+    for (int y = y0; y < y1; ++y) {
+        // 画素の中心が入る元の画素を選ぶ
+        const int sy = static_cast<int>((static_cast<long long>(y - rect.y) * 2 + 1) * imageHeight / (rect.height * 2LL));
+        const uint8_t* srcRow = frame + static_cast<size_t>(sy) * imageWidth * 4;
+        uint8_t* dst = out.data() + (static_cast<size_t>(y) * canvasWidth + x0) * 4;
+        for (int x = x0; x < x1; ++x, dst += 4) {
+            const int sx = static_cast<int>((static_cast<long long>(x - rect.x) * 2 + 1) * imageWidth / (rect.width * 2LL));
+            const uint8_t* src = srcRow + static_cast<size_t>(sx) * 4;
+            // premultiplied なので、余白の色を (1 - a) だけ足す
+            const int keep = 255 - src[3];
+            dst[0] = static_cast<uint8_t>(src[0] + (b * keep + 127) / 255);
+            dst[1] = static_cast<uint8_t>(src[1] + (g * keep + 127) / 255);
+            dst[2] = static_cast<uint8_t>(src[2] + (r * keep + 127) / 255);
+        }
+    }
+    return out;
+}
+
 double FrameDelay(double written, double speed) {
     const double delay = written <= 0.01 ? 0.1 : written;
     return delay / std::clamp(speed, 0.25, 4.0);

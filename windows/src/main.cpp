@@ -10,6 +10,7 @@
 #include <wrl/client.h>
 #include <wtsapi32.h>
 
+#include <algorithm>
 #include <fstream>
 #include <memory>
 #include <sstream>
@@ -20,6 +21,7 @@
 #include "core.h"
 #include "desktop.h"
 #include "image_loader.h"
+#include "still.h"
 #include "wall_window.h"
 
 using Microsoft::WRL::ComPtr;
@@ -46,6 +48,9 @@ enum Request : ULONG_PTR {
     kSetPaused = 3,     // lpData の 1 バイト目が 0 以外なら一時停止
     kQuit = 4,          // 終わる
     kIsPaused = 5,      // 一時停止しているか。している 2、していない 1 を返す
+    kExportStill = 6,   // 静止画を書き出す。lpData は UTF-16 の「フレームの番号\n保存先」。できたら 1
+    kRenderPreview = 7, // プレビューを描く。lpData は UTF-16 の「フレームの番号\n長い辺の上限（画素）\n保存先」。上限に収まる整数倍で描く。できたら 1
+    kFrameCount = 8,    // 動かしている画像のフレームの数を返す（無ければ 0）
 };
 
 struct App {
@@ -55,6 +60,7 @@ struct App {
     LoadedImage image;
     Color background;
     std::vector<std::unique_ptr<WallWindow>> windows;
+    OsWallpaper osWallpaper;
     HWND messageWindow = nullptr;
     UINT taskbarCreated = 0;
     int retries = 0;
@@ -81,6 +87,10 @@ Color TopLeftColor(const LoadedImage& image) {
     if (a <= 0) return {0, 0, 0, 1};
     return {p[2] / 255.0f / a, p[1] / 255.0f / a, p[0] / 255.0f / a, 1};
 }
+
+std::wstring Wide(const std::string& s);
+
+uint8_t Byte(float v) { return static_cast<uint8_t>(std::clamp(v, 0.0f, 1.0f) * 255 + 0.5f); }
 
 void Rebuild();
 
@@ -129,7 +139,8 @@ void Advance() {
 void Rebuild() {
     app.windows.clear();
     if (app.image.frames.empty()) {
-        // 画像をまだ選んでいない・読めない。OS の壁紙のまま
+        // 画像をまだ選んでいない・読めない。OS の壁紙のまま（入れ替えていたら戻す）
+        app.osWallpaper.Restore();
         UpdateRunning();
         return;
     }
@@ -165,6 +176,9 @@ void Rebuild() {
         if (w->ok()) app.windows.push_back(std::move(w));
     }
     UpdateRunning();
+    // OS の壁紙にも1枚目を入れる（タスク ビューや Explorer の作り直しの間、壁紙が見えたときも同じ絵になる）
+    app.osWallpaper.Apply(app.wic.Get(), app.image, Wide(app.config.image), app.config.fit, Byte(app.background.r),
+                          Byte(app.background.g), Byte(app.background.b));
     // 起動と作り直しで触ったメモリ（ほとんどはドライバーの初期化）を手放す。
     // 動いている間に触るのは 1MB ほどで、to-fu ではプライベート ワーキング セットが 11.6MB から 1MB 未満になった
     SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1));
@@ -178,6 +192,18 @@ void ScheduleRebuild(HWND hwnd) {
 std::wstring ConfigPath();
 Config LoadConfig(const std::wstring& path);
 void ApplyConfig(const Config& next);
+
+// WM_COPYDATA の UTF-16 の中身を、改行で分ける
+std::vector<std::wstring> Lines(const COPYDATASTRUCT* data) {
+    std::wstring text(static_cast<const wchar_t*>(data->lpData), data->cbData / sizeof(wchar_t));
+    std::vector<std::wstring> lines;
+    size_t start = 0;
+    for (size_t nl; (nl = text.find(L'\n', start)) != std::wstring::npos; start = nl + 1) {
+        lines.push_back(text.substr(start, nl - start));
+    }
+    lines.push_back(text.substr(start));
+    return lines;
+}
 
 LRESULT OnRequest(const COPYDATASTRUCT* data) {
     switch (data->dwData) {
@@ -197,6 +223,29 @@ LRESULT OnRequest(const COPYDATASTRUCT* data) {
             return 1;
         case kIsPaused:
             return app.pause.userPaused ? 2 : 1;
+        case kExportStill: {
+            const auto lines = Lines(data);
+            if (lines.size() < 2) return 0;
+            return ExportStill(app.wic.Get(), app.image, Wide(app.config.image), _wtoi(lines[0].c_str()),
+                               app.config.fit, Byte(app.background.r), Byte(app.background.g),
+                               Byte(app.background.b), lines[1])
+                       ? 1
+                       : 0;
+        }
+        case kRenderPreview: {
+            const auto lines = Lines(data);
+            if (lines.size() < 3 || app.image.frames.empty()) return 0;
+            const size_t frame = std::min<size_t>(_wtoi(lines[0].c_str()), app.image.frames.size() - 1);
+            const int scale = std::max(1, _wtoi(lines[1].c_str()) / std::max(app.image.width, app.image.height));
+            const int w = app.image.width * scale;
+            const int h = app.image.height * scale;
+            const auto still = RenderStill(app.image.frames[frame].data(), app.image.width, app.image.height, w, h,
+                                           Fit::Integer, Byte(app.background.r), Byte(app.background.g),
+                                           Byte(app.background.b));
+            return WritePng(app.wic.Get(), lines[2], still, w, h) ? 1 : 0;
+        }
+        case kFrameCount:
+            return static_cast<LRESULT>(app.image.frames.size());
         default:
             return 0;
     }
@@ -255,6 +304,8 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             DestroyWindow(hwnd);
             return 0;
         case WM_DESTROY:
+            // OS の壁紙を戻す。ログオフ・シャットダウンで終わるときは戻さない（次に始まったときも同じ絵を入れるので）
+            app.osWallpaper.Restore();
             PostQuitMessage(0);
             return 0;
         default:

@@ -20,6 +20,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// imagePath は起動の引数で渡された画像。あれば設定より優先して、設定にも書く
     private let imagePath: String?
+    private let osWallpaper = OsWallpaper()
+    /// ログアウト・再起動・電源を切るところ。OS の壁紙は戻さない（次に始まったときも同じ絵を入れるので）
+    private var poweringOff = false
 
     init(imagePath: String?) {
         config = Config.load(from: Resident.configURL)
@@ -42,6 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         windows.forEach { $0.stop() }
+        if !poweringOff { osWallpaper.restore() }
     }
 
     /// もう一度起動された（Finder・Launchpad・Spotlight・open から）
@@ -92,13 +96,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func rebuild() {
         windows.forEach { $0.stop() }
         windows = []
-        guard let image else { return }
+        guard let image, let path = config.image else {
+            // 画像をまだ選んでいない・読めない。OS の壁紙も入れ替えていたら戻す
+            osWallpaper.restore()
+            return
+        }
         windows = NSScreen.screens.map { screen in
             let w = WallpaperWindow(screen: screen, image: image, fit: config.fit, speed: config.speed)
             w.sharedPause = pause
             return w
         }
         windows.forEach { $0.start() }
+        // OS の壁紙にも1枚目を入れる（Mission Control・メニューバーの色・操作スペースの切り替えで見える）
+        osWallpaper.apply(image, imagePath: path, fit: config.fit)
         updateCoverageWatch()
         checkCoverage()
     }
@@ -161,6 +171,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
             ws.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.regularApps = nil }
+        }
+        // OS の壁紙は操作スペースごとのことがある。切り替えた先にまだ入っていなければ入れる
+        ws.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) {
+            [weak self] _ in
+            guard let self, let image = self.image, let path = self.config.image, !self.windows.isEmpty else { return }
+            self.osWallpaper.apply(image, imagePath: path, fit: self.config.fit)
+        }
+        ws.addObserver(forName: NSWorkspace.willPowerOffNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.poweringOff = true
         }
         ws.addObserver(forName: NSWorkspace.screensDidSleepNotification, object: nil, queue: .main) { [weak self] _ in
             self?.pause.screensAsleep = true

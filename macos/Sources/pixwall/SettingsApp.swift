@@ -21,8 +21,9 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.mainMenu = makeMainMenu()
         model.paused = startPaused
-        if let image = saved.image, AnimatedImage(url: URL(fileURLWithPath: image)) == nil {
-            model.loadError = image
+        if let image = saved.image {
+            model.image = AnimatedImage(url: URL(fileURLWithPath: image))
+            if model.image == nil { model.loadError = image }
         }
         model.loginItemNeedsApproval = Resident.updateLoginItem(saved.launchAtLogin)
         model.onChange = { [weak self] in self?.apply($0) }
@@ -55,13 +56,15 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
         if new == saved { return }
         if new.image != saved.image, let image = new.image {
             // 読めない画像は設定に書かない。壁紙はそのまま
-            guard AnimatedImage(url: URL(fileURLWithPath: image)) != nil else {
+            guard let loaded = AnimatedImage(url: URL(fileURLWithPath: image)) else {
                 model.loadError = image
                 let saved = self.saved
                 DispatchQueue.main.async { [weak self] in self?.model.config = saved }
                 return
             }
             model.loadError = nil
+            model.image = loaded
+            model.exportResult = nil
         }
         saved = new
         try? new.save(to: Resident.configURL)

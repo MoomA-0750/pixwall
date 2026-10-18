@@ -13,21 +13,27 @@
 
 WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れない。
 
+ビルドは CMake（`windows/CMakeLists.txt`）。OS に触らない計算（並べ方・待ち時間・止める条件・GIF の重ね方）は `windows/core/` に分け、Windows でも Linux の g++ でも単体テストできるようにする。試し方は `docs/windows-trial.md`。
+
 ### 壁紙の後ろに窓を出す
 
-- `Progman` に `0x052C` を送って `WorkerW` を作らせ、その子にした窓へ描く（Lively Wallpaper などと同じやり方）
-- **Windows 11 24H2 から並びが変わった**: `WorkerW` が `Progman` の子になり、アイコンの `SHELLDLL_DefView` との前後も違う。古い並び（`WorkerW` が最上位）と新しい並びの両方を探して、アイコンより後ろに入れる。to-fu の版で先に確かめる
-- Explorer が落ちて作り直されたら（`TaskbarCreated` のメッセージ）、窓を付け直す
-- 窓は `WS_EX_NOACTIVATE | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW` でマウスを素通しし、タスクバーにも Alt+Tab にも出さない
+- `Progman` に `0x052C`（wParam `0xD`、lParam `1`）を送って `WorkerW` を作らせ、その子にした窓へ描く（Lively Wallpaper などと同じやり方）
+- **Windows 11 24H2 から並びが変わった**: `WorkerW` が `Progman` の子になり、アイコンの `SHELLDLL_DefView` との前後も違う。古い並び（`WorkerW` が最上位）と新しい並びの両方を探して、アイコンより後ろに入れる。新しい並びは `Progman` に `SHELLDLL_DefView` と `WorkerW` の両方の子があることで見分け、`Progman` の子にして `SHELLDLL_DefView` のすぐ後ろ（`WorkerW` より手前）に入れる。古い並びは `SHELLDLL_DefView` を子に持つ最上位の窓の次の `WorkerW` の子にする。to-fu（26H2、ビルド 26300）で、新しい並びの位置に入ることを確かめた
+- **24H2 の `Progman` は `WS_EX_NOREDIRECTIONBITMAP`**: 子の窓の絵を受け止める面を持たないので、ふつうの子の窓に GDI や `ID2D1HwndRenderTarget` で描いても画面に出ない。pixwall の窓は DirectComposition で絵を渡すので出る（窓も `WS_EX_NOREDIRECTIONBITMAP`）
+- Explorer が落ちて作り直されたら（`TaskbarCreated` のメッセージ）、窓を付け直す。作り直された直後はアイコンの窓も `WorkerW` もまだ無いことがあるので、見つからなければ 1 秒ごとに最大 30 回探し直す
+- 窓は `WS_CHILD` の子窓で、`WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW`、`WM_NCHITTEST` に `HTTRANSPARENT` を返してマウスを素通しする。子窓はタスクバーにも Alt+Tab にも出ない
+- OS の通知（`WM_DISPLAYCHANGE`・電源・セッション）は、表示しない最上位の窓（`WS_EX_TOOLWINDOW`）で受ける。子窓や message-only の窓には `WM_DISPLAYCHANGE` が来ないため
 - 画面ごとに1枚の窓。大きさは作業領域（`rcWork`）ではなく画面全体（`MONITORINFO.rcMonitor`）にして、タスクバーの下も描く
 - 窓は Per-Monitor V2 の DPI 対応にして、物理ピクセルで大きさと倍率を決める
-- 解像度などの変化: `WM_DISPLAYCHANGE`・`WM_DPICHANGED`・`WM_SETTINGCHANGE`（`SPI_SETWORKAREA`）を受けたら、少し（200ms ほど）待って変化が落ち着いてから、`EnumDisplayMonitors` で画面を数え直し、窓の大きさ・スワップチェーン（`ResizeBuffers`）・倍率を作り直して1回描く。フレームの絵は元の大きさで持っているので読み直さない
+- 解像度などの変化: `WM_DISPLAYCHANGE`・`WM_DPICHANGED`・`WM_SETTINGCHANGE`（`SPI_SETWORKAREA`）を受けたら、少し（200ms ほど）待って変化が落ち着いてから、`EnumDisplayMonitors` で画面を数え直し、窓ごと作り直す。フレームの絵は元の大きさで持っているので読み直さない
 - 手での更新: 設定画面やトレイのメニューから `WM_COPYDATA` で「表示を更新」を送ると、上と同じ作り直しに加えて `WorkerW` も探し直す
 
 ### 描く
 
-- WIC で GIF を全フレーム読み、GIF の重ね方（disposal）を当てて元の大きさの完成した絵にしてから、`ID2D1Bitmap` で GPU に置く
-- 描くのは `ID2D1DeviceContext::DrawBitmap` を `D2D1_INTERPOLATION_MODE_NEAREST_NEIGHBOR` で。フリップモデルのスワップチェーンで、フレームが変わったときだけ `Present`
+- WIC で GIF を全フレーム読み、GIF の重ね方（disposal）を当てて元の大きさの完成した絵にする。重ね方は `core` の `GifCompositor`（WIC は GIF のフレームを重ねずに返すため）。`Background` は背景色ではなく透明に戻す（ブラウザと同じ）
+- **DirectComposition の面を差し替える**（Mac の `CALayer.contents` の差し替えと同じ）: 最初に全フレームを、元の大きさのまま `IDCompositionSurface`（premultiplied）にして GPU に置く。絵が変わる瞬間には、絵の visual の `SetContent` で面を差し替えて `Commit` するだけで、Direct3D の描画も `Present` もしない。拡大は visual の変換（拡大と位置）で行い、`SetBitmapInterpolationMode(NEAREST_NEIGHBOR)` と `SetBorderMode(HARD)` でぼかさない。余白は 1×1 の面を画面いっぱいに広げた visual を絵の下に置く
+- Direct3D 11 の装置は全画面で1つ（`Gpu`）。`SINGLETHREADED` と `PREVENT_INTERNAL_THREADING_OPTIMIZATIONS` を付ける。GPU が失われたら（`GetDeviceRemovedReason`）装置から作り直す。GPU が使えないときは WARP
+- 今は窓ごとに面を作るので、フレームの面も窓（画面）の数だけ GPU に置く。画面ごとに別の画像になれば同じことなので、そのままにする。全画面に同じ画像のとき、タイマーは1つで全部の窓を進める
 - 次のフレームまでは `CreateWaitableTimerEx`（高精度）で待ち、`MsgWaitForMultipleObjectsEx` でメッセージと一緒に眠る
 
 ### 止める
@@ -50,13 +56,13 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ## Mac 版
 
-1つのアプリ（Swift）。`Info.plist` の `LSUIElement = YES` で Dock とアプリの切り替えに出さない。
+1つのアプリ（Swift）。Xcode のプロジェクトは持たず、SwiftPM（`macos/Package.swift`）でビルドし、`macos/build-app.sh` で `.app` に包んで ad-hoc 署名する。OS に触らない計算（並べ方・待ち時間・止める条件）は `PixwallCore` に分けて XCTest で確かめ、AppKit を使う部分は `pixwall` に置く。試し方は `docs/macos-trial.md`。`Info.plist` の `LSUIElement = YES` で Dock とアプリの切り替えに出さない。
 
 ### 壁紙の後ろに窓を出す
 
 - 画面ごとに枠なしの `NSWindow`。`level` は `CGWindowLevelForKey(.desktopWindow)`、`collectionBehavior` は `[.canJoinAllSpaces, .stationary, .ignoresCycle]`、`ignoresMouseEvents = true`
 - **メニューバーの下も描く**: 窓の大きさは `visibleFrame` ではなく `NSScreen.frame` にする。`NSWindow` はふつう、窓がメニューバーにかからないように位置を直してしまう（ほかのアプリでメニューバーの下が描かれないのはたぶんこれ）。`constrainFrameRect(_:to:)` を上書きして、渡された枠をそのまま返す。ノッチのある画面も `frame` で全体を覆う
-- 描いたあと、メニューバーが透明な設定でメニューバーの下に絵が見えるかを、MacBook Air M1 で確かめる。見えなければ窓の `level` を変えて試す（`docs/decisions.md` に結果を書く）
+- `level` は `desktopWindow` のままで、メニューバーの下・Dock の下まで絵が見え、デスクトップのウィジェットとアイコンは手前に出ることを MacBook Air M1（macOS 27）で確かめた
 - 解像度などの変化: `NSApplication.didChangeScreenParametersNotification` と、窓ごとの `NSWindow.didChangeBackingPropertiesNotification` を受けたら、少し待ってから画面を数え直し、窓の枠・`contentsScale`・倍率を作り直して1回描く
 - 手での更新: 設定画面とメニューバーのメニューの「表示を更新」で、上と同じ作り直しをする
 
@@ -71,12 +77,14 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 ### 描く
 
 - ImageIO（`CGImageSourceCreateWithURL`）で全フレームを `CGImage` にして持つ。待ち時間は `kCGImagePropertyGIFUnclampedDelayTime` など
-- `CALayer` の `contents` を差し替えるだけで描く。`magnificationFilter = .nearest`
+- `CALayer` の `contents` を差し替えるだけで描く。`magnificationFilter = .nearest`。差し替えたときの既定のふわっとした切り替えは `actions` で切る
+- 窓の root の layer は layer-hosting（`view.layer` を先に渡してから `wantsLayer`）にして、AppKit に中身を描かせない
 - 次のフレームまでは `DispatchSourceTimer`（`leeway` を少し付けて、まとめて起こしてもらう）
 
 ### 止める
 
-- 隠れているか: `NSWindow.occlusionState` の `.visible`（`didChangeOcclusionStateNotification`）
+- 隠れているか: `NSWindow.occlusionState` の `.visible`（`didChangeOcclusionStateNotification`）。全画面（別の操作スペース）はこれで分かる
+- 最大化した窓の後ろ: `occlusionState` は、メニューバーと Dock のまわりが見えていると `.visible` のままになる。そこで `CGWindowListCopyWindowInfo` でほかの窓の位置を読み（位置と大きさだけなら画面収録の許可は要らない）、画面の `visibleFrame` を覆っているかを `PixwallCore.isCovered` で決める。数えるのは、Dock に出るアプリ（`activationPolicy == .regular`）の layer 0 の窓だけ。3 秒ごとと、`NSWorkspace` のアプリ・操作スペースの切り替えの通知で見る。ほかの理由で止めている間は見ない
 - 画面の消灯: `NSWorkspace.screensDidSleepNotification` / `screensDidWakeNotification`
 - ロック: `com.apple.screenIsLocked` / `com.apple.screenIsUnlocked`（分散通知）
 - 低電力モード: `ProcessInfo.isLowPowerModeEnabled`、`NSProcessInfoPowerStateDidChange`
@@ -84,7 +92,8 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ### 設定画面
 
-- SwiftUI の `Window` シーン。もう一度起動されたら（`applicationShouldHandleReopen`）出す。開いている間だけ `NSApp.setActivationPolicy(.regular)` にして Dock に出し、閉じたら `.accessory` に戻す
+- 中身は SwiftUI（`SettingsView`、`Form` の grouped）。入れ物は AppKit の `NSWindow` + `NSHostingController` にした（SwiftUI の `Window` シーンにすると App のライフサイクルを SwiftUI に渡すことになり、`main.swift` で決めている起動の流れと Dock の出し入れを扱いにくいため）。もう一度起動されたら（`applicationShouldHandleReopen`）出す。開いている間だけ `NSApp.setActivationPolicy(.regular)` にして Dock に出し、閉じたら（`windowWillClose`）`.accessory` に戻す
+- 設定を変えると、`config.json` に書いて、画像が変わったときだけ読み直し、窓を作り直す
 - メニューバーのアイコンは `MenuBarExtra`（設定で出したときだけ）
 - ログイン時の起動は `SMAppService.mainApp`
 

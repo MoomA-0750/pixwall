@@ -20,6 +20,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.fit, .integer)
         XCTAssertEqual(c.speed, 1)
         XCTAssertTrue(c.pauseOnLowPower)
+        XCTAssertTrue(c.launchAtLogin)
     }
 
     func testRoundTrip() throws {
@@ -28,6 +29,7 @@ final class ConfigTests: XCTestCase {
         c.fit = .fill
         c.speed = 2
         c.pauseOnLowPower = false
+        c.launchAtLogin = false
         let url = dir.appendingPathComponent("pixwall/config.json")
         try c.save(to: url)
         XCTAssertEqual(Config.load(from: url), c)
@@ -51,6 +53,8 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.fit, .integer)
         XCTAssertEqual(c.speed, 4)
         XCTAssertEqual(c.image, "/x.gif")
+        // 前の版の設定には launchAtLogin が無い。既定のオンにする
+        XCTAssertTrue(c.launchAtLogin)
 
         try "not json".write(to: url, atomically: true, encoding: .utf8)
         XCTAssertEqual(Config.load(from: url), Config())

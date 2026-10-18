@@ -10,6 +10,8 @@ public struct Config: Codable, Equatable {
     public var speed: Double = 1
     /// 低電力モードのときに止める
     public var pauseOnLowPower = true
+    /// ログインしたときに自動で始める
+    public var launchAtLogin = true
 
     public init() {}
 
@@ -22,6 +24,7 @@ public struct Config: Codable, Equatable {
         fit = (try? c.decodeIfPresent(Fit.self, forKey: .fit)) ?? d.fit
         speed = min(max((try? c.decodeIfPresent(Double.self, forKey: .speed)) ?? d.speed, 0.25), 4)
         pauseOnLowPower = (try? c.decodeIfPresent(Bool.self, forKey: .pauseOnLowPower)) ?? d.pauseOnLowPower
+        launchAtLogin = (try? c.decodeIfPresent(Bool.self, forKey: .launchAtLogin)) ?? d.launchAtLogin
     }
 
     /// 無い・壊れているときは既定の設定

@@ -122,3 +122,10 @@
   - 読み込みのあとに `malloc_zone_pressure_relief` を呼んでも footprint は変わらなかったのでやめた
 - メモリ: footprint 11MB のうち、malloc が 5〜6MB（使っているのは 2.6MB で、残りは断片）、ライブラリの書き換え済みのページが 2MB ほど。Windows のように使わないページを手放す仕組みは macOS には無く（footprint は圧縮されたページも数える）、AppKit と SwiftUI を読み込むだけでこのくらいになる。目安の 30MB には十分収まるので、これ以上は追わない
 - Windows との比べ: 1 回の描き替えあたり Mac 約 0.28ms、Windows（to-fu）約 0.17ms。1倍速で測り直すと、Mac は 60 秒で 0.21 秒（1 コアの約 0.35%）で、Windows（約 0.17%）の約 2 倍。footprint は 11MB で同じ
+
+## 2026-10-18 ログイン時に起動する
+
+- Mac は `SMAppService.mainApp` で入れる。ad-hoc 署名の `~/Applications/pixwall.app` でも、システム設定の「ログイン時に開く」に pixwall.app が出た（MacBook Air M1）
+- システム設定で本人が切ったとき（`requiresApproval`）に起動のたびに入れ直すと、本人の決めたことを上書きするので入れ直さない。代わりに設定画面にそのことと、システム設定を開くボタンを出す
+- Windows はまだ設定画面も `config.json` も無く、画像は起動の引数でしか渡せない。そこで起動するたびに、今の exe と画像の絶対パスを Run に書く。切る場所が無いのは、設定画面を作るときに直す
+- まだ確かめていないこと: 実際にログインし直して始まるか（Mac・to-fu とも、本人が使っている最中なのでログアウトしていない）

@@ -140,3 +140,29 @@
 - install.ps1 は日本語を含むので BOM 付きの UTF-8 にした（Windows PowerShell 5.1 は BOM の無いファイルを日本語の Windows では Shift_JIS として読む）
 - Mac のログイン項目は、入れ替えたあとも pixwall.app が1つだけだった（本人が見た）
 - まだ無いもの: アプリのアイコン（Mac・Windows とも OS の既定のアイコン）、Windows の「設定 > アプリ」からのアンインストール
+
+## 2026-10-18 Windows の設定画面
+
+- DESIGN のとおり C# の WinUI 3 にした（常駐側には .NET も WinUI 3 も入れない）。to-fu には .NET 9 SDK があり、`dotnet build` だけでビルドできた。C++/WinRT で作ると XAML のビルドに Visual Studio の UWP 向けの道具が要る
+- Windows App SDK は 2.x（2026-09 時点で 2.5.1）。全部入りの `Microsoft.WindowsAppSDK` を参照すると、入れたものが 224MB になった（onnxruntime 21MB・DirectML 18MB など AI・検索の部品と、80 を超える言語のフォルダ）。`Microsoft.WindowsAppSDK.WinUI` だけにして 163MB、`PublishTrimmed` で 75MB（120 ファイル）。削ったあとも、画像を選ぶ画面・プレビュー（`BitmapDecoder`）・全部の切り替えが動くことを確かめた
+- 開いている間のメモリはワーキング セット 140〜150MB。閉じれば終わるので、常駐の目安には数えない
+- publish すると `PixwallSettings.pri` が入らず、`Microsoft.UI.Xaml.dll` で落ちた（0xc000027b）。`EnableMsixTooling` を付けて直った
+- `Utf8JsonWriter` は既定で日本語を `\u30C6` のように書くので、`UnsafeRelaxedJsonEscaping` でそのまま書く（常駐側はどちらも読める）
+- 本人から「タスクマネージャーや Kanade のように、題名の帯と中身の境目が無い見た目に」と言われ、`ExtendsContentIntoTitleBar` と `TitleBar` にした
+- to-fu で確かめたこと（UI Automation で部品を名前から動かした）: スタートメニューから開き直すと設定画面が出る・2回目は増えない。並べ方を「画面を埋める」にすると壁紙が描き直された。一時停止で pixwall のサイクル数が 3.6→1.4 Mcyc/s、4 倍速で 8.6。ログイン時に起動を切ると Run の値が消え、入れると戻る。「pixwall を終了」で両方終わる。壊れた GIF を選ぶと「読めませんでした」と出て設定は変わらない。日本語の名前の画像も選べる。`config.json` が無いと、起動したときに設定画面が出る
+- UI Automation の注意: 同じ名前の文字（TextBlock）と部品があるので、パターン（Toggle など）を持つものに絞って探す。ファイルを選ぶ画面の欄は UI Automation では値を入れられず、ウィンドウのメッセージ（ファイル名の欄に `WM_SETTEXT`、`IDOK`）で動かした
+
+## 2026-10-18 設定画面を Native AOT にする
+
+- 本人から「メモリの数字（140〜150MB）が気になる。改良できるならしてほしい」と言われた。触って遅いとは感じていない
+- to-fu で測った（起動して 5 秒後。privWS はタスク マネージャーの「メモリ」と同じ、プライベートなワーキング セット）
+
+| | 窓が出るまで | 起動の CPU | ワーキング セット | privWS | 入れたもの |
+|---|---|---|---|---|---|
+| PublishTrimmed（JIT） | 約 0.7 秒 | 約 1.1 秒 | 139MB | 45MB | 75MB |
+| PublishAot | 約 0.45 秒 | 約 0.8 秒 | 122MB | 40MB | 59MB |
+
+- 残りはほとんど WinUI 3 そのもの。Mica を外しても、プレビューを出さなくても 122MB のまま変わらなかったので、どちらも残した。ファイルを選ぶ画面を一度開くと、シェルの部品を読み込んで 135MB ほどになる
+- 最初の AOT 版は起動してすぐ落ちた（0xc000027b、中は `InvalidCastException`）。`ComboBoxItem` の `Tag`（XAML の文字列）を `(string)` でキャストしたところだった。`SelectedIndex` と C# 側の並びで対応させて直した
+- AOT 版でも、並べ方・速さ・一時停止（サイクル数が 1.9 Mcyc/s に下がる）・画像を選ぶ・壊れた画像を書かない・ログイン時に起動（Run の値）・終了が動くことを確かめた
+- デバッグ用の .pdb（26MB）は publish に入れない

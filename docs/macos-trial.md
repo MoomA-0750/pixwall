@@ -33,8 +33,10 @@ open /Applications/pixwall.app --args "$D/dot-64x64-30f.gif"
 ## リソースを測る
 
 ```sh
-top -l 4 -s 5 -stats pid,command,cpu,mem -pid $(pgrep -x pixwall)
+top -l 4 -s 5 -stats pid,command,cpu,mem -pid $(pgrep -f 'MacOS/pixwall$')
 ```
+
+設定画面を開いている間は、プロセスが2つになる（`pixwall --settings` が設定画面）。常駐側だけを測るときは `pgrep -x pixwall` ではなく `pgrep -f 'MacOS/pixwall$'` を使う。メモリは `footprint -p <pid> | grep phys_footprint:` でも見られる。設定画面を開いて閉じたあとも、常駐側が開く前と同じ（11MB ほど）であること。
 
 目安は `SPEC.md` の「常駐の目安」。`samples/dot-64x64-30f.gif`（64×64・30フレーム・100ms）で測る。
 

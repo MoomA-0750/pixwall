@@ -41,7 +41,7 @@ build\pixwall.exe C:\path\to\samples\dot-64x64-30f.gif
 
 ## リソースを測る
 
-メモリはタスクマネージャーの「詳細」で pixwall.exe のプライベート ワーキング セットを見る。
+メモリはタスクマネージャーの「詳細」で pixwall.exe のプライベート ワーキング セット（「メモリ」の列）を見る。PowerShell では `Win32_PerfFormattedData_PerfProc_Process` の `WorkingSetPrivate`。`Get-Process` の `WorkingSet64` はドライバーの DLL などほかのプロセスと分け合う分も含むので、目安とは比べない
 
 CPU はタスクマネージャーや `TotalProcessorTime` だと 15.6ms 刻みでしか数えず、pixwall くらい少ないと大きくぶれる。`QueryProcessCycleTime` で 60 秒のサイクル数を数える（PowerShell から `Add-Type` で呼ぶ）。CPU のクロックで割ると 1 コアの何 % かになる（3.6GHz なら 36 百万サイクル/秒が 1%）。
 

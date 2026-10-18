@@ -143,6 +143,9 @@ void Rebuild() {
         if (w->ok()) app.windows.push_back(std::move(w));
     }
     UpdateRunning();
+    // 起動と作り直しで触ったメモリ（ほとんどはドライバーの初期化）を手放す。
+    // 動いている間に触るのは 1MB ほどで、to-fu ではプライベート ワーキング セットが 11.6MB から 1MB 未満になった
+    SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1));
 }
 
 void ScheduleRebuild(HWND hwnd) {

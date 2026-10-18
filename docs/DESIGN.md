@@ -35,6 +35,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - Direct3D 11 の装置は全画面で1つ（`Gpu`）。`SINGLETHREADED` と `PREVENT_INTERNAL_THREADING_OPTIMIZATIONS` を付ける。GPU が失われたら（`GetDeviceRemovedReason`）装置から作り直す。GPU が使えないときは WARP
 - 今は窓ごとに面を作るので、フレームの面も窓（画面）の数だけ GPU に置く。画面ごとに別の画像になれば同じことなので、そのままにする。全画面に同じ画像のとき、タイマーは1つで全部の窓を進める
 - 次のフレームまでは `CreateWaitableTimerEx`（高精度）で待ち、`MsgWaitForMultipleObjectsEx` でメッセージと一緒に眠る
+- 窓を作り終えたら `SetProcessWorkingSetSize(-1, -1)` でワーキング セットを手放す。起動時に触るメモリのほとんどはドライバーの初期化の分で、動いている間は触らない
 
 ### 止める
 

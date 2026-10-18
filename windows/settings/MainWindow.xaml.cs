@@ -21,6 +21,8 @@ public sealed partial class MainWindow : Window
     private Config config;
     /// 画面に今の設定を入れている間は、変化を書き戻さない
     private bool loading;
+    /// 並べ方の選択肢の並び（MainWindow.xaml の FitBox と同じ順）
+    private static readonly string[] Fits = ["integer", "fit", "fill"];
 
     public MainWindow()
     {
@@ -41,10 +43,7 @@ public sealed partial class MainWindow : Window
     {
         loading = true;
         ImageName.Text = config.Image is null ? "選んでいない" : Path.GetFileName(config.Image);
-        foreach (ComboBoxItem item in FitBox.Items)
-        {
-            if ((string)item.Tag == config.Fit) FitBox.SelectedItem = item;
-        }
+        FitBox.SelectedIndex = Array.IndexOf(Fits, config.Fit);
         SpeedSlider.Value = Math.Round(Math.Log2(config.Speed));
         SpeedLabel.Text = SpeedText(config.Speed);
         LowPowerSwitch.IsOn = config.PauseOnLowPower;
@@ -129,7 +128,7 @@ public sealed partial class MainWindow : Window
 
     private void Fit_Changed(object sender, SelectionChangedEventArgs e)
     {
-        if (FitBox.SelectedItem is ComboBoxItem item) Apply(config with { Fit = (string)item.Tag });
+        if (FitBox.SelectedIndex >= 0) Apply(config with { Fit = Fits[FitBox.SelectedIndex] });
     }
 
     private void Speed_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)

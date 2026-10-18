@@ -62,7 +62,9 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 - `windows/settings/`（`PixwallSettings.csproj`）。WinUI 3 で、中身は Mac の設定画面とそろえる。Windows の設定アプリと同じ角の丸いカードの行に並べ、背景は Mica。題名の帯も窓の中身として描く（`ExtendsContentIntoTitleBar` と `TitleBar`）
 - MSIX に包まず（`WindowsPackageType=None`）、.NET と Windows App SDK を一緒に置く（`SelfContained`・`WindowsAppSDKSelfContained`）。入れる先に .NET が無くても動く
-- 参照するのは `Microsoft.WindowsAppSDK.WinUI` だけ。全部入りの `Microsoft.WindowsAppSDK` は AI・検索の部品（onnxruntime・DirectML など）まで連れてくる。さらに `PublishTrimmed` で使っていない .NET を削り、言語ごとのフォルダは日本語と英語だけ残す
+- 参照するのは `Microsoft.WindowsAppSDK.WinUI` だけ。全部入りの `Microsoft.WindowsAppSDK` は AI・検索の部品（onnxruntime・DirectML など）まで連れてくる。言語ごとのフォルダは日本語と英語だけ残す
+- publish は Native AOT（`PublishAot`）で、前もって機械語にする。起動時の JIT が無くなり、使っていない .NET も削られる。ビルドには Visual Studio Build Tools の C++（リンカー）が要る
+- AOT では、XAML に書いた `Tag` などの値を C# でキャストすると落ちることがある（`InvalidCastException`）。並べ方の選択肢は `SelectedIndex` と C# 側の並び（`Fits`）で対応させる
 - `EnableMsixTooling` を付けないと、publish に画面の `PixwallSettings.pri` が入らず、起動してすぐ落ちる
 - プレビューは `BitmapDecoder` で最近傍の整数倍に広げてから出す（`Image` は拡大するとぼかすため）
 - 読めない画像を選んだときは設定に書かず、その場で「読めませんでした」と出す

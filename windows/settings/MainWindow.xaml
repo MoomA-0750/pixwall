@@ -74,10 +74,11 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="並べ方" VerticalAlignment="Center" />
+                    <!-- 並び順は MainWindow.xaml.cs の Fits とそろえる -->
                     <ComboBox x:Name="FitBox" AutomationProperties.Name="並べ方" Grid.Column="1" MinWidth="180" SelectionChanged="Fit_Changed">
-                        <ComboBoxItem Content="整数倍で最大" Tag="integer" />
-                        <ComboBoxItem Content="画面に合わせる" Tag="fit" />
-                        <ComboBoxItem Content="画面を埋める" Tag="fill" />
+                        <ComboBoxItem Content="整数倍で最大" />
+                        <ComboBoxItem Content="画面に合わせる" />
+                        <ComboBoxItem Content="画面を埋める" />
                     </ComboBox>
                 </Grid>
                 <Grid Style="{StaticResource Card}">

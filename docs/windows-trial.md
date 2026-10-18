@@ -1,6 +1,6 @@
 # Windows 版の試し方
 
-to-fu（Windows 11）で試す。Visual Studio 2022 の Build Tools（C++ のビルド ツール）と CMake、設定画面には .NET 9 SDK が要る。to-fu には入っている（Build Tools 17.14、MSVC 14.44、CMake は `C:\Program Files\CMake\bin`、.NET SDK 9.0.319）。
+to-fu（Windows 11）で試す。Visual Studio 2022 の Build Tools（C++ のビルド ツール）と CMake、設定画面には .NET 9 SDK が要る（設定画面は Native AOT で publish するので、C++ の Build Tools も使う）。to-fu には入っている（Build Tools 17.14、MSVC 14.44、CMake は `C:\Program Files\CMake\bin`、.NET SDK 9.0.319）。
 
 ## ビルドと単体テスト
 

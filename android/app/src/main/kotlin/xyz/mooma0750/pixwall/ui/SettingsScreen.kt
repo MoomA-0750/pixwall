@@ -2,6 +2,7 @@ package xyz.mooma0750.pixwall.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -44,6 +45,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 import xyz.mooma0750.pixwall.R
 import xyz.mooma0750.pixwall.core.Config
 import xyz.mooma0750.pixwall.core.Fit
@@ -81,40 +83,46 @@ fun SettingsScreen(
             )
         },
     ) { padding ->
-        LazyColumn(
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            item {
-                ImageCard(config, preview, imageState, isActiveWallpaper, screenAspect, onPickImage, onSetWallpaper)
-            }
-            fitSection(config, onChange)
-            if (config.fit != Fit.INTEGER) {
+        // 広い画面（折りたたみを開いたとき・タブレット）では、中身を真ん中の幅だけにする。スクロールは画面の幅いっぱいで受ける
+        BoxWithConstraints {
+            val side = max(16.dp, (maxWidth - MAX_CONTENT_WIDTH) / 2)
+            LazyColumn(
+                contentPadding = PaddingValues(start = side, end = side, top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 item {
-                    Section(stringResource(R.string.position))
-                    PositionSlider(config, onChange)
+                    ImageCard(config, preview, imageState, isActiveWallpaper, screenAspect, onPickImage, onSetWallpaper)
                 }
-            }
-            backgroundSection(config, preview, onChange)
-            item {
-                Section(stringResource(R.string.speed))
-                SpeedButtons(config, onChange)
-            }
-            item {
-                Section(stringResource(R.string.pause_section))
-                SegmentedListItem(
-                    checked = config.pauseOnLowPower,
-                    onCheckedChange = { onChange(config.copy(pauseOnLowPower = it)) },
-                    shapes = ListItemDefaults.segmentedShapes(0, 1),
-                    supportingContent = { Text(stringResource(R.string.pause_on_low_power_detail)) },
-                    trailingContent = { Switch(checked = config.pauseOnLowPower, onCheckedChange = null) },
-                ) {
-                    Text(stringResource(R.string.pause_on_low_power))
+                fitSection(config, onChange)
+                if (config.fit != Fit.INTEGER) {
+                    item {
+                        Section(stringResource(R.string.position))
+                        PositionSlider(config, onChange)
+                    }
+                }
+                backgroundSection(config, preview, onChange)
+                item {
+                    Section(stringResource(R.string.speed))
+                    SpeedButtons(config, onChange)
+                }
+                item {
+                    Section(stringResource(R.string.pause_section))
+                    SegmentedListItem(
+                        checked = config.pauseOnLowPower,
+                        onCheckedChange = { onChange(config.copy(pauseOnLowPower = it)) },
+                        shapes = ListItemDefaults.segmentedShapes(0, 1),
+                        supportingContent = { Text(stringResource(R.string.pause_on_low_power_detail)) },
+                        trailingContent = { Switch(checked = config.pauseOnLowPower, onCheckedChange = null) },
+                    ) {
+                        Text(stringResource(R.string.pause_on_low_power))
+                    }
                 }
             }
         }
     }
 }
+
+private val MAX_CONTENT_WIDTH = 640.dp
 
 @Composable
 private fun Section(title: String) {

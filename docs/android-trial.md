@@ -54,3 +54,14 @@ adb shell dumpsys meminfo $P | grep "TOTAL PSS"
 ```
 
 2026-10-19 の値（64×64・30 フレーム・10 コマ/秒、ホーム画面）: 30 秒で約 100〜110 tick（1 コアの約 3〜3.7%）、PSS 約 46MB。同じ絵が 3 コマずつ続く 30 フレームの GIF（まとめて 10 枚・3.3 回/秒）は約 39 tick。覆っている間は 30 秒で 3 tick（JIT だけ）、画面が消えている・省電力モードの間は 0
+
+## 折りたたみ
+
+to-fu の Android Studio に、折りたたみのエミュレーター `Pixel_10_Pro_Fold`（Android 16、開くと 2076×2152、閉じると外側の画面 1080×2364）がある。kite-rebuild の端末の試験も同じエミュレーターを使う（`~/.local/state/kite-rebuild/check.lock` を握った `make check`）。使う前に `pgrep -af "make check|adb -P 5038"` で何も動いていないことを確かめ、動いていたら kite のセッションに声をかけて終わるのを待つ。使い終わったら pixwall を消し（壁紙は既定に戻る）、`adb emu kill` で止める（to-fu はメモリが少ない）。
+
+- 起こす: to-fu の画面のあるセッションで `emulator.exe -avd Pixel_10_Pro_Fold -no-window -no-audio -no-snapshot-save`（ssh から起こすと ssh を閉じたときに道連れになる）。APK は `scp` で to-fu に送り、to-fu の `adb` で入れる
+- 撮った画面は `/data/local/tmp` に置く（`/sdcard` に置くとメディアに載り、画像を選ぶ画面に出てくる）
+- 折る: `adb shell cmd device_state state 0`（閉じる）・`1`（半開き）・`2`（開く）、戻すのは `state reset`。回すのは `settings put system accelerometer_rotation 0` と `settings put system user_rotation 1`
+- 見ること: それぞれの形で、絵が画面の真ん中に整数倍で出ている（64×64 のサンプルは、開くと 32 倍の 2048×2048 で左右・上下に 14px の余白、閉じると 16 倍の 1024×1024、回すと左右に 52px）・2回撮ると違う（動いている）。閉じてロック画面でも動く。画面を消すと壁紙のプロセスの CPU 時間が増えない
+
+2026-10-19 に上のすべてを確かめた。エミュレーターは GPU をソフトで真似るので、CPU の値（閉じたホーム画面で 20 秒に約 100 tick）は実機の目安にならない

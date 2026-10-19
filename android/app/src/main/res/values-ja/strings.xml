@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wallpaper_description">ドット絵の GIF を、ドットをぼかさずに壁紙として動かします。</string>
+
+    <string name="status_active">壁紙として動いています</string>
+    <string name="status_inactive">まだ壁紙に設定していません</string>
+
+    <string name="image_none">画像を選んでいません。動かす GIF を選んでください。</string>
+    <string name="image_loaded">今の設定で1枚目を出しています。</string>
+    <string name="image_unreadable">この画像は読めません。ほかの画像を選んでください。</string>
+    <string name="pick_image">画像を選ぶ</string>
+    <string name="set_wallpaper">壁紙に設定</string>
+    <string name="set_wallpaper_detail">OS のプレビューが開きます。ホーム画面か、ホーム画面とロック画面を選びます。</string>
+
+    <string name="fit">並べ方</string>
+    <string name="fit_integer">整数倍で最大</string>
+    <string name="fit_integer_detail">ドットの大きさがそろいます。中央に置きます。</string>
+    <string name="fit_fit">画面に合わせる</string>
+    <string name="fit_fit_detail">画像の全体を出し、余白ができます。</string>
+    <string name="fit_fill">画面を埋める</string>
+    <string name="fit_fill_detail">画面を埋め、はしが切れることがあります。</string>
+
+    <string name="position">位置</string>
+    <string name="position_value">%1$d（0 で上・左、50 で中央、100 で下・右）</string>
+
+    <string name="background">余白の色</string>
+    <string name="background_auto">自動</string>
+    <string name="background_custom">自分で選ぶ</string>
+    <string name="color_hue">色相</string>
+    <string name="color_saturation">彩度</string>
+    <string name="color_brightness">明るさ</string>
+
+    <string name="speed">速さ</string>
+
+    <string name="pause_section">止める条件</string>
+    <string name="pause_on_low_power">省電力モードで止める</string>
+    <string name="pause_on_low_power_detail">今のフレームのまま止めます。画面が消えている・アプリで隠れている間は、いつも止めます。</string>
+</resources>

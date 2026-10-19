@@ -9,3 +9,6 @@ DerivedData/
 xcuserdata/
 .DS_Store
 windows/settings/publish/
+android/.gradle/
+android/.kotlin/
+android/local.properties

@@ -145,3 +145,39 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - Mac: SwiftUI の `Text`・`Button` などに書いた日本語の文がそのままキーになる。`Resources/en.lproj/Localizable.strings` に英語を置き、`build-app.sh` が `Contents/Resources` に写す。`Info.plist` は `CFBundleDevelopmentRegion` を `en`、`CFBundleLocalizations` を `en`・`ja` にする（どちらでもない言語では英語）。`ja.lproj` は中身の無い表で、日本語を選んでもらうためだけに置く。`String` で組み立てる文字（書き出しの結果・メニュー・「中央」など）は `String(localized:)` で引く
 - Windows の設定画面: XAML の部品に `x:Uid` を付け、`Strings/en-US/Resources.resw`・`Strings/ja-JP/Resources.resw` から引く（MRT Core。`PixwallSettings.pri` に入る）。コードの文字は `Strings.Get`・`Strings.Format`（`ResourceLoader`）。csproj の `DefaultLanguage` を `en-US` にして、どちらでもない言語では英語。同じ `x:Uid` を型の違う部品に付けると、無い・違う意味のプロパティ（`ComboBox.Text` など）にも当ててしまうので、`AutomationProperties.Name` だけの部品は `〜Control` の名前にする。試すときは環境変数 `PIXWALL_LANGUAGE` で `ApplicationLanguages.PrimaryLanguageOverride` を入れる（MSIX に包まないので、次に開いたときには残らない）
 - Windows の常駐側: 出す文字は設定画面が見つからないときのメッセージだけなので、`GetUserDefaultUILanguage` が日本語かで選ぶ
+
+## Android 版
+
+1つのアプリに、プロセスを2つ持つ。
+
+| プロセス | 中身 | 寿命 |
+|---|---|---|
+| 主のプロセス | `PixwallWallpaperService`（ライブ壁紙、OpenGL ES） | OS が壁紙としてつないでいる間 |
+| `:settings` | `SettingsActivity`（Jetpack Compose、Material 3 Expressive） | 設定画面を開いている間 |
+
+Compose を読み込むと数十MB 増えるので、壁紙のプロセスには入れない（Windows・Mac と同じ考え）。
+
+ビルドは Gradle（`android/`）。OS に触らない計算（並べ方・待ち時間・設定の JSON・GIF の読み込みと重ね方）は `core/` に分け、端末なしの単体テスト（JUnit）で確かめる。試し方は `docs/android-trial.md`。
+
+### 読む
+
+- GIF は自分で読む（`core/Gif.kt`）。Android の `AnimatedImageDrawable` は描くのを任せる形で、フレームを1枚ずつ取り出せず、待ち時間もぼかし方も選べない。`Movie` は古い。重ね方は Windows の `GifCompositor` と同じで、`Background` は透明に戻す
+- そのほかの画像は `ImageDecoder` で1枚目だけを読む
+- 画像は `content://` の URI で持つ。設定画面で `ACTION_OPEN_DOCUMENT` で選び、`takePersistableUriPermission` で再起動しても読めるようにする。壁紙のプロセスも同じアプリ（同じ uid）なので、その権限で読める
+
+### 描く
+
+- 面（`SurfaceHolder` の `Surface`）に EGL で OpenGL ES 2 の文脈を作り、最初に全フレームを `GL_NEAREST` のテクスチャにして GPU に置く。CPU 側の `Bitmap` はそのあと手放す。絵が変わるときは、余白の色で塗り、テクスチャを1枚選んで四角を描き、`eglSwapBuffers` するだけ。位置と大きさは `glViewport` で決める（GL の原点は左下なので、上からの y を直す）
+- 最初は `lockHardwareCanvas` で `drawBitmap`（フィルターなし）にしていたが、Canvas は毎回の記録と同期で `RenderThread` が 1 フレーム約 3.4ms 使った（デバッグ版、Pixel 3）。GL に替えて、リリース版で 1 フレーム約 2.7ms（ほとんどが `eglSwapBuffers` の中の、ドライバーと SurfaceFlinger とのやりとり）
+- GL の文脈は面と別に持つ。面が無い間は 1×1 の pbuffer を current にし、面が作り直されてもテクスチャを読み直さない。`eglTerminate` はしない（同じプロセスのほかのエンジン、たとえば OS のプレビューの EGL まで終えてしまう）
+- 端末の色（Material You）は `onComputeColors` で、1枚目を 64px 以下に縮めた見本を余白の色の上に描いて `WallpaperColors.fromBitmap` で渡す。画像・余白の色が替わったら `notifyColorsChanged`
+
+### 進める・止める
+
+- 次のフレームは主の `Handler` に `postAtTime` で予約する。予約の時刻は前の予約に待ち時間を足していき、ずれをためない。止まっていた・1 秒より遅れたときは今から数え直す
+- 止める: `onVisibilityChanged(false)`（アプリが前にある・画面が消えている。OS が教える）、省電力モード（`PowerManager.isPowerSaveMode` と `ACTION_POWER_SAVE_MODE_CHANGED`、設定で選べる）。1枚しかない画像は予約しない
+
+### 設定
+
+- `config.json` を `filesDir` に、`config.json.tmp` に書いてから名前を替えて置く（`ConfigStore`）。壁紙は `FileObserver` で `filesDir` の `MOVED_TO` を見て、`config.json` なら読み直す。画像が同じなら読み直さず、描き直して予約をやり直すだけ
+- JSON は `org.json`。単体テストでは Android の `org.json` が空なので、テストにだけ本物の `org.json` を入れる

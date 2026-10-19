@@ -12,6 +12,7 @@
 
 ## 作り方の決まり
 
-- 画面はそれぞれの OS のネイティブ UI で描く（Windows は WinUI 3、Mac は SwiftUI / AppKit）。Web の画面や独自の描画の UI にしない
+- 画面はそれぞれの OS のネイティブ UI で描く（Windows は WinUI 3、Mac は SwiftUI / AppKit、Android は Jetpack Compose の Material 3 Expressive）。Web の画面や独自の描画の UI にしない
+- Android の画面は android-m3-expressive スキルに従う。書くたびに `scripts/check_m3e.sh` がフックで走る
 - Windows の常駐側（`windows/` の C++）に WinUI 3・.NET・WebView を入れない
-- Windows 版は to-fu、Mac 版は MacBook Air M1 でビルドして試す
+- Windows 版は to-fu、Mac 版は MacBook Air M1 でビルドして試す。Android 版はこの Linux の PC でビルドし、USB でつないだ Pixel 3（Android 12）で試す（`docs/android-trial.md`）

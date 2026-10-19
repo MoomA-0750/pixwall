@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 8×7 のドットのハート -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="@color/icon_foreground"
+        android:pathData="M36,33h12v6h-12zM60,33h12v6h-12zM30,39h48v6h-48zM30,45h48v6h-48zM30,51h48v6h-48zM36,57h36v6h-36zM42,63h24v6h-24zM48,69h12v6h-12z" />
+</vector>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 壁紙の一覧に出す見本。アイコンと同じハート -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="64"
+    android:viewportHeight="64">
+    <path
+        android:fillColor="@color/icon_background"
+        android:pathData="M0,0h64v64h-64z" />
+    <path
+        android:fillColor="@color/icon_foreground"
+        android:pathData="M14,11h12v6h-12zM38,11h12v6h-12zM8,17h48v6h-48zM8,23h48v6h-48zM8,29h48v6h-48zM14,35h36v6h-36zM20,41h24v6h-24zM26,47h12v6h-12z" />
+</vector>

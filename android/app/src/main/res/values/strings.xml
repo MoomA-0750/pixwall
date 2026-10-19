@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">pixwall</string>
+    <string name="wallpaper_description">Plays pixel-art GIFs as your wallpaper without blurring the dots.</string>
+
+    <string name="status_active">Running as your wallpaper</string>
+    <string name="status_inactive">Not set as your wallpaper yet</string>
+
+    <string name="image_none">No image selected. Pick a GIF to animate.</string>
+    <string name="image_loaded">Showing the first frame with the current settings.</string>
+    <string name="image_unreadable">This image can\'t be read. Pick another one.</string>
+    <string name="pick_image">Choose image</string>
+    <string name="set_wallpaper">Set as wallpaper</string>
+    <string name="set_wallpaper_detail">Opens the system preview. Choose the home screen, or home and lock screens.</string>
+
+    <string name="fit">Scaling</string>
+    <string name="fit_integer">Largest whole multiple</string>
+    <string name="fit_integer_detail">Every dot is the same size. Centered.</string>
+    <string name="fit_fit">Fit to screen</string>
+    <string name="fit_fit_detail">Shows the whole image, with margins.</string>
+    <string name="fit_fill">Fill screen</string>
+    <string name="fit_fill_detail">Covers the screen. Edges may be cut off.</string>
+
+    <string name="position">Position</string>
+    <string name="position_value">%1$d (0 = top / left, 50 = center, 100 = bottom / right)</string>
+
+    <string name="background">Margin color</string>
+    <string name="background_auto">Automatic</string>
+    <string name="background_custom">Custom</string>
+    <string name="color_hue">Hue</string>
+    <string name="color_saturation">Saturation</string>
+    <string name="color_brightness">Brightness</string>
+
+    <string name="speed">Speed</string>
+
+    <string name="pause_section">Pausing</string>
+    <string name="pause_on_low_power">Pause in Battery Saver</string>
+    <string name="pause_on_low_power_detail">Keeps the current frame still. It always pauses while the screen is off or an app covers it.</string>
+</resources>

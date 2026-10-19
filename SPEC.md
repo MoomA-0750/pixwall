@@ -62,7 +62,7 @@
 
 ## 設定の保存
 
-- 【仮】設定は JSON で保存する。Windows は `%APPDATA%\pixwall\config.json`、Mac は `~/Library/Application Support/pixwall/config.json`。形は2つの OS でそろえる。Windows では先頭に BOM があっても読む（自動テスト: `core_tests` の `TestConfig`）
+- 【仮】設定は JSON で保存する。Windows は `%APPDATA%\pixwall\config.json`、Mac は `~/Library/Application Support/pixwall/config.json`。形は2つの OS でそろえる。Windows では先頭に BOM があっても読む（自動テスト: `core_tests` の `TestConfig`）。書くときは別のファイルに書いてから入れ替える。Windows では、相手のプロセスが読んでいる最中でも入れ替えられるように開き、それでも入れ替えられないときは少し待って何回か試し、だめなら次に変えたときに書く（設定画面は落ちない）。確かめる手順: to-fu で余白の色を選ぶ画面の色の面をつかんで動かし続け、設定画面が落ちず、壁紙の余白がついてくることを見る
 - 【仮】選んだ画像はコピーせず、場所だけ覚える。見つからなくなったら、その画面は OS の壁紙に戻す
 - 【仮】今の形（Mac・Windows 共通）: `{"version": 1, "image": "<パス>", "fit": "integer" | "fit" | "fill", "speed": 1, "pauseOnLowPower": true, "launchAtLogin": true}`。足りない項目・読めない値は既定の値にする（壊れていても起動できる）。画面ごとの画像を入れるときに形を変える
 

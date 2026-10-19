@@ -13,7 +13,6 @@
 #include <algorithm>
 #include <fstream>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
 
@@ -377,10 +376,17 @@ std::wstring ConfigPath() {
 }
 
 Config LoadConfig(const std::wstring& path) {
-    std::ifstream in(path, std::ios::binary);
-    std::stringstream text;
-    text << in.rdbuf();
-    return ParseConfig(text.str());
+    // 読んでいる間も、設定画面が書いたファイルで入れ替えられるよう、消す・名前を変えるも許して開く
+    // （ifstream の開き方だと、その間の入れ替えがアクセス拒否になる）
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return ParseConfig({});
+    std::string text;
+    char buf[4096];
+    DWORD read = 0;
+    while (ReadFile(file, buf, sizeof(buf), &read, nullptr) && read > 0) text.append(buf, read);
+    CloseHandle(file);
+    return ParseConfig(text);
 }
 
 void SaveConfig(const std::wstring& path, const Config& config) {

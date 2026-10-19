@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Threading;
 
 namespace Pixwall.Settings;
 
@@ -36,7 +37,16 @@ public sealed record Config
         try
         {
             // 先頭の BOM は飛ばす（Windows PowerShell 5 の Set-Content -Encoding UTF8 などが付ける）
-            var bytes = File.ReadAllBytes(FilePath).AsMemory();
+            // 読んでいる間も、常駐側が書いたファイルで入れ替えられるよう、消す・名前を変えるも許して開く
+            byte[] all;
+            using (var f = new FileStream(FilePath, FileMode.Open, FileAccess.Read,
+                                          FileShare.ReadWrite | FileShare.Delete))
+            using (var m = new MemoryStream())
+            {
+                f.CopyTo(m);
+                all = m.ToArray();
+            }
+            var bytes = all.AsMemory();
             if (bytes.Span.StartsWith((ReadOnlySpan<byte>)[0xEF, 0xBB, 0xBF])) bytes = bytes[3..];
             using var doc = JsonDocument.Parse(bytes);
             if (doc.RootElement.ValueKind != JsonValueKind.Object) return c;
@@ -98,6 +108,23 @@ public sealed record Config
             w.WriteNumber("version", Version);
             w.WriteEndObject();
         }
-        File.Move(temp, FilePath, overwrite: true);
+        // ほかのプロセス（ウイルス対策など）が開いていると、入れ替えはアクセス拒否になる。
+        // つまみを動かしている間は何度も書くので、少し待って何回か試し、だめでも落とさない（次に変えたときに書く）
+        for (var i = 0; ; i++)
+        {
+            try
+            {
+                File.Move(temp, FilePath, overwrite: true);
+                return;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException && i < 10)
+            {
+                Thread.Sleep(10);
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                return;
+            }
+        }
     }
 }

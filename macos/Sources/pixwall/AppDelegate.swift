@@ -18,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// PNG を描いて OS に入れる重い処理は止まってから1回だけ行う
     private var osWallpaperWork: DispatchWorkItem?
     private var coverageTimer: DispatchSourceTimer?
+    /// どこかでマウスのボタンを離したことを知る（NSEvent のグローバルモニター）
+    private var mouseUpMonitor: Any?
+    private var mouseUpChecks: [DispatchWorkItem] = []
     /// Dock に出るアプリの pid。アプリが起動・終了したときに数え直す
     private var regularApps: Set<pid_t>?
 
@@ -148,7 +151,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - ほかの窓に覆われているか
 
     /// 最大化した窓の後ろでは、メニューバーと Dock のまわりに壁紙が見えていても OS は「見えている」と扱う。
-    /// そこで、ほかの窓の位置を時々読んで、覆われた画面では止める。
+    /// そこで、ほかの窓の位置を読んで、覆われた画面では止める。
+    /// 窓を広げた・縮めたことは通知が来ないので、マウスのボタンを離したとき（緑のボタン・メニューの「Fill」・
+    /// タイトルバーのダブルクリック・ふちのドラッグ）に見直し、キーで広げたときのために 3 秒ごとにも見る。
+    /// 窓の一覧を読むのは 1 回 0.9ms ほどかかるので（M1）、短い間隔で見続けることはしない。
     /// 動かす必要があるときだけ見張る（ほかの理由で止めている間は見ない）
     private func updateCoverageWatch() {
         let need = !windows.isEmpty && (image?.frames.count ?? 0) > 1 && !pause.shouldPause
@@ -160,10 +166,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             t.setEventHandler { [weak self] in self?.checkCoverage() }
             coverageTimer = t
             t.resume()
+            // マウスのボタンだけなので、アクセシビリティや入力監視の許可は要らない
+            mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
+                self?.checkCoverageAfterMouseUp()
+            }
         } else if !need, let t = coverageTimer {
             t.cancel()
             coverageTimer = nil
+            if let m = mouseUpMonitor { NSEvent.removeMonitor(m) }
+            mouseUpMonitor = nil
+            mouseUpChecks.forEach { $0.cancel() }
+            mouseUpChecks = []
             windows.forEach { $0.covered = false }
+        }
+    }
+
+    /// 離した直後は、窓が広がる・縮む動きの途中のことがある。少し後と、動き終わるころの2回見る
+    /// （M1 で、元に戻すのは離して 0.1 秒、広げるのは 0.37 秒ほどで終わった）
+    private func checkCoverageAfterMouseUp() {
+        mouseUpChecks.forEach { $0.cancel() }
+        mouseUpChecks = [0.1, 0.45].map { delay in
+            let work = DispatchWorkItem { [weak self] in self?.checkCoverage() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+            return work
         }
     }
 

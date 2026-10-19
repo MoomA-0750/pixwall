@@ -39,7 +39,8 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ### 止める
 
-- 隠れているか: 前面の窓がその画面を全部覆っているかを `SetWinEventHook(EVENT_SYSTEM_FOREGROUND / EVENT_OBJECT_LOCATIONCHANGE)` で見張って判断する。`SHQueryUserNotificationState` の全画面判定も合わせる
+- 隠れているか: すべての画面の作業領域（`rcWork`、タスクバーを除く）が、ほかの窓で覆われているか（見える部分が 5% 以下か、`core` の `IsCovered`）で決める。窓とタイマーは全画面で1つなので、どれか1つの画面でも見えていれば動かす。数えるのは、見えていて最小化しておらず cloaked でない（`DWMWA_CLOAKED`）トップレベルの窓のうち、`WS_EX_TRANSPARENT`・ツールの窓（`WS_EX_TOOLWINDOW` で `WS_EX_APPWINDOW` でない）・不透明度 0 の重ね絵・`Progman`/`WorkerW` を除いたもの。枠は `DWMWA_EXTENDED_FRAME_BOUNDS`
+  - 見張りは別のスレッドで、動かす必要があるときだけ。`SetWinEventHook`（out-of-context）で前面の切り替え・ドラッグの終わり・最小化・窓の表示/非表示/破棄・cloak を受けたら 50ms 後に数え直す。`EVENT_OBJECT_LOCATIONCHANGE` は受けない（カーソルが動くたびにも来て、捨てるだけでも重い）。最大化・元に戻すは出来事が来ないので、0.25 秒ごとに前面の窓（`GetForegroundWindow`）の位置だけを見て、替わった・動いたら数え直す。すべての窓の数え直しは to-fu で 1 回 220 万サイクルかかるので、一定の間隔ではしない。変わったら `WM_APP + 2` で主のスレッドに知らせる
 - 画面の消灯: `RegisterPowerSettingNotification(GUID_CONSOLE_DISPLAY_STATE)`
 - ロック・ユーザー切り替え: `WTSRegisterSessionNotification`
 - 省エネモード・バッテリー: `GUID_POWER_SAVING_STATUS`、`GUID_ACDC_POWER_SOURCE`
@@ -118,7 +119,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 ### 止める
 
 - 隠れているか: `NSWindow.occlusionState` の `.visible`（`didChangeOcclusionStateNotification`）。全画面（別の操作スペース）はこれで分かる
-- 最大化した窓の後ろ: `occlusionState` は、メニューバーと Dock のまわりが見えていると `.visible` のままになる。そこで `CGWindowListCopyWindowInfo` でほかの窓の位置を読み（位置と大きさだけなら画面収録の許可は要らない）、画面の `visibleFrame` を覆っているかを `PixwallCore.isCovered` で決める。数えるのは、Dock に出るアプリ（`activationPolicy == .regular`）の layer 0 の窓だけ。3 秒ごとと、`NSWorkspace` のアプリ・操作スペースの切り替えの通知で見る。ほかの理由で止めている間は見ない
+- 最大化した窓の後ろ: `occlusionState` は、メニューバーと Dock のまわりが見えていると `.visible` のままになる。そこで `CGWindowListCopyWindowInfo` でほかの窓の位置を読み（位置と大きさだけなら画面収録の許可は要らない）、画面の `visibleFrame` を覆っているかを `PixwallCore.isCovered` で決める。数えるのは、Dock に出るアプリ（`activationPolicy == .regular`）の layer 0 の窓だけ。`NSWorkspace` のアプリ・操作スペースの切り替えの通知と、どこかでマウスのボタンを離したとき（`NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp)`。マウスだけなら許可は要らない）の 0.1 秒後と 0.45 秒後、キーで広げたときのために 3 秒ごとに見る。窓の一覧を読むのは M1 で 1 回 0.9ms、窓1つだけでも 0.4ms かかるので、短い間隔で見続けることはしない。ほかの理由で止めている間は見ない
 - 画面の消灯: `NSWorkspace.screensDidSleepNotification` / `screensDidWakeNotification`
 - ロック: `com.apple.screenIsLocked` / `com.apple.screenIsUnlocked`（分散通知）
 - 低電力モード: `ProcessInfo.isLowPowerModeEnabled`、`NSProcessInfoPowerStateDidChange`

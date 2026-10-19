@@ -38,6 +38,14 @@ std::vector<uint8_t> RenderStill(const uint8_t* frame, int imageWidth, int image
 // 10ms 以下はブラウザと同じく 100ms。速さの倍率は 0.25〜4 に収める
 double FrameDelay(double written, double speed = 1);
 
+// target のうち、rects のどれにも覆われていない部分の面積の割合（0〜1）。Mac 版の uncoveredFraction と同じ
+double UncoveredFraction(const PixelRect& target, const std::vector<PixelRect>& rects);
+
+// ほかの窓に覆われていて止めてよいか。並べた窓の間のすき間くらい（見える部分が 5% 以下）なら覆われたことにする
+inline bool IsCovered(const PixelRect& target, const std::vector<PixelRect>& rects, double tolerance = 0.05) {
+    return UncoveredFraction(target, rects) <= tolerance;
+}
+
 // 動かすか止めるかを決める材料
 struct PauseReasons {
     bool occluded = false;        // その画面がほかの窓で全部隠れている

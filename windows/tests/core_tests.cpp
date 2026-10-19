@@ -70,6 +70,27 @@ void TestTiming() {
     CHECK(p.ShouldPause());
 }
 
+void TestCoverage() {
+    // to-fu（3440×1440）のタスクバーを除いた部分
+    const PixelRect work{0, 0, 3440, 1392};
+    CHECK(IsCovered(work, {work}));
+    CHECK(IsCovered(work, {{-8, -8, 3456, 1408}}));
+    CHECK(!IsCovered(work, {}));
+    CHECK(Near(UncoveredFraction(work, {}), 1));
+    // 左半分だけ
+    CHECK(Near(UncoveredFraction(work, {{0, 0, 1720, 1392}}), 0.5));
+    CHECK(!IsCovered(work, {{0, 0, 1720, 1392}}));
+    // 左右に並べて、間に 8 画素のすき間
+    CHECK(IsCovered(work, {{0, 0, 1716, 1392}, {1724, 0, 1716, 1392}}));
+    // 右に 200 画素の壁紙が見えている（約 5.8%）
+    CHECK(!IsCovered(work, {{0, 0, 3240, 1392}}));
+    // 重なった窓を2回数えない
+    CHECK(Near(UncoveredFraction(work, {{0, 0, 2000, 1392}, {1000, 0, 2000, 1392}}), 440.0 / 3440));
+    // 別の画面の窓は数えない
+    CHECK(Near(UncoveredFraction(work, {{3440, 0, 1920, 1080}}), 1));
+    CHECK(Near(UncoveredFraction({0, 0, 0, 0}, {}), 0));
+}
+
 const uint8_t kRed[4] = {0, 0, 255, 255};   // BGRA
 const uint8_t kBlue[4] = {255, 0, 0, 255};
 const uint8_t kClear[4] = {0, 0, 0, 0};
@@ -221,6 +242,7 @@ void TestStill() {
 int main() {
     TestLayout();
     TestTiming();
+    TestCoverage();
     TestCompositor();
     TestConfig();
     TestStill();

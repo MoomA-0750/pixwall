@@ -4,6 +4,7 @@
 // 設定画面とは、隠れた窓（pixwall-message）への WM_COPYDATA でやり取りする。
 // 終えるときは taskkill /im pixwall.exe（隠れた窓に WM_CLOSE が届いて片付けてから終わる）
 #include <windows.h>
+#include <dwmapi.h>
 #include <shellapi.h>
 #include <shlobj.h>
 #include <wincodec.h>
@@ -11,9 +12,11 @@
 #include <wtsapi32.h>
 
 #include <algorithm>
+#include <atomic>
 #include <fstream>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "config.h"
@@ -37,6 +40,13 @@ constexpr UINT_PTR kWallpaperTimer = 2;
 constexpr UINT kWallpaperDelayMs = 500;
 // アイコンの後ろに入れる窓が見つからないとき（Explorer が立ち上がる途中など）に探し直す間隔と回数
 constexpr UINT kRetryDelayMs = 1000;
+// 前面の窓の位置を見る間隔。最大化・元に戻すは出来事が来ないことがあるので（Win+↑ など）、これで気づく。
+// 前面の窓1つを見るだけなので軽い。すべての窓を数え直すのは重いので（to-fu で 1 回 220 万サイクル、窓 443 個）、
+// 前面の窓が替わった・動いたときと、出来事が来たときだけにする
+constexpr DWORD kForegroundPollMs = 250;
+// 出来事が来てから数え直すまで待つ時間。離した直後はまだ最大化し終えていないことがあり、
+// 窓がいくつも続けて出たときなどもまとめて1回にする
+constexpr DWORD kCoverageEventDelayMs = 50;
 constexpr int kMaxRetries = 30;
 
 // winnt.h の GUID_CONSOLE_DISPLAY_STATE と GUID_POWER_SAVING_STATUS と同じ値。
@@ -61,6 +71,8 @@ enum Request : ULONG_PTR {
 // （RPC_E_CANTCALLOUT_ININPUTSYNCCALL）。OS の壁紙に触る頼みは、返事をしてから自分宛てに送り直して行う。
 // wParam は Request
 constexpr UINT kDeferredRequest = WM_APP + 1;
+// 覆われているかを見るスレッドから、数え直した結果が届く。wParam が 0 以外なら、すべての画面が覆われている
+constexpr UINT kCoverageChanged = WM_APP + 2;
 
 struct App {
     ComPtr<IWICImagingFactory> wic;
@@ -76,6 +88,9 @@ struct App {
     int retries = 0;
 
     PauseReasons pause;
+    // ほかの窓に覆われているかを見るスレッド。動かす必要があるときだけ動かす
+    std::thread coverageThread;
+    std::atomic<bool> coverageStop{false};
     size_t frame = 0;
     HANDLE timer = nullptr;
     bool armed = false;
@@ -134,7 +149,165 @@ void ArmNext() {
     app.armed = true;
 }
 
+// ---- ほかの窓に覆われているか ----
+
+// 覆う窓として数えるか。タスクバーや Alt+Tab に出るふつうのアプリの窓と、そのダイアログだけ数える。
+// 見えていない・最小化した・ほかの仮想デスクトップの（cloaked）窓、クリックを素通しする重ね絵、
+// ツールの窓（メニュー・ツールチップなど）、デスクトップそのもの（Progman・WorkerW）、
+// どの画面にもほとんどかからない窓は数えない。
+// 安い判定を先にする。DWM に聞く2つ（cloaked と見えている枠）は 1 回ごとに DWM とやり取りして重いので、最後に聞く
+bool CoverRect(HWND hwnd, const std::vector<PixelRect>& screens, PixelRect& out) {
+    if (!IsWindowVisible(hwnd) || IsIconic(hwnd)) return false;
+    const LONG_PTR ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+    if (ex & WS_EX_TRANSPARENT) return false;
+    if ((ex & WS_EX_TOOLWINDOW) && !(ex & WS_EX_APPWINDOW)) return false;
+    RECT r;
+    if (!GetWindowRect(hwnd, &r)) return false;
+    const PixelRect rough{r.left, r.top, r.right - r.left, r.bottom - r.top};
+    // 画面の 1% 未満しかかからない窓は、覆うかどうかに効かない
+    if (std::none_of(screens.begin(), screens.end(),
+                     [&](const PixelRect& s) { return UncoveredFraction(s, {rough}) < 0.99; })) {
+        return false;
+    }
+    wchar_t cls[16];
+    if (GetClassNameW(hwnd, cls, 16) && (wcscmp(cls, L"Progman") == 0 || wcscmp(cls, L"WorkerW") == 0)) return false;
+    if (ex & WS_EX_LAYERED) {
+        BYTE alpha = 255;
+        DWORD flags = 0;
+        if (GetLayeredWindowAttributes(hwnd, nullptr, &alpha, &flags) && (flags & LWA_ALPHA) && alpha == 0) return false;
+    }
+    DWORD cloaked = 0;
+    if (SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked))) && cloaked) return false;
+    // 見えている枠（GetWindowRect は、見えない広げるためのふちを含む）
+    if (FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &r, sizeof(r)))) GetWindowRect(hwnd, &r);
+    out = {r.left, r.top, r.right - r.left, r.bottom - r.top};
+    return true;
+}
+
+// すべての画面が、ほかの窓で覆われているか。タスクバーのまわりは見ない（隠れていなくても止める）。
+// 窓とタイマーは全画面で1つなので、どれか1つの画面でも見えていれば動かす
+bool AllScreensCovered() {
+    struct Search {
+        std::vector<PixelRect> screens;
+        std::vector<PixelRect> covers;
+    } s;
+    EnumDisplayMonitors(
+        nullptr, nullptr,
+        [](HMONITOR mon, HDC, LPRECT, LPARAM lp) -> BOOL {
+            MONITORINFO mi{sizeof(mi)};
+            if (GetMonitorInfoW(mon, &mi)) {
+                const RECT& w = mi.rcWork;
+                reinterpret_cast<Search*>(lp)->screens.push_back({w.left, w.top, w.right - w.left, w.bottom - w.top});
+            }
+            return TRUE;
+        },
+        reinterpret_cast<LPARAM>(&s));
+    if (s.screens.empty()) return false;
+    EnumWindows(
+        [](HWND hwnd, LPARAM lp) -> BOOL {
+            auto& s = *reinterpret_cast<Search*>(lp);
+            PixelRect r;
+            if (CoverRect(hwnd, s.screens, r)) s.covers.push_back(r);
+            return TRUE;
+        },
+        reinterpret_cast<LPARAM>(&s));
+    return std::all_of(s.screens.begin(), s.screens.end(), [&](const PixelRect& screen) { return IsCovered(screen, s.covers); });
+}
+
+// 窓が出た・消えた・最小化した・前に来た・ドラッグで動かし終えた・仮想デスクトップを替えた（覆われているかを見るスレッドで呼ばれる）。
+// 最初に来た時刻。0 なら来ていない
+thread_local ULONGLONG windowChangedAt = 0;
+
+void CALLBACK OnWindowEvent(HWINEVENTHOOK, DWORD event, HWND hwnd, LONG idObject, LONG idChild, DWORD, DWORD) {
+    // 窓の中の部品・カーソル・キャレットは捨てる
+    if (windowChangedAt || !hwnd || idObject != OBJID_WINDOW || idChild != CHILDID_SELF) return;
+    // 消えた窓は、もう親もスタイルも読めない
+    if (event != EVENT_OBJECT_DESTROY) {
+        if (GetAncestor(hwnd, GA_ROOT) != hwnd) return;
+        // ツールチップやメニューなど、数えない窓が出た・消えただけなら数え直さない
+        const LONG_PTR ex = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        if ((ex & WS_EX_TRANSPARENT) || ((ex & WS_EX_TOOLWINDOW) && !(ex & WS_EX_APPWINDOW))) return;
+    }
+    windowChangedAt = GetTickCount64();
+}
+
+// ほかの窓の出来事を受けて、覆われているかが変わったら主のスレッドに知らせる。
+// 窓の位置の出来事（EVENT_OBJECT_LOCATIONCHANGE）は受けない。カーソルが動くたびにも来て（毎秒数百回）、
+// 捨てるだけでも重い（to-fu でマウスを動かしている間 +3〜5 Mcyc/s）。最大化・元に戻すは、前面の窓の位置を
+// 時々見て気づく
+void WatchCoverage(HWND notify, std::atomic<bool>* stop) {
+    const std::pair<DWORD, DWORD> ranges[] = {
+        {EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND},
+        {EVENT_SYSTEM_MOVESIZEEND, EVENT_SYSTEM_MOVESIZEEND},
+        {EVENT_SYSTEM_MINIMIZESTART, EVENT_SYSTEM_MINIMIZEEND},
+        {EVENT_OBJECT_DESTROY, EVENT_OBJECT_HIDE},
+        {EVENT_OBJECT_CLOAKED, EVENT_OBJECT_UNCLOAKED},
+    };
+    std::vector<HWINEVENTHOOK> hooks;
+    for (const auto& [first, last] : ranges) {
+        if (HWINEVENTHOOK h = SetWinEventHook(first, last, nullptr, OnWindowEvent, 0, 0,
+                                              WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS)) {
+            hooks.push_back(h);
+        }
+    }
+    bool covered = AllScreensCovered();
+    PostMessageW(notify, kCoverageChanged, covered, 0);
+    ULONGLONG last = GetTickCount64();
+    HWND foreground = GetForegroundWindow();
+    RECT foregroundRect{};
+    GetWindowRect(foreground, &foregroundRect);
+    while (!stop->load()) {
+        // 出来事が来たら少し待って数え直す。来なければ前面の窓を時々見る
+        const ULONGLONG due = windowChangedAt ? windowChangedAt + kCoverageEventDelayMs : last + kForegroundPollMs;
+        const ULONGLONG now = GetTickCount64();
+        if (now < due) {
+            MsgWaitForMultipleObjects(0, nullptr, FALSE, static_cast<DWORD>(due - now), QS_ALLINPUT);
+            // 出来事は、このスレッドのメッセージを取り出すときに OnWindowEvent に届く
+            MSG msg;
+            while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) DispatchMessageW(&msg);
+            continue;
+        }
+        last = now;
+        HWND fg = GetForegroundWindow();
+        RECT rect{};
+        GetWindowRect(fg, &rect);
+        const bool moved = fg != foreground || !EqualRect(&rect, &foregroundRect);
+        foreground = fg;
+        foregroundRect = rect;
+        if (!windowChangedAt && !moved) continue;
+        windowChangedAt = 0;
+        const bool next = AllScreensCovered();
+        if (next != covered) {
+            covered = next;
+            PostMessageW(notify, kCoverageChanged, covered, 0);
+        }
+    }
+    for (HWINEVENTHOOK h : hooks) UnhookWinEvent(h);
+}
+
+// 見るスレッドを止める。待っているところを起こしてから、終わるのを待つ
+void StopCoverageWatch() {
+    app.coverageStop = true;
+    PostThreadMessageW(GetThreadId(app.coverageThread.native_handle()), WM_NULL, 0, 0);
+    app.coverageThread.join();
+}
+
+// 動かす必要があるときだけ、ほかの窓を見る（ほかの理由で止めている間は見ない）
+void UpdateCoverageWatch() {
+    PauseReasons others = app.pause;
+    others.occluded = false;
+    const bool need = !app.windows.empty() && app.image.frames.size() > 1 && !others.ShouldPause();
+    if (need && !app.coverageThread.joinable()) {
+        app.coverageStop = false;
+        app.coverageThread = std::thread(WatchCoverage, app.messageWindow, &app.coverageStop);
+    } else if (!need && app.coverageThread.joinable()) {
+        StopCoverageWatch();
+        app.pause.occluded = false;
+    }
+}
+
 void UpdateRunning() {
+    UpdateCoverageWatch();
     const bool run = !app.windows.empty() && app.image.frames.size() > 1 && !app.pause.ShouldPause();
     if (run && !app.armed) {
         app.nextDue = Now();
@@ -321,6 +494,13 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
             UpdateRunning();
             return 0;
+        case kCoverageChanged:
+            // 見るのをやめた後に届いた古い結果は捨てる
+            if (app.coverageThread.joinable()) {
+                app.pause.occluded = wp != 0;
+                UpdateRunning();
+            }
+            return 0;
         case WM_COPYDATA:
             return OnRequest(reinterpret_cast<const COPYDATASTRUCT*>(lp));
         case kDeferredRequest:
@@ -343,6 +523,8 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case WM_DESTROY:
             // OS の壁紙を戻す。ログオフ・シャットダウンで終わるときは戻さない（次に始まったときも同じ絵を入れるので）
             app.osWallpaper.Restore();
+            // 見るスレッドを止めてから終わる（動いたままの std::thread を壊すと落ちる）
+            if (app.coverageThread.joinable()) StopCoverageWatch();
             PostQuitMessage(0);
             return 0;
         default:

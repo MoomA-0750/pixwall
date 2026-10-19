@@ -272,3 +272,4 @@
 - それぞれの OS の決まった仕組みを使う。Mac は `.lproj` の `Localizable.strings`（キーは日本語の文のまま。コードを読むときに何の文字か分かる）、Windows は `.resw` と `x:Uid`。アプリの中に言語を選ぶ設定は付けていない（OS のアプリごとの言語で替えられる。Windows はまだ替えられないので、要るなら付ける）
 - 言葉は Mac と Windows でそろえ、それぞれの OS の言い方に合わせた（Mac は「Low Power Mode」「Open at Login」、Windows は「Energy Saver」「Open at Sign-in」）
 - 気づいたこと: to-fu も M1 も、言語の並びの1番目が英語だった。このままだと、どちらでも設定画面が英語で開く
+- 本人に確かめて、OS に合わせるだけのままにした。to-fu と M1 で設定画面が英語で開くのは、それでよい。アプリの中に言語を選ぶ設定は付けない

@@ -6,8 +6,10 @@
     <string name="status_inactive">まだ壁紙に設定していません</string>
 
     <string name="image_none">画像を選んでいません。動かす GIF を選んでください。</string>
-    <string name="image_loaded">今の設定で1枚目を出しています。</string>
+    <string name="image_loaded">見本を押すと、壁紙にしたときと同じ大きさで全画面に出ます。</string>
     <string name="image_unreadable">この画像は読めません。ほかの画像を選んでください。</string>
+    <string name="preview_open">全画面で見る</string>
+    <string name="preview_close">設定に戻る</string>
     <string name="pick_image">画像を選ぶ</string>
     <string name="set_wallpaper">壁紙に設定</string>
     <string name="set_wallpaper_detail">OS のプレビューが開きます。ホーム画面か、ホーム画面とロック画面を選びます。</string>

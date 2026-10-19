@@ -7,8 +7,10 @@
     <string name="status_inactive">Not set as your wallpaper yet</string>
 
     <string name="image_none">No image selected. Pick a GIF to animate.</string>
-    <string name="image_loaded">Showing the first frame with the current settings.</string>
+    <string name="image_loaded">Tap the preview to see it full screen, exactly as your wallpaper will look.</string>
     <string name="image_unreadable">This image can\'t be read. Pick another one.</string>
+    <string name="preview_open">Show full screen</string>
+    <string name="preview_close">Back to settings</string>
     <string name="pick_image">Choose image</string>
     <string name="set_wallpaper">Set as wallpaper</string>
     <string name="set_wallpaper_detail">Opens the system preview. Choose the home screen, or home and lock screens.</string>

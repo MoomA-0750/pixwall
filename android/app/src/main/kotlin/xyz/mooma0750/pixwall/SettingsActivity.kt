@@ -39,8 +39,6 @@ class SettingsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         config = ConfigStore.load(this)
-        val bounds = windowManager.maximumWindowMetrics.bounds
-        val screenAspect = minOf(bounds.width(), bounds.height()).toFloat() / maxOf(bounds.width(), bounds.height())
 
         setContent {
             val scope = rememberCoroutineScope()
@@ -71,7 +69,6 @@ class SettingsActivity : ComponentActivity() {
                     preview = preview,
                     imageState = imageState,
                     isActiveWallpaper = isActiveWallpaper,
-                    screenAspect = screenAspect,
                     onPickImage = { picker.launch(arrayOf("image/*")) },
                     onSetWallpaper = ::openWallpaperPicker,
                     onChange = ::change,
@@ -93,10 +90,8 @@ class SettingsActivity : ComponentActivity() {
 
     private fun loadPreview(uri: Uri): Preview? =
         runCatching { Frames.load(this, uri) }.getOrNull()?.let { frames ->
-            val first = frames.bitmaps[0]
-            frames.bitmaps.drop(1).forEach { it.recycle() }
             frames.colorSample.recycle()
-            Preview(first.asImageBitmap(), frames.autoBackground)
+            Preview(frames.bitmaps.map { it.asImageBitmap() }, frames.delaysMillis, frames.autoBackground)
         }
 
     /** 選んだ画像はコピーせず、場所（URI）だけ覚える。端末を再起動しても読めるように読む権限を持ち続け、前の画像の権限は手放す */

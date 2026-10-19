@@ -26,8 +26,7 @@ class GlRenderer {
     private val pbuffer: EGLSurface
     private var window: EGLSurface? = null
     private val program: Int
-    private val positionLoc: Int
-    private val textureLoc: Int
+    private val vertexBuffer: Int
     private val quad = ByteBuffer.allocateDirect(4 * 2 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer()
     private var textures = IntArray(0)
 
@@ -66,9 +65,19 @@ class GlRenderer {
             void main() { gl_FragColor = texture2D(image, uv); }
             """,
         )
-        positionLoc = GLES20.glGetAttribLocation(program, "position")
-        textureLoc = GLES20.glGetUniformLocation(program, "image")
+        // 描くための状態は、この文脈に一度だけ組む（毎フレームは、テクスチャを選んで描くだけ）。頂点は GPU のバッファに置く
+        GLES20.glUseProgram(program)
+        GLES20.glUniform1i(GLES20.glGetUniformLocation(program, "image"), 0)
         quad.put(floatArrayOf(0f, 0f, 1f, 0f, 0f, 1f, 1f, 1f)).position(0)
+        val buffers = IntArray(1)
+        GLES20.glGenBuffers(1, buffers, 0)
+        vertexBuffer = buffers[0]
+        GLES20.glBindBuffer(GLES20.GL_ARRAY_BUFFER, vertexBuffer)
+        GLES20.glBufferData(GLES20.GL_ARRAY_BUFFER, 4 * 2 * 4, quad, GLES20.GL_STATIC_DRAW)
+        val positionLoc = GLES20.glGetAttribLocation(program, "position")
+        GLES20.glEnableVertexAttribArray(positionLoc)
+        GLES20.glVertexAttribPointer(positionLoc, 2, GLES20.GL_FLOAT, false, 0, 0)
+        GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
         // テクスチャは premultiplied（GLUtils が Bitmap をそのまま上げる）
         GLES20.glEnable(GLES20.GL_BLEND)
         GLES20.glBlendFunc(GLES20.GL_ONE, GLES20.GL_ONE_MINUS_SRC_ALPHA)
@@ -90,9 +99,13 @@ class GlRenderer {
         EGL14.eglDestroySurface(display, w)
     }
 
+    /** すでに current なら何もしない（毎フレームの JNI の呼び出しを減らす） */
     private fun makeCurrent() {
         val s = window ?: pbuffer
+        if (current === this && currentSurface === s) return
         EGL14.eglMakeCurrent(display, s, s, context)
+        current = this
+        currentSurface = s
     }
 
     /** フレームをテクスチャにする。前のテクスチャは消す。Bitmap はこのあと手放してよい */
@@ -124,12 +137,7 @@ class GlRenderer {
         if (frame in textures.indices && rect != null) {
             // GL の原点は左下なので、上からの y を下からに直す
             GLES20.glViewport(rect.x, height - rect.y - rect.height, rect.width, rect.height)
-            GLES20.glUseProgram(program)
-            GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
             GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, textures[frame])
-            GLES20.glUniform1i(textureLoc, 0)
-            GLES20.glEnableVertexAttribArray(positionLoc)
-            GLES20.glVertexAttribPointer(positionLoc, 2, GLES20.GL_FLOAT, false, 0, quad)
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
         }
         EGL14.eglSwapBuffers(display, w)
@@ -140,8 +148,11 @@ class GlRenderer {
         detach()
         makeCurrent()
         deleteTextures()
+        GLES20.glDeleteBuffers(1, intArrayOf(vertexBuffer), 0)
         GLES20.glDeleteProgram(program)
         EGL14.eglMakeCurrent(display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+        current = null
+        currentSurface = null
         EGL14.eglDestroySurface(display, pbuffer)
         EGL14.eglDestroyContext(display, context)
     }
@@ -163,5 +174,11 @@ class GlRenderer {
         GLES20.glAttachShader(p, compile(GLES20.GL_FRAGMENT_SHADER, fragment))
         GLES20.glLinkProgram(p)
         return p
+    }
+
+    private companion object {
+        // 今 current の文脈と面（GL を呼ぶのは主のスレッドだけなので、1つ覚えておけば足りる）
+        var current: GlRenderer? = null
+        var currentSurface: EGLSurface? = null
     }
 }

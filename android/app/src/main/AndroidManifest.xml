@@ -10,6 +10,9 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
 
+        <!-- リリース版でも simpleperf で CPU の使い方を測れるように -->
+        <profileable android:shell="true" />
+
         <!-- 壁紙は主のプロセスで動く。OS がつないでいる間だけ生きる -->
         <service
             android:name=".PixwallWallpaperService"

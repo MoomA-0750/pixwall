@@ -29,6 +29,12 @@ adb shell am start -a android.service.wallpaper.CHANGE_LIVE_WALLPAPER \
   --ecn android.service.wallpaper.extra.LIVE_WALLPAPER_COMPONENT xyz.mooma0750.pixwall/.PixwallWallpaperService
 ```
 
+## 試すときの注意
+
+- `adb shell am force-stop xyz.mooma0750.pixwall` をすると、OS が壁紙を既定のものに戻す。プロセスを作り直したいときは、`adb install -r` で入れ直す（壁紙は外れず、OS がつなぎ直す）。リリース版はデバッグできないので、シェルからの `kill` は効かない
+- 選んである画像のファイルを `adb push` で上書きすると、メディアの仕組みがそのファイルへの読む権限を取り消し、壁紙が黒くなる（設定画面に「読めない」と出る）。違う画像で試すときは、別の名前で置いて設定画面から選び直す
+- 再起動したあとは、PIN でロックを解くまで pixwall に替わらない（PIN は本人に頼む）
+
 ## 見ること
 
 - ドットがぼやけていない: `adb exec-out screencap -p > a.png` で撮り、画像の範囲の色の種類が元の GIF の色の数と同じ（中間の色が無い）。64×64 のサンプルは、整数倍で 16 倍（1024×1024）、色は 4 つ
@@ -38,7 +44,7 @@ adb shell am start -a android.service.wallpaper.CHANGE_LIVE_WALLPAPER \
 
 ## 測る
 
-リリース版で、プレビューを出したまま 30 秒の CPU 時間を測る（100 tick = 1 コア 1 秒）。
+リリース版で、ホーム画面に出したまま 30 秒の CPU 時間を測る（100 tick = 1 コア 1 秒）。ばらつきが大きい（同じ版でも 30 秒で 70〜120 tick）ので、何回か測る。比べるときは、2つの版を交互に入れて同じ条件で測る。端末が後でコンパイルし終えた状態にするには `adb shell cmd package compile -m speed -f xyz.mooma0750.pixwall` のあと `install -r`。どこで CPU を使っているかは、リリース版にも `profileable` を付けてあるので `adb shell simpleperf record --app xyz.mooma0750.pixwall --duration 20 -e cpu-clock -g -o /data/local/tmp/perf.data` と `simpleperf report -i /data/local/tmp/perf.data --children --sort symbol` で見られる
 
 ```sh
 P=$(adb shell pidof xyz.mooma0750.pixwall)
@@ -47,4 +53,4 @@ b=$(adb shell cat /proc/$P/stat | awk '{print $14+$15}'); echo $((b-a))
 adb shell dumpsys meminfo $P | grep "TOTAL PSS"
 ```
 
-2026-10-19 の値（64×64・30 フレーム・10 コマ/秒）: 30 秒で約 96 tick（1 コアの約 3.2%）、PSS 約 46MB。覆っている間は 30 秒で 3 tick（JIT だけ）、省電力モードの間は 0。
+2026-10-19 の値（64×64・30 フレーム・10 コマ/秒、ホーム画面）: 30 秒で約 100〜110 tick（1 コアの約 3〜3.7%）、PSS 約 46MB。同じ絵が 3 コマずつ続く 30 フレームの GIF（まとめて 10 枚・3.3 回/秒）は約 39 tick。覆っている間は 30 秒で 3 tick（JIT だけ）、画面が消えている・省電力モードの間は 0

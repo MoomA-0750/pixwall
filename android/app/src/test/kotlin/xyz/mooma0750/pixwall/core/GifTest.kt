@@ -181,4 +181,40 @@ class GifTest {
         // 1枚目は全部の画素が埋まっている
         assertTrue(gif.frames[0].all { it != 0 })
     }
+
+    // 続く同じ絵は1枚にまとめ、待ち時間を足す。10ms 以下は 100ms にしてから足す
+    @Test
+    fun repeatedFramesAreMerged() {
+        val gif = decodeGif(
+            GifBuilder(1, 1, colors)
+                .frame(intArrayOf(0), delayCs = 5)
+                .frame(intArrayOf(0), delayCs = 0)
+                .frame(intArrayOf(1), delayCs = 10)
+                .frame(intArrayOf(2), delayCs = 3)
+                .build(),
+        ).mergingRepeats()
+        assertEquals(3, gif.frames.size)
+        assertEquals(listOf(150, 100, 30), gif.delaysMillis)
+    }
+
+    // 最後のフレームが1枚目と同じ絵なら、1枚目にまとめる（1周したときに同じ絵を描き直さない）
+    @Test
+    fun lastFrameSameAsFirstIsMerged() {
+        val gif = decodeGif(
+            GifBuilder(1, 1, colors)
+                .frame(intArrayOf(0), delayCs = 5)
+                .frame(intArrayOf(1), delayCs = 5)
+                .frame(intArrayOf(2), delayCs = 5)
+                .frame(intArrayOf(0), delayCs = 7)
+                .build(),
+        ).mergingRepeats()
+        assertEquals(3, gif.frames.size)
+        assertEquals(listOf(120, 50, 50), gif.delaysMillis)
+        // 0, 1, 0 は 0 と 1 の行き来になる（2枚残るので止まらない）
+        val two = decodeGif(GifBuilder(1, 1, colors).frame(intArrayOf(0)).frame(intArrayOf(1)).frame(intArrayOf(0)).build()).mergingRepeats()
+        assertEquals(listOf(200, 100), two.delaysMillis)
+        // 0, 1 だけのときは、そのまま
+        val pair = decodeGif(GifBuilder(1, 1, colors).frame(intArrayOf(0)).frame(intArrayOf(1)).build()).mergingRepeats()
+        assertEquals(listOf(100, 100), pair.delaysMillis)
+    }
 }

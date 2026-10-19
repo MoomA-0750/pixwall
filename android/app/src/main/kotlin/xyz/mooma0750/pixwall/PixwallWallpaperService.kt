@@ -17,6 +17,8 @@ import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
 import xyz.mooma0750.pixwall.core.Config
+import xyz.mooma0750.pixwall.core.Fit
+import xyz.mooma0750.pixwall.core.PixelRect
 import xyz.mooma0750.pixwall.core.frameDelayMillis
 import xyz.mooma0750.pixwall.core.layout
 import java.util.concurrent.Executors
@@ -34,6 +36,12 @@ class PixwallWallpaperService : WallpaperService() {
         private val power = getSystemService(PowerManager::class.java)
 
         private var renderer: GlRenderer? = null
+        private var rect: PixelRect? = null
+        private var rectFrames: Frames? = null
+        private var rectWidth = 0
+        private var rectHeight = 0
+        private var rectFit: Fit? = null
+        private var rectPosition = 0.0
 
         private var config = Config()
         private var frames: Frames? = null
@@ -207,8 +215,16 @@ class PixwallWallpaperService : WallpaperService() {
                 renderer?.draw(surfaceWidth, surfaceHeight, 0, -1, null)
                 return
             }
-            val r = layout(f.width, f.height, surfaceWidth, surfaceHeight, config.fit, config.position)
-            renderer?.draw(surfaceWidth, surfaceHeight, background(f), index.coerceIn(0, f.count - 1), r)
+            // 置く位置は、画像・面の大きさ・並べ方・位置が変わったときだけ計算し直す（毎フレームの確保を減らす）
+            if (f !== rectFrames || surfaceWidth != rectWidth || surfaceHeight != rectHeight || config.fit != rectFit || config.position != rectPosition) {
+                rect = layout(f.width, f.height, surfaceWidth, surfaceHeight, config.fit, config.position)
+                rectFrames = f
+                rectWidth = surfaceWidth
+                rectHeight = surfaceHeight
+                rectFit = config.fit
+                rectPosition = config.position
+            }
+            renderer?.draw(surfaceWidth, surfaceHeight, background(f), index.coerceIn(0, f.count - 1), rect)
         }
     }
 

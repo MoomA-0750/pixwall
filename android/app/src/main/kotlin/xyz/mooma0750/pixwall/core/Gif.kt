@@ -234,3 +234,27 @@ private fun clear(canvas: IntArray, width: Int, height: Int, left: Int, top: Int
         for (x in maxOf(left, 0) until minOf(left + w, width)) canvas[y * width + x] = 0
     }
 }
+
+/**
+ * 続く同じ絵のフレームを1枚にまとめ、待ち時間を足す（絵が変わらないのに描き直さない）。
+ * 待ち時間は 10ms 以下を 100ms にしてから足すので、返す delaysMillis はどれも 10ms より長い
+ */
+fun GifImage.mergingRepeats(): GifImage {
+    val outFrames = ArrayList<IntArray>()
+    val outDelays = ArrayList<Int>()
+    frames.forEachIndexed { i, frame ->
+        val delay = frameDelayMillis(delaysMillis[i]).toInt()
+        if (outFrames.isNotEmpty() && outFrames.last().contentEquals(frame)) {
+            outDelays[outDelays.lastIndex] += delay
+        } else {
+            outFrames += frame
+            outDelays += delay
+        }
+    }
+    // 1周して1枚目に戻るときも同じ絵なら、最後を1枚目にまとめる（2枚以上残るときだけ）
+    if (outFrames.size > 2 && outFrames.last().contentEquals(outFrames.first())) {
+        outDelays[0] += outDelays.removeAt(outDelays.lastIndex)
+        outFrames.removeAt(outFrames.lastIndex)
+    }
+    return GifImage(width, height, outFrames, outDelays)
+}

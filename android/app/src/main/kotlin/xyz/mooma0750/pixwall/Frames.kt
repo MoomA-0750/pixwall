@@ -6,6 +6,7 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import xyz.mooma0750.pixwall.core.decodeGif
 import xyz.mooma0750.pixwall.core.isGif
+import xyz.mooma0750.pixwall.core.mergingRepeats
 
 /**
  * 元の大きさのまま全部読んだフレーム。
@@ -35,7 +36,7 @@ class Frames(
             val software: List<Bitmap>
             val delays: List<Int>
             if (isGif(bytes)) {
-                val gif = decodeGif(bytes)
+                val gif = decodeGif(bytes).mergingRepeats()
                 software = gif.frames.map { Bitmap.createBitmap(it, gif.width, gif.height, Bitmap.Config.ARGB_8888) }
                 delays = gif.delaysMillis
             } else {

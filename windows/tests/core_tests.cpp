@@ -1,9 +1,10 @@
 // core の単体テスト。Windows では CMake の pixwall-core-tests、Linux では
-//   g++ -std=c++20 -I windows/core windows/core/core.cpp windows/tests/core_tests.cpp -o core_tests
+//   g++ -std=c++20 -I windows/core windows/core/core.cpp windows/core/config.cpp windows/core/cli.cpp windows/tests/core_tests.cpp -o core_tests
 // でビルドして動かす。失敗があれば 1 で終わる
 #include <cmath>
 #include <cstdio>
 
+#include "cli.h"
 #include "config.h"
 #include "core.h"
 
@@ -237,6 +238,66 @@ void TestStill() {
     CHECK(RenderStill(frame, 2, 1, 0, 3, Fit::Integer, 0, 0, 0).empty());
 }
 
+bool Parses(std::vector<std::string> args, CliCommand& c) {
+    std::string error;
+    return ParseCli(args, c, error);
+}
+
+void TestCli() {
+    CliCommand c;
+    CHECK(Parses({"show"}, c) && c.action == CliAction::Show);
+    CHECK(Parses({"status"}, c) && c.action == CliAction::Status);
+    CHECK(Parses({"pause"}, c) && c.action == CliAction::Pause);
+    CHECK(Parses({"resume"}, c) && c.action == CliAction::Resume);
+    CHECK(Parses({"refresh"}, c) && c.action == CliAction::Refresh);
+    CHECK(Parses({"quit"}, c) && c.action == CliAction::Quit);
+    CHECK(Parses({"--help"}, c) && c.action == CliAction::Help);
+    CHECK(Parses({"get", "fit"}, c) && c.action == CliAction::Get && c.pairs.size() == 1 && c.pairs[0].first == "fit");
+    CHECK(Parses({"set", "fit", "fill", "speed", "2"}, c) && c.action == CliAction::Set && c.pairs.size() == 2 &&
+          c.pairs[1].first == "speed" && c.pairs[1].second == "2");
+    CHECK(Parses({"export", "a.png"}, c) && c.action == CliAction::Export && c.path == "a.png" && c.frame == 0);
+    CHECK(Parses({"export", "--frame", "3", "a.png"}, c) && c.path == "a.png" && c.frame == 2);
+
+    const std::vector<std::vector<std::string>> wrong = {
+        {}, {"nope"}, {"show", "x"}, {"get"}, {"get", "nope"}, {"set"}, {"set", "fit"}, {"set", "nope", "1"},
+        {"export"}, {"export", "a.png", "b.png"}, {"export", "a.png", "--frame", "0"}, {"export", "a.png", "--frame"},
+    };
+    for (const auto& args : wrong) CHECK(!Parses(args, c));
+
+    Config config;
+    CHECK(ConfigValue(config, "image").empty());
+    CHECK(ConfigValue(config, "fit") == "integer");
+    CHECK(ConfigValue(config, "position") == "0.5");
+    CHECK(ConfigValue(config, "speed") == "1");
+    CHECK(ConfigValue(config, "background") == "auto");
+    CHECK(ConfigValue(config, "backgroundColor").empty());
+    CHECK(ConfigValue(config, "pauseOnLowPower") == "true");
+
+    std::string error;
+    CHECK(SetConfigValue(config, "fit", "fill", error));
+    CHECK(SetConfigValue(config, "position", "0.25", error));
+    CHECK(SetConfigValue(config, "speed", "4", error));
+    CHECK(SetConfigValue(config, "background", "custom", error));
+    CHECK(SetConfigValue(config, "backgroundColor", "#1e2a3b", error));
+    CHECK(SetConfigValue(config, "pauseOnLowPower", "false", error));
+    CHECK(SetConfigValue(config, "launchAtLogin", "false", error));
+    CHECK(SetConfigValue(config, "image", "C:\\a\\b.gif", error));
+    CHECK(config.fit == Fit::Fill && Near(config.position, 0.25) && Near(config.speed, 4));
+    CHECK(config.customBackground && config.backgroundColor == 0x1E2A3B);
+    CHECK(ConfigValue(config, "backgroundColor") == "#1E2A3B");
+    CHECK(!config.pauseOnLowPower && !config.launchAtLogin && config.image == "C:\\a\\b.gif");
+
+    // 範囲の外・形の違う値は受けず、設定は変わらない
+    Config fresh;
+    const std::vector<std::pair<std::string, std::string>> bad = {
+        {"fit", "stretch"}, {"position", "1.5"}, {"position", "-0.1"}, {"position", "nan"}, {"speed", "0.1"},
+        {"speed", "5"}, {"background", "red"}, {"backgroundColor", "#12345"}, {"backgroundColor", "123456"},
+        {"pauseOnLowPower", "yes"}, {"image", ""}, {"position", "0.5x"},
+    };
+    for (const auto& [k, v] : bad) CHECK(!SetConfigValue(fresh, k, v, error));
+    CHECK(fresh == Config{});
+}
+
 }  // namespace
 
 int main() {
@@ -246,6 +307,7 @@ int main() {
     TestCompositor();
     TestConfig();
     TestStill();
+    TestCli();
     if (failures == 0) std::printf("すべて通った\n");
     return failures == 0 ? 0 : 1;
 }

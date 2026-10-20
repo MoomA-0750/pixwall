@@ -39,6 +39,48 @@ public sealed partial class MainWindow : Window
         AppWindow.Resize(new SizeInt32((int)(560 * scale), (int)(1100 * scale)));
         if (AppWindow.Presenter is OverlappedPresenter p) p.IsMaximizable = false;
         Show();
+        // 開いている間に pixwallctl で変えたとき。古い設定のまま次に書いて、変えた分を消さないように読み直す。
+        // 一時停止は config.json に無いので、前に出たときに見直す
+        Directory.CreateDirectory(Path.GetDirectoryName(Config.FilePath)!);
+        watcher = new FileSystemWatcher(Path.GetDirectoryName(Config.FilePath)!, Path.GetFileName(Config.FilePath))
+        {
+            NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.FileName,
+        };
+        watcher.Changed += (_, _) => ReloadSoon();
+        watcher.Created += (_, _) => ReloadSoon();
+        watcher.Renamed += (_, _) => ReloadSoon();
+        watcher.EnableRaisingEvents = true;
+        Closed += (_, _) => watcher.Dispose();
+        Activated += (_, e) =>
+        {
+            if (e.WindowActivationState != WindowActivationState.Deactivated) Reload();
+        };
+    }
+
+    private readonly FileSystemWatcher watcher;
+    private int reloadRequests;
+
+    /// 入れ替えの途中で読まないよう、知らせが止まってから少し待って読む
+    private void ReloadSoon() => DispatcherQueue.TryEnqueue(async () =>
+    {
+        var mine = ++reloadRequests;
+        await Task.Delay(100);
+        if (mine == reloadRequests) Reload();
+    });
+
+    /// 自分で書いたあとにも呼ばれるが、そのときは config と同じなので、一時停止を見直すだけ
+    private void Reload()
+    {
+        var disk = Config.Load();
+        if (disk == config)
+        {
+            loading = true;
+            PauseSwitch.IsOn = Resident.IsPaused;
+            loading = false;
+            return;
+        }
+        config = disk;
+        Show();
     }
 
     private double GetDpiScale() => Native.ForWindow(WindowNative.GetWindowHandle(this)) / 96.0;

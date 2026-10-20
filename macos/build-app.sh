@@ -8,6 +8,8 @@ app=build/pixwall.app
 rm -rf "$app"
 mkdir -p "$app/Contents/MacOS"
 cp "$(swift build -c release --show-bin-path)/pixwall" "$app/Contents/MacOS/pixwall"
+# コマンドラインの道具。同じ実行ファイルで、この名前で起動されたらそう動く
+ln -s pixwall "$app/Contents/MacOS/pixwallctl"
 cp Resources/Info.plist "$app/Contents/Info.plist"
 # 画面の文字の訳。キーは日本語の文で、en.lproj に英語を置く（ja.lproj はキーのまま出すための空の表）
 mkdir -p "$app/Contents/Resources"

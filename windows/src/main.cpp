@@ -1,7 +1,7 @@
 // pixwall.exe（常駐側）。動かす画像は %APPDATA%\pixwall\config.json から読む。
 // 引数で画像を渡すと（pixwall.exe <画像のパス>）、それを動かして設定にも書く。
 // もう一度起動されたら、設定画面（settings\PixwallSettings.exe）を開いて自分は終わる。
-// 設定画面とは、隠れた窓（pixwall-message）への WM_COPYDATA でやり取りする。
+// 設定画面・pixwallctl.exe とは、隠れた窓（pixwall-message）への WM_COPYDATA でやり取りする（request.h）。
 // 終えるときは taskkill /im pixwall.exe（隠れた窓に WM_CLOSE が届いて片付けてから終わる）
 #include <windows.h>
 #include <dwmapi.h>
@@ -20,9 +20,11 @@
 #include <vector>
 
 #include "config.h"
+#include "config_file.h"
 #include "core.h"
 #include "desktop.h"
 #include "image_loader.h"
+#include "request.h"
 #include "still.h"
 #include "wall_window.h"
 
@@ -53,19 +55,6 @@ constexpr int kMaxRetries = 30;
 // SDK の定義を使うと INITGUID やリンクするライブラリに左右されるので、ここで持つ
 constexpr GUID kDisplayState = {0x6fe69556, 0x704a, 0x47a0, {0x8f, 0x24, 0xc2, 0x8d, 0x93, 0x6f, 0xda, 0x47}};
 constexpr GUID kPowerSaving = {0xe00958c0, 0xc213, 0x4ace, {0xac, 0x77, 0xfe, 0xcc, 0xed, 0x2e, 0xee, 0xa5}};
-
-// 設定画面から WM_COPYDATA で届く頼みごと（COPYDATASTRUCT の dwData）。設定画面の Resident.cs と値をそろえる
-enum Request : ULONG_PTR {
-    kReloadConfig = 1,  // config.json を読み直して当てる
-    kRefresh = 2,       // 画面を数え直して作り直す（「表示を更新」）
-    kSetPaused = 3,     // lpData の 1 バイト目が 0 以外なら一時停止
-    kQuit = 4,          // 終わる
-    kIsPaused = 5,      // 一時停止しているか。している 2、していない 1 を返す
-    kExportStill = 6,   // 静止画を書き出す。lpData は UTF-16 の「フレームの番号\n保存先」。できたら 1
-    kRenderPreview = 7, // プレビューを描く。lpData は UTF-16 の「フレームの番号\n長い辺の上限（画素）\n保存先」。上限に収まる整数倍で描く。できたら 1
-    kFrameCount = 8,    // 動かしている画像のフレームの数を返す（無ければ 0）
-    kAutoColor = 9,     // 自動の余白の色（画像の左上の1ドット）を 0x1RRGGBB で返す（画像が無ければ 0）
-};
 
 // WM_COPYDATA は相手が返事を待つ送り方で届き、その間はほかのプロセスの COM（IDesktopWallpaper）を呼べない
 // （RPC_E_CANTCALLOUT_ININPUTSYNCCALL）。OS の壁紙に触る頼みは、返事をしてから自分宛てに送り直して行う。
@@ -112,8 +101,6 @@ Color TopLeftColor(const LoadedImage& image) {
     if (a <= 0) return {0, 0, 0, 1};
     return {p[2] / 255.0f / a, p[1] / 255.0f / a, p[0] / 255.0f / a, 1};
 }
-
-std::wstring Wide(const std::string& s);
 
 uint8_t Byte(float v) { return static_cast<uint8_t>(std::clamp(v, 0.0f, 1.0f) * 255 + 0.5f); }
 
@@ -386,8 +373,6 @@ void ScheduleRebuild(HWND hwnd) {
     SetTimer(hwnd, kRebuildTimer, kRebuildDelayMs, nullptr);
 }
 
-std::wstring ConfigPath();
-Config LoadConfig(const std::wstring& path);
 void ApplyConfig(const Config& next);
 
 // WM_COPYDATA の UTF-16 の中身を、改行で分ける
@@ -530,57 +515,6 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         default:
             return DefWindowProcW(hwnd, msg, wp, lp);
     }
-}
-
-std::wstring Wide(const std::string& s) {
-    if (s.empty()) return {};
-    std::wstring w(MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), nullptr, 0), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, s.data(), static_cast<int>(s.size()), w.data(), static_cast<int>(w.size()));
-    return w;
-}
-
-std::string Utf8(const std::wstring& w) {
-    if (w.empty()) return {};
-    std::string s(WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), nullptr, 0, nullptr, nullptr),
-                  '\0');
-    WideCharToMultiByte(CP_UTF8, 0, w.data(), static_cast<int>(w.size()), s.data(), static_cast<int>(s.size()),
-                        nullptr, nullptr);
-    return s;
-}
-
-// %APPDATA%\pixwall\config.json
-std::wstring ConfigPath() {
-    PWSTR dir = nullptr;
-    if (FAILED(SHGetKnownFolderPath(FOLDERID_RoamingAppData, 0, nullptr, &dir))) return {};
-    std::wstring path = std::wstring(dir) + L"\\pixwall\\config.json";
-    CoTaskMemFree(dir);
-    return path;
-}
-
-Config LoadConfig(const std::wstring& path) {
-    // 読んでいる間も、設定画面が書いたファイルで入れ替えられるよう、消す・名前を変えるも許して開く
-    // （ifstream の開き方だと、その間の入れ替えがアクセス拒否になる）
-    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-                              nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) return ParseConfig({});
-    std::string text;
-    char buf[4096];
-    DWORD read = 0;
-    while (ReadFile(file, buf, sizeof(buf), &read, nullptr) && read > 0) text.append(buf, read);
-    CloseHandle(file);
-    return ParseConfig(text);
-}
-
-void SaveConfig(const std::wstring& path, const Config& config) {
-    CreateDirectoryW(path.substr(0, path.find_last_of(L'\\')).c_str(), nullptr);
-    // 書きかけで落ちても壊れないよう、別のファイルに書いてから入れ替える
-    const std::wstring temp = path + L".tmp";
-    {
-        std::ofstream out(temp, std::ios::binary | std::ios::trunc);
-        out << FormatConfig(config);
-        if (!out) return;
-    }
-    MoveFileExW(temp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING);
 }
 
 // ログインしたときに始まるよう、HKCU の Run に今の exe を入れる。設定で切っていたら消す

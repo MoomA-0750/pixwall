@@ -2,7 +2,7 @@ import AppKit
 import PixwallCore
 import ServiceManagement
 
-/// 常駐側（壁紙を動かすプロセス）と設定画面のプロセスのやり取り。DistributedNotificationCenter で知らせる。
+/// 常駐側（壁紙を動かすプロセス）と設定画面のプロセス・pixwallctl のやり取り。DistributedNotificationCenter で知らせる。
 /// 設定画面は別のプロセスにして、閉じたら終わる（SwiftUI が使ったメモリは、窓を捨てても常駐側に残るため）
 enum Resident {
     /// 設定画面のプロセスとして起動するときの引数
@@ -24,6 +24,10 @@ enum Resident {
         case quit
         /// 常駐側 → 設定画面: 前に出て
         case showSettings
+        /// pixwallctl → 常駐側: 動いているか（pong で返す）
+        case ping
+        /// 常駐側 → pixwallctl: 動いている（userInfo の paused）
+        case pong
 
         var name: Notification.Name { .init("dev.mooma.pixwall.\(rawValue)") }
     }

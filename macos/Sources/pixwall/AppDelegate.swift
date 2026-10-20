@@ -258,6 +258,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.pause.userPaused = (n.userInfo?["paused"] as? Bool) ?? false
         }
         Resident.observe(.quit) { _ in NSApp.terminate(nil) }
+        Resident.observe(.ping) { [weak self] _ in
+            Resident.post(.pong, userInfo: ["paused": self?.pause.userPaused ?? false])
+        }
 
         let dnc = DistributedNotificationCenter.default()
         dnc.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in

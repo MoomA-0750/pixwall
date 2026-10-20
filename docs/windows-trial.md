@@ -18,7 +18,7 @@ ssh から試すときは、ssh のセッションには画面が無いので、
 `core` の単体テストだけなら Linux でも動かせる:
 
 ```sh
-g++ -std=c++20 -I windows/core windows/core/core.cpp windows/core/config.cpp windows/tests/core_tests.cpp -o core_tests && ./core_tests
+g++ -std=c++20 -I windows/core windows/core/core.cpp windows/core/config.cpp windows/core/cli.cpp windows/tests/core_tests.cpp -o core_tests && ./core_tests
 ```
 
 ## 動かす
@@ -48,6 +48,16 @@ ssh から入れるときは、ssh のセッションには画面が無いので
 - 設定画面: スタートメニューから開き直すと出る。2回開いても1つだけ。並べ方・速さ・一時停止・省エネモード・ログイン時に起動を変えるとすぐ壁紙と `config.json`（ログイン時に起動は Run）に反映する。読めない画像を選ぶと「読めませんでした」と出て、設定は変わらない。「pixwall を終了」で壁紙も設定画面も終わる。`config.json` が無い・画像が無いときは、起動すると設定画面が出る
 - 設定画面は、画面のあるセッションで `windows\tools\settings-ui.ps1`（部品を名前で動かす。例 `-Fit fill`、`-Toggle 一時停止`、`-Speed 2`、`-Position 25`（0〜100）、`-Background custom`（`auto` か `custom`）、`-Frame 16`、`-Button 表示を更新`。部品は日本語の名前で探すので、表示言語が英語の Windows では設定画面を `PIXWALL_LANGUAGE=ja-JP` を付けて開いておく）と `windows\tools\pick-file.ps1 -Path <画像>`（開いているファイルを選ぶ画面で選ぶ）で動かせる。止まったか・速さが変わったかは `windows\tools\cycles.ps1`（10 秒のサイクル数）で見る
 - 起動したあと、`HKCU\Software\Microsoft\Windows\CurrentVersion\Run` の `pixwall` に exe と画像のパスが入っている。サインアウトしてサインインし直すと pixwall が始まる。外すときは `reg delete HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v pixwall /f`
+
+## コマンドライン
+
+`install.ps1` で `%LOCALAPPDATA%\Programs\pixwall\pixwallctl.exe` に入る（`build\pixwallctl.exe` でもよい）。ssh のセッションからは画面のあるセッションの pixwall の窓が見えず `stopped` になるので、画面のあるセッションで動かす。試す前に `config.json` を写しておき、終わったら戻す。
+
+- `status` が `running`。`set fit integer background custom backgroundColor "#203040"` で `%LOCALAPPDATA%\pixwall\desktop` の PNG が描き直され、`export out.png --frame 2` の PNG の左上が (32, 48, 64)
+- `pause` の間は `tools\cycles.ps1` のサイクル数が下がり、`status` が `paused`。`resume` で戻る
+- `set speed 9`・`set image nope.gif`・`export out.png --frame 999` は断られ（終わりの値 2・1・2）、`show` が変わらない
+- 設定画面を開いたまま `set speed 4 fit fit position 0` をすると、設定画面の並べ方・位置・速さがすぐ変わる。そのあと設定画面で何か変えても（UI Automation で「Pause in Energy Saver」を切り替えるなど）、`config.json` に `speed 4`・`fit`・`position 0` が残る
+- `quit` で常駐側が終わり、`status` が `stopped`、`%LOCALAPPDATA%\pixwall\desktop` が空
 
 ## リソースを測る
 

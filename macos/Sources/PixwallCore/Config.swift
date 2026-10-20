@@ -58,9 +58,7 @@ public struct Config: Codable, Equatable {
 
     public func save(to url: URL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        try encoder.encode(self).write(to: url, options: .atomic)
+        try json().write(to: url, options: .atomic)
     }
 }
 

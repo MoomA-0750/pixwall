@@ -1,5 +1,5 @@
 ﻿# pixwall を入れる。Windows PowerShell 5.1 が日本語を読めるよう、このファイルは BOM 付きの UTF-8 で置く。
-# ビルドした build\pixwall.exe と、設定画面（settings を dotnet publish したもの）を %LOCALAPPDATA%\Programs\pixwall に置き、
+# ビルドした build\pixwall.exe・build\pixwallctl.exe（コマンドラインの道具）と、設定画面（settings を dotnet publish したもの）を %LOCALAPPDATA%\Programs\pixwall に置き、
 # スタートメニューに「pixwall」を作る。管理者の権限は要らない（自分のユーザーにだけ入れる）
 #   powershell -ExecutionPolicy Bypass -File install.ps1            入れる・入れ直す
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -Image <画像のパス>  入れて、その画像で始める
@@ -41,6 +41,7 @@ Get-ChildItem $staging -Directory | Where-Object { $_.Name -match '^[a-z]{2,3}(-
 
 New-Item -ItemType Directory -Force $dir | Out-Null
 Copy-Item $built $exe -Force
+Copy-Item (Join-Path $PSScriptRoot 'build\pixwallctl.exe') (Join-Path $dir 'pixwallctl.exe') -Force
 Remove-Item (Join-Path $dir 'settings') -Recurse -ErrorAction SilentlyContinue
 Copy-Item $staging (Join-Path $dir 'settings') -Recurse
 

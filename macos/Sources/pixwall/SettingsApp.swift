@@ -31,6 +31,13 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
         model.onRefresh = { Resident.post(.refresh) }
         model.onQuit = { [weak self] in self?.quit() }
         Resident.observe(.showSettings) { [weak self] _ in self?.show() }
+        // pixwallctl で変えたとき。古い設定のまま次に書いて、変えた分を消さないように読み直す
+        Resident.observe(.reloadConfig) { [weak self] _ in self?.reload() }
+        Resident.observe(.setPaused) { [weak self] n in
+            let paused = (n.userInfo?["paused"] as? Bool) ?? false
+            if self?.model.paused != paused { self?.model.paused = paused }
+        }
+        Resident.observe(.quit) { _ in NSApp.terminate(nil) }
 
         let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: model)))
         window.title = "pixwall"
@@ -70,6 +77,19 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
         try? new.save(to: Resident.configURL)
         model.loginItemNeedsApproval = Resident.updateLoginItem(new.launchAtLogin)
         Resident.post(.reloadConfig)
+    }
+
+    /// 自分で書いたあとにも届くが、そのときは saved と同じなので何もしない
+    private func reload() {
+        let disk = Config.load(from: Resident.configURL)
+        if disk == saved { return }
+        if disk.image != saved.image {
+            model.image = disk.image.flatMap { AnimatedImage(url: URL(fileURLWithPath: $0)) }
+            model.loadError = model.image == nil ? disk.image : nil
+            model.exportResult = nil
+        }
+        saved = disk
+        model.config = disk
     }
 
     /// 壁紙ごと終える

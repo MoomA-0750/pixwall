@@ -34,6 +34,16 @@ open /Applications/pixwall.app --args "$D/dot-64x64-30f.gif"
 - 操作スペースの切り替えは、Mission Control をアプリとして開いて（`com.apple.exposelauncher`）縮小図を押せばできる（送ったキー操作は届かなかった）。写真の操作スペースがあるまま起動し、そこへ移ってから終える。また Mission Control の「＋」で操作スペースを足してから終える。どちらも全部の操作スペースが写真に戻る
 - 設定画面の「静止画を書き出す…」で、書き出す絵のつまみで選んだ枚が、画面の大きさの PNG に書かれる
 
+## コマンドライン
+
+`/Applications/pixwall.app/Contents/MacOS/pixwallctl`（ssh からでも、常駐側への知らせは届く）。使い方は `pixwallctl help`。試す前に `config.json` を写しておき、終わったら戻す。
+
+- `status` が `running`。`set fit integer background custom backgroundColor "#203040"` で `~/Library/Application Support/pixwall/desktop` の PNG が描き直され、`export out.png --frame 2` の PNG の左上が (32, 48, 64)
+- `pause` のあと 10 秒の CPU 時間（上の「隠れたときに止まるか」）が増えず、`status` が `paused`。`resume` で増える
+- `set speed 9`・`set image nope.gif`・`export out.png --frame 999` は断られ（終わりの値 2・1・2）、`show` が変わらない
+- 設定画面を開いたまま `set speed 2 fit fill` と `pause` をすると、設定画面の並べ方・速さ・一時停止が変わる（画面を撮れないときは `osascript` の System Events で部品の値を読む）。そのあと設定画面で何か変えても、`show` に `speed 2`・`fill` が残る
+- `quit` で常駐側と設定画面が終わり、`status` が `stopped`
+
 ## リソースを測る
 
 ```sh

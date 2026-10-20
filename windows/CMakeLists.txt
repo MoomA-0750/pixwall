@@ -10,12 +10,13 @@ if(MSVC)
 endif()
 
 # OS に触らない計算。常駐側・設定画面・テストから使う
-add_library(pixwall-core STATIC core/core.cpp core/config.cpp)
+add_library(pixwall-core STATIC core/core.cpp core/config.cpp core/cli.cpp)
 target_include_directories(pixwall-core PUBLIC core)
 
 # 常駐側。WinUI 3・.NET・WebView は入れない
 add_executable(pixwall WIN32
   src/main.cpp
+  src/config_file.cpp
   src/desktop.cpp
   src/image_loader.cpp
   src/still.cpp
@@ -23,6 +24,17 @@ add_executable(pixwall WIN32
   src/pixwall.manifest)
 target_compile_definitions(pixwall PRIVATE UNICODE _UNICODE NOMINMAX _WIN32_WINNT=0x0A00)
 target_link_libraries(pixwall PRIVATE pixwall-core d3d11 dcomp dwmapi windowscodecs wtsapi32 ole32 user32 shell32 advapi32 uuid)
+
+# コマンドラインの道具（コンソールのアプリ）。常駐側の隣に置く
+add_executable(pixwallctl
+  src/ctl.cpp
+  src/config_file.cpp
+  src/desktop.cpp
+  src/image_loader.cpp
+  src/still.cpp
+  src/pixwall.manifest)
+target_compile_definitions(pixwallctl PRIVATE UNICODE _UNICODE NOMINMAX _WIN32_WINNT=0x0A00)
+target_link_libraries(pixwallctl PRIVATE pixwall-core windowscodecs ole32 user32 shell32 advapi32 uuid)
 
 enable_testing()
 add_executable(pixwall-core-tests tests/core_tests.cpp)

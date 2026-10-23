@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CC の PostToolUse フック。書いたファイルを検査し、外れていれば CC へ返して直させる。
-#   .kt                          → check_m3e.sh（Compose）
+#   .kt                          → check_m3e.sh（Compose。Wear のファイルは check_m3e_wear.sh へ回る）
 #   .java / .xml / .py / .patch  → check_m3e_views.sh（View。同じディレクトリにあるときだけ）
 f=$(jq -r '.tool_input.file_path // empty')
 [ -n "$f" ] && [ -f "$f" ] || exit 0

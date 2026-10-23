@@ -372,3 +372,12 @@
 - エミュレーターで、文字盤の GIF の待ち時間が守られなかった（500ms ずつの4枚が、0.3・0.6・0.45・0.15 秒ほどで回り、1 周が約 1.5 秒）。こちらで書いた GIF でも ImageMagick で書いた GIF でも同じなので、WFF の再生か、エミュレーターの絵の描き方の側。実機で確かめるまで未決事項にした
 - 初めて文字盤を作るのに約 1 分かかった（エミュレーター）。2 回目からは 3〜9 秒なので、鍵を作るのと、検証の仕組みを初めて読み込むのに時間がかかっている
 - 時計のアプリは、検証ライブラリが連れてくるもの（icu4j・xerces・glide など）でデバッグ版が約 51MB ある
+
+## 2026-10-23 Mac 版の設定画面を今の SwiftUI の書き方にする
+
+- main に Apple の画面の書き方の検査（`scripts/check_apple_ui.sh`）とフックが入り、Mac 版の設定画面の `ObservableObject`・`@Published`・`@ObservedObject` と `DispatchQueue.main.async` が外れとして出た。本人の指示で直した
+- `SettingsModel` を `@MainActor @Observable` にし、画面は `@Bindable` で受ける。`@Observable` は macOS 14 からなので、Mac 版の対象を macOS 13 から 14 に上げた（試している Mac は macOS 27）
+- 変えたときにすること（`config` と `paused` の `didSet`）は、`@Observable` でも同じ時機に動く。M1 で、設定画面の「一時停止」で常駐側が `paused` になること、位置のつまみが `config.json` に書かれること、書き出す絵のつまみと見本が動くこと、開いたまま `pixwallctl set speed 2` すると画面が 2× になることを確かめた
+- 読めない画像を選んだときに設定を戻すところは、`DispatchQueue.main.async` を `Task { @MainActor in … }` にした（`config` の `didSet` の中から呼ばれるので、今の変更が終わってから戻す）。ここは画像を選ぶ画面を外から操作できず、動かして確かめられていない
+- 常駐側の `DispatchQueue.main.asyncAfter` の3か所は、取り消せる `DispatchWorkItem` で待つためのもので正しい使い方なので、`// apple-ui-allow` を付けて残した
+- `main.swift` の一番上の処理はメインスレッドで動くので、`SettingsApp` を作るところを `MainActor.assumeIsolated` で包んだ

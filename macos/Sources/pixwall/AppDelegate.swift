@@ -89,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         osWallpaperWork?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.applyOsWallpaper() }
         osWallpaperWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work) // apple-ui-allow: 取り消せる DispatchWorkItem で、つまみを動かし終えるまで待つ
     }
 
     /// OS の壁紙にも1枚目を入れる（Mission Control・メニューバーの色・操作スペースの切り替えで見える）
@@ -187,7 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mouseUpChecks.forEach { $0.cancel() }
         mouseUpChecks = [0.1, 0.45].map { delay in
             let work = DispatchWorkItem { [weak self] in self?.checkCoverage() }
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work) // apple-ui-allow: 取り消せる DispatchWorkItem で、次に離したら前の見直しを取り消す
             return work
         }
     }
@@ -207,7 +207,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         rebuildWork?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.rebuild() }
         rebuildWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work) // apple-ui-allow: 取り消せる DispatchWorkItem で、変化が落ち着くまで待つ
     }
 
     private func observe() {

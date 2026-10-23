@@ -5,30 +5,31 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// 設定画面の中身と、変えたときにすること
-final class SettingsModel: ObservableObject {
-    @Published var config: Config {
+@MainActor @Observable
+final class SettingsModel {
+    var config: Config {
         didSet { if config != oldValue { onChange(config) } }
     }
-    @Published var paused = false {
+    var paused = false {
         didSet { if paused != oldValue { onPause(paused) } }
     }
     /// 読めなかった画像のパス。画面に出す
-    @Published var loadError: String?
+    var loadError: String?
     /// ログイン項目に入れたが、システム設定で切られている
-    @Published var loginItemNeedsApproval = false
+    var loginItemNeedsApproval = false
     /// 動かしている画像（プレビューと書き出しに使う）。読めないときは nil
-    @Published var image: AnimatedImage? {
+    var image: AnimatedImage? {
         didSet { frame = 0 }
     }
     /// 書き出す絵（何枚目か、0 から）
-    @Published var frame = 0
+    var frame = 0
     /// 書き出した結果。画面に出す
-    @Published var exportResult: String?
+    var exportResult: String?
 
-    var onChange: (Config) -> Void = { _ in }
-    var onPause: (Bool) -> Void = { _ in }
-    var onRefresh: () -> Void = {}
-    var onQuit: () -> Void = {}
+    @ObservationIgnored var onChange: (Config) -> Void = { _ in }
+    @ObservationIgnored var onPause: (Bool) -> Void = { _ in }
+    @ObservationIgnored var onRefresh: () -> Void = {}
+    @ObservationIgnored var onQuit: () -> Void = {}
 
     init(config: Config) {
         self.config = config
@@ -64,7 +65,7 @@ final class SettingsModel: ObservableObject {
 }
 
 struct SettingsView: View {
-    @ObservedObject var model: SettingsModel
+    @Bindable var model: SettingsModel
 
     var body: some View {
         Form {

@@ -10,7 +10,8 @@ if URL(fileURLWithPath: CommandLine.arguments[0]).lastPathComponent == Ctl.name 
 let app = NSApplication.shared
 let delegate: NSApplicationDelegate
 if arguments.contains(Resident.settingsArgument) {
-    delegate = SettingsApp(paused: arguments.contains(Resident.pausedArgument))
+    // ここは起動したスレッド（メインスレッド）で動く。設定画面は @MainActor
+    delegate = MainActor.assumeIsolated { SettingsApp(paused: arguments.contains(Resident.pausedArgument)) }
 } else {
     // Info.plist の LSUIElement と同じ。.app にせずそのまま動かしたときも Dock に出さない
     app.setActivationPolicy(.accessory)

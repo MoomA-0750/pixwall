@@ -4,6 +4,7 @@ import SwiftUI
 
 /// 設定画面のプロセス（`pixwall --settings`）。常駐側が起動し、窓を閉じたら終わる。
 /// 変えたら config.json に書いて、常駐側に読み直してもらう（Windows の設定画面と同じ）
+@MainActor
 final class SettingsApp: NSObject, NSApplicationDelegate {
     /// 最後に書いた設定。読めない画像を選んだときはここへ戻す
     private var saved = Config.load(from: Resident.configURL)
@@ -66,7 +67,8 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
             guard let loaded = AnimatedImage(url: URL(fileURLWithPath: image)) else {
                 model.loadError = image
                 let saved = self.saved
-                DispatchQueue.main.async { [weak self] in self?.model.config = saved }
+                // config の didSet の中から呼ばれるので、今の変更が終わってから戻す
+                Task { @MainActor [weak self] in self?.model.config = saved }
                 return
             }
             model.loadError = nil

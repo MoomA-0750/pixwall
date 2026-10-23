@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="preview">文字盤の見本</string>
+    <string name="image">画像</string>
+    <string name="fit">並べ方</string>
+    <string name="fit_integer">整数倍で最大</string>
+    <string name="fit_integer_detail">ドットの大きさがそろいます。中央に置きます。</string>
+    <string name="fit_fit">画面に合わせる</string>
+    <string name="fit_fit_detail">画像の全体を出し、余白ができます。</string>
+    <string name="fit_fill">画面を埋める</string>
+    <string name="fit_fill_detail">画面を埋め、はしが切れることがあります。</string>
+    <string name="position_value">位置 %1$d</string>
+    <string name="install">文字盤にする</string>
+    <string name="installing">作っています…</string>
+    <string name="installed_active">文字盤にしました</string>
+    <string name="installed_choose">入れました。文字盤の一覧から pixwall を選んでください。</string>
+    <string name="install_failed">文字盤にできませんでした</string>
+    <string name="too_large">この画像は約 %1$d MB 要り、上限の 100 MB を超えます。小さい GIF か、枚数の少ない GIF にしてください。</string>
+</resources>

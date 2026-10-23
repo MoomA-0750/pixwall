@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- アイコンだけの色（画面の色は端末の壁紙から作る） -->
+    <color name="icon_background">#FF1E1B2E</color>
+    <color name="icon_foreground">#FFFF5A7A</color>
+</resources>

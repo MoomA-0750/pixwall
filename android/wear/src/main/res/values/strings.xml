@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">pixwall</string>
+    <string name="preview">Watch face preview</string>
+    <string name="image">Image</string>
+    <string name="fit">Scaling</string>
+    <string name="fit_integer">Largest whole multiple</string>
+    <string name="fit_integer_detail">Every dot is the same size. Centered.</string>
+    <string name="fit_fit">Fit to screen</string>
+    <string name="fit_fit_detail">Shows the whole image, with margins.</string>
+    <string name="fit_fill">Fill screen</string>
+    <string name="fit_fill_detail">Covers the screen. Edges may be cut off.</string>
+    <string name="position_value">Position %1$d</string>
+    <string name="install">Set watch face</string>
+    <string name="installing">Making…</string>
+    <string name="installed_active">Watch face set</string>
+    <string name="installed_choose">Installed. Choose pixwall from your watch faces.</string>
+    <string name="install_failed">Couldn\'t set the watch face</string>
+    <string name="too_large">This image needs about %1$d MB, over the 100 MB limit. Use a smaller GIF or one with fewer frames.</string>
+</resources>

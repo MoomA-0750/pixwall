@@ -7,7 +7,7 @@
 ```sh
 cd android
 export JAVA_HOME=/opt/android-studio/jbr
-./gradlew :app:testDebugUnitTest   # 並べ方・待ち時間・設定・GIF の読み込み
+./gradlew :core:testDebugUnitTest  # 並べ方・待ち時間・設定・GIF の読み込みと書き出し・文字盤の組み立て
 ./gradlew :app:assembleDebug       # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleRelease     # 測るときはこちら（デバッグの鍵で署名するので上書きで入る）
 adb install -r app/build/outputs/apk/debug/app-debug.apk
@@ -67,3 +67,32 @@ to-fu の Android Studio に、折りたたみのエミュレーター `Pixel_10
 - 設定画面の見本: 開いた状態・開いて回した状態では見本が左・設定が右、閉じた状態では見本が上・設定が下。見本を押した全画面の見本と、ホーム画面の壁紙で、絵の範囲（余白の赤でないところ）が同じ（開くと左右 14〜2061・上下 52〜2099、閉じると左右 28〜1051・上下 670〜1693、回すと左右 52〜2099・上下 14〜2061）
 
 2026-10-19 に上のすべてを確かめた。エミュレーターは GPU をソフトで真似るので、CPU の値（閉じたホーム画面で 20 秒に約 100 tick）は実機の目安にならない
+
+## Wear OS の文字盤
+
+この Linux の PC は仮想マシンの中なので、時計のエミュレーターは起動の途中で落ちる（入れ子の仮想化）。to-fu の `pixwall_watch`（Wear OS 6、454×454 の丸。to-fu にある Wear OS 6 の像を使う）で試す。kite-rebuild の毎晩の試験（1:00〜4:30 ごろ）の時間は避け、使い終わったら `adb -s emulator-5570 emu kill` で止める。
+
+```sh
+cd android && ./gradlew :wear:assembleDebug   # wear/build/outputs/apk/debug/wear-debug.apk（文字盤の土台 wearface の release も中に入る）
+```
+
+- 起こす: to-fu の画面のあるセッションで `emulator.exe -avd pixwall_watch -no-window -no-audio -no-snapshot -port 5570`
+- 入れて開く: `adb -s emulator-5570 install -r wear-debug.apk`、`adb -s emulator-5570 shell am start -n xyz.mooma0750.pixwall/xyz.mooma0750.pixwall.wear.MainActivity`
+- 画面が暗くなって止まらないように: `svc power stayon true`。充電中の画面が出るときは `dumpsys battery unplug`
+- GIF を足す: `adb push a.gif /data/local/tmp/` のあと `adb shell "run-as xyz.mooma0750.pixwall sh -c 'mkdir -p files/gifs && cp /data/local/tmp/a.gif files/gifs/'"`（デバッグ版だけ）
+- 設定を直接書く: 同じく run-as で `files/config.json` を置き換える（`image` は `asset:samples/…` か `file:gifs/…`）
+- ボタンを押す代わりに: デバッグ版は `am start -S -n …/.wear.MainActivity --ez install true` で開くと、読み込み次第「文字盤にする」と同じことをする。結果は `logcat -s pixwall:I` に `watch face: Active` などと出る
+- アンビエントは `settings put global ambient_enabled 1` と `svc power stayon false` のあと `input keyevent KEYCODE_SLEEP`、戻すのは `KEYCODE_WAKEUP`
+- 文字盤の土台だけを試すとき（時計のアプリを通さない）: `scripts/wear_face_gif.sh <GIF>` で `android/wearface` に入れて `./gradlew :wearface:assembleDebug`、`adb install` のあと `am broadcast -a com.google.android.wearable.app.DEBUG_SURFACE --es operation set-watchface --es watchFaceId xyz.mooma0750.pixwall.watchfacepush.gif`。Push で入れた同じ名前の文字盤があると、署名の鍵が違うので先に `adb uninstall` が要る。XML を書き換えたら、公式の検証ツール（github.com/google/watchface の `third_party/wff`、`./gradlew :specification:validator:executable-jar`）で `java -jar wff-validator.jar 1 watchface.xml`
+
+見ること:
+
+- 入る: 初めて押すと「今の文字盤にしてよいか」を聞かれ、許すと文字盤が pixwall になる（`logcat` に `WF Changed to … xyz.mooma0750.pixwall.watchfacepush.gif`）。もう一度押すと、同じ枠が入れ替わる（`Asset module broadcast after update successful`）
+- 並べ方: 横長の 48×24（左が赤・右が青）で、整数倍は 9 倍の 432×216 が真ん中、画面に合わせる・位置 0 は上に 454×227 で下が余白、画面を埋める・位置 0 は赤だけ・位置 100 は青だけが見える
+- ドットがぼやけていない: 丸の内側で時刻の字を避けた範囲の色が、元の GIF の色だけ。255 段のうち 1〜2 段だけずれた色が数十ドット出るのは、目では分からないのでよしとする
+- 大きすぎる: 227×227・130 枚は整数倍で約 107MB になり、「約 107 MB 要り、上限の 100 MB を超えます」と出て入れない
+- 今の文字盤にできない: 文字盤を `adb uninstall` してからもう一度押すと（今の文字盤にできるのは一度だけ）、「文字盤の一覧から pixwall を選んでください」と出る
+- アンビエント: 黒地に細い時刻だけで、2回撮っても同じ。丸のふちに色が残らない。戻るとまた動く
+- 動き: 0.15 秒ごとに `screencap` で撮って、点の色の移り変わりを見る。エミュレーターでは待ち時間が守られない（SPEC の未決事項）
+
+2026-10-21 に上のすべてを確かめた

@@ -12,6 +12,10 @@ androidxComposeBom = "2026.09.00"
 androidxComposeMaterial3 = "1.5.0-beta01"
 androidxCoreKtx = "1.19.0"
 junit4 = "4.13.2"
+# 時計（Wear OS）。Push は Wear OS 6 から
+wearCompose = "1.7.1"
+watchFacePush = "1.0.0"
+watchFaceValidator = "1.1.0-alpha01"
 # Android の org.json は単体テストでは中身が無いので、テストには本物を入れる
 orgJson = "20250517"
 
@@ -21,8 +25,13 @@ androidx-compose-bom = { module = "androidx.compose:compose-bom", version.ref = 
 androidx-compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "androidxComposeMaterial3" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCoreKtx" }
 junit4 = { module = "junit:junit", version.ref = "junit4" }
+wear-compose-material3 = { module = "androidx.wear.compose:compose-material3", version.ref = "wearCompose" }
+wear-compose-foundation = { module = "androidx.wear.compose:compose-foundation", version.ref = "wearCompose" }
+wear-watchfacepush = { module = "androidx.wear.watchfacepush:watchfacepush", version.ref = "watchFacePush" }
+wear-watchface-validator = { module = "com.google.android.wearable.watchface.validator:validator-push-android", version.ref = "watchFaceValidator" }
 org-json = { module = "org.json:json", version.ref = "orgJson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }
+android-library = { id = "com.android.library", version.ref = "androidGradlePlugin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

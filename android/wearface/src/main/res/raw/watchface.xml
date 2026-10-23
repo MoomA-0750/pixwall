@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!--
+    pixwall の文字盤の試作。GIF を整数倍で真ん中に出し、時刻を重ねる。
+    座標は 454×454（Wear OS の大きい丸の画面の画素の数）で、端末の大きさに合わせて OS が拡大・縮小する。
+    WFF は絵をぼかして拡大するので、GIF は scripts/wear_face_gif.sh で先に整数倍にしておく（絵の位置と余白の色もそれが書く）。
+    アンビエントでは GIF を消し、黒地に細い時刻だけにする（焼き付きと電池のため）。
+-->
+<WatchFace width="454" height="454">
+  <Metadata key="CLOCK_TYPE" value="DIGITAL"/>
+  <Metadata key="PREVIEW_TIME" value="10:08:32"/>
+  <!-- 地は黒。余白の色にすると、アンビエントで丸のふちに色が残る -->
+  <Scene backgroundColor="#ff000000">
+    <Group name="picture" x="0" y="0" width="454" height="454">
+      <Variant mode="AMBIENT" target="alpha" value="0"/>
+      <PartDraw name="margin" x="0" y="0" width="454" height="454">
+        <Rectangle x="0" y="0" width="454" height="454">
+          <Fill color="#fff05050"/>
+        </Rectangle>
+      </PartDraw>
+      <PartAnimatedImage name="gif" x="3" y="3" width="448" height="448">
+        <AnimationController play="ON_VISIBLE" repeat="TRUE" loopCount="0" beforePlaying="FIRST_FRAME"/>
+        <AnimatedImage resource="pixwall" format="AGIF"/>
+        <Thumbnail resource="preview"/>
+      </PartAnimatedImage>
+    </Group>
+    <DigitalClock x="0" y="0" width="454" height="454">
+      <!-- 動いている間: 太い字。TimeText の字には影を付けられない（WFF 1） -->
+      <TimeText format="hh:mm" hourFormat="SYNC_TO_DEVICE" align="CENTER" x="0" y="177" width="454" height="100">
+        <Variant mode="AMBIENT" target="alpha" value="0"/>
+        <Font family="SYNC_TO_DEVICE" size="96" weight="BOLD" color="#ffffffff"/>
+      </TimeText>
+      <!-- アンビエント: 黒地に細い字 -->
+      <TimeText format="hh:mm" hourFormat="SYNC_TO_DEVICE" align="CENTER" x="0" y="177" width="454" height="100" alpha="0">
+        <Variant mode="AMBIENT" target="alpha" value="255"/>
+        <Font family="SYNC_TO_DEVICE" size="96" weight="THIN" color="#ffffffff"/>
+      </TimeText>
+    </DigitalClock>
+  </Scene>
+</WatchFace>

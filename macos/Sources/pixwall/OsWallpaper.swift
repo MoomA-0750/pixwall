@@ -101,7 +101,7 @@ final class OsWallpaper {
             if let s = original.scaling { options[.imageScaling] = s }
             if let c = original.allowClipping { options[.allowClipping] = c }
             if let f = original.fillColor, f.count == 4 {
-                options[.fillColor] = NSColor(srgbRed: f[0], green: f[1], blue: f[2], alpha: f[3])
+                options[.fillColor] = NSColor(srgbRed: f[0], green: f[1], blue: f[2], alpha: f[3]) // apple-ui-allow: 本人の元の壁紙の色を戻す
             }
             do {
                 try NSWorkspace.shared.setDesktopImageURL(URL(fileURLWithPath: original.url), for: screen,

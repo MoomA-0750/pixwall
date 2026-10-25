@@ -23,6 +23,16 @@
   <data name="Position.Text" xml:space="preserve"><value>Position</value></data>
   <data name="PositionHint.Text" xml:space="preserve"><value>0 is top or left, 100 is bottom or right</value></data>
   <data name="PositionControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Position</value></data>
+  <data name="FitFree.Content" xml:space="preserve"><value>Free Placement</value></data>
+  <data name="FreeSize.Text" xml:space="preserve"><value>Size</value></data>
+  <data name="FreeSizeHint.Text" xml:space="preserve"><value>100% is the size that fits the screen</value></data>
+  <data name="FreeSizeControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Size</value></data>
+  <data name="FreeX.Text" xml:space="preserve"><value>Horizontal Position</value></data>
+  <data name="FreeXHint.Text" xml:space="preserve"><value>0 is the left edge, 100 is the right edge</value></data>
+  <data name="FreeXControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Horizontal Position</value></data>
+  <data name="FreeY.Text" xml:space="preserve"><value>Vertical Position</value></data>
+  <data name="FreeYHint.Text" xml:space="preserve"><value>0 is the top edge, 100 is the bottom edge</value></data>
+  <data name="FreeYControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Vertical Position</value></data>
   <data name="Background.Text" xml:space="preserve"><value>Margin Color</value></data>
   <data name="BackgroundHint.Text" xml:space="preserve"><value>Automatic uses the image's top-left pixel</value></data>
   <data name="ColorButtonControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Choose Color</value></data>

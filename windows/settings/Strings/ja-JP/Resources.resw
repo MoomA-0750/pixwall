@@ -23,6 +23,16 @@
   <data name="Position.Text" xml:space="preserve"><value>位置</value></data>
   <data name="PositionHint.Text" xml:space="preserve"><value>0 で上・左、100 で下・右</value></data>
   <data name="PositionControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>位置</value></data>
+  <data name="FitFree.Content" xml:space="preserve"><value>自由に置く</value></data>
+  <data name="FreeSize.Text" xml:space="preserve"><value>大きさ</value></data>
+  <data name="FreeSizeHint.Text" xml:space="preserve"><value>100% で画面に合わせた大きさ</value></data>
+  <data name="FreeSizeControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>大きさ</value></data>
+  <data name="FreeX.Text" xml:space="preserve"><value>横の位置</value></data>
+  <data name="FreeXHint.Text" xml:space="preserve"><value>0 で左の端、100 で右の端</value></data>
+  <data name="FreeXControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>横の位置</value></data>
+  <data name="FreeY.Text" xml:space="preserve"><value>縦の位置</value></data>
+  <data name="FreeYHint.Text" xml:space="preserve"><value>0 で上の端、100 で下の端</value></data>
+  <data name="FreeYControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>縦の位置</value></data>
   <data name="Background.Text" xml:space="preserve"><value>余白の色</value></data>
   <data name="BackgroundHint.Text" xml:space="preserve"><value>自動では画像の左上の色</value></data>
   <data name="ColorButtonControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>色を選ぶ</value></data>

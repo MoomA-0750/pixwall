@@ -315,7 +315,7 @@ void Advance() {
 // OS の壁紙にも1枚目を入れる（タスク ビューや Explorer の作り直しの間、壁紙が見えたときも同じ絵になる）
 void ApplyOsWallpaper() {
     KillTimer(app.messageWindow, kWallpaperTimer);
-    app.osWallpaper.Apply(app.wic.Get(), app.image, Wide(app.config.image), app.config.fit, app.config.position,
+    app.osWallpaper.Apply(app.wic.Get(), app.image, Wide(app.config.image), app.config.placement(),
                           Byte(app.background.r), Byte(app.background.g), Byte(app.background.b));
 }
 
@@ -357,8 +357,8 @@ void Rebuild() {
         },
         reinterpret_cast<LPARAM>(&monitors));
     for (const RECT& rc : monitors) {
-        auto w = std::make_unique<WallWindow>(app.gpu, app.image, rc, desktop, app.background, app.config.fit,
-                                              app.config.position);
+        auto w = std::make_unique<WallWindow>(app.gpu, app.image, rc, desktop, app.background,
+                                              app.config.placement());
         if (w->ok()) app.windows.push_back(std::move(w));
     }
     UpdateRunning();
@@ -404,7 +404,7 @@ LRESULT OnRequest(const COPYDATASTRUCT* data) {
             const auto lines = Lines(data);
             if (lines.size() < 2) return 0;
             return ExportStill(app.wic.Get(), app.image, Wide(app.config.image), _wtoi(lines[0].c_str()),
-                               app.config.fit, app.config.position, Byte(app.background.r), Byte(app.background.g),
+                               app.config.placement(), Byte(app.background.r), Byte(app.background.g),
                                Byte(app.background.b), lines[1])
                        ? 1
                        : 0;
@@ -539,14 +539,14 @@ void ApplyConfig(const Config& next) {
     const Color oldBackground = app.background;
     app.config = next;
     app.background = BackgroundFor(next, app.cornerColor);
-    const bool relayout = next.fit != old.fit || next.position != old.position || app.background.r != oldBackground.r ||
+    const bool relayout = next.placement() != old.placement() || app.background.r != oldBackground.r ||
                           app.background.g != oldBackground.g || app.background.b != oldBackground.b;
     app.pause.pauseOnEnergySaver = next.pauseOnLowPower;
     UpdateLaunchAtLogin(next.launchAtLogin);
     UpdateRunning();
     if (!reload && !app.windows.empty()) {
         bool ok = true;
-        for (auto& w : app.windows) ok = ok && w->SetLayout(app.background, app.config.fit, app.config.position);
+        for (auto& w : app.windows) ok = ok && w->SetLayout(app.background, app.config.placement());
         if (ok) {
             if (relayout) SetTimer(app.messageWindow, kWallpaperTimer, kWallpaperDelayMs, nullptr);
             return;

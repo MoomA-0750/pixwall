@@ -48,6 +48,22 @@ void TestLayout() {
     CHECK((Layout(100, 200, 1000, 1000, Fit::Fill, 0.25) == PixelRect{0, -250, 1000, 2000}));
     // 中央は前と同じ（はみ出しが奇数でも）
     CHECK((Layout(3, 1, 4, 3, Fit::Fill) == PixelRect{-2, 0, 9, 3}));
+
+    // 自由に置く: 画面に合わせた大きさ×freeSize。横・縦は別々に、余白（はみ出し）の中の割合で置く（Mac の LayoutTests と同じ）
+    const auto free = [](double x, double y, double size) {
+        Placement p(Fit::Free, 0);
+        p.freeX = x;
+        p.freeY = y;
+        p.freeSize = size;
+        return Layout(320, 180, 2880, 1800, p);
+    };
+    CHECK((free(0.5, 0.5, 1) == PixelRect{0, 90, 2880, 1620}));
+    CHECK((free(0, 1, 0.5) == PixelRect{0, 990, 1440, 810}));
+    CHECK((free(1, 0, 0.5) == PixelRect{1440, 0, 1440, 810}));
+    CHECK((free(0, 0, 2) == PixelRect{0, 0, 5760, 3240}));
+    CHECK((free(1, 1, 2) == PixelRect{-2880, -1440, 5760, 3240}));
+    CHECK((free(-1, 2, 100) == free(0, 1, 3)));
+    CHECK((free(0.5, 0.5, 0) == free(0.5, 0.5, 0.1)));
 }
 
 void TestTiming() {
@@ -187,7 +203,16 @@ void TestConfig() {
     c.position = 0.25;
     c.customBackground = true;
     c.backgroundColor = 0x1E2A3B;
+    c.freeX = 0.1;
+    c.freeY = 0.9;
+    c.freeSize = 2.5;
     CHECK(ParseConfig(FormatConfig(c)) == c);
+    c.fit = Fit::Free;
+    CHECK(ParseConfig(FormatConfig(c)) == c);
+    CHECK(FormatConfig(c).find("\"fit\" : \"free\"") != std::string::npos);
+    // 自由に置くときの値は範囲に収める。読めない値は既定のまま
+    const Config freeOdd = ParseConfig(R"({"freeX": -1, "freeY": "a", "freeSize": 9})");
+    CHECK(Near(freeOdd.freeX, 0) && Near(freeOdd.freeY, 0.5) && Near(freeOdd.freeSize, 3));
     CHECK(FormatConfig(c).find("\"backgroundColor\" : \"#1E2A3B\"") != std::string::npos);
     // 余白の色。前の版の設定には無く、既定は自動。読めない色は選んでいないのと同じ。小文字も読む
     CHECK(!mac.customBackground && mac.backgroundColor == -1);
@@ -268,6 +293,8 @@ void TestCli() {
     CHECK(ConfigValue(config, "image").empty());
     CHECK(ConfigValue(config, "fit") == "integer");
     CHECK(ConfigValue(config, "position") == "0.5");
+    CHECK(ConfigValue(config, "freeX") == "0.5");
+    CHECK(ConfigValue(config, "freeSize") == "1");
     CHECK(ConfigValue(config, "speed") == "1");
     CHECK(ConfigValue(config, "background") == "auto");
     CHECK(ConfigValue(config, "backgroundColor").empty());
@@ -283,6 +310,10 @@ void TestCli() {
     CHECK(SetConfigValue(config, "launchAtLogin", "false", error));
     CHECK(SetConfigValue(config, "image", "C:\\a\\b.gif", error));
     CHECK(config.fit == Fit::Fill && Near(config.position, 0.25) && Near(config.speed, 4));
+    CHECK(SetConfigValue(config, "freeX", "0", error) && SetConfigValue(config, "freeY", "1", error) &&
+          SetConfigValue(config, "freeSize", "0.1", error));
+    CHECK(Near(config.freeX, 0) && Near(config.freeY, 1) && Near(config.freeSize, 0.1));
+    CHECK(SetConfigValue(config, "fit", "free", error) && config.fit == Fit::Free && ConfigValue(config, "fit") == "free");
     CHECK(config.customBackground && config.backgroundColor == 0x1E2A3B);
     CHECK(ConfigValue(config, "backgroundColor") == "#1E2A3B");
     CHECK(!config.pauseOnLowPower && !config.launchAtLogin && config.image == "C:\\a\\b.gif");
@@ -292,7 +323,8 @@ void TestCli() {
     const std::vector<std::pair<std::string, std::string>> bad = {
         {"fit", "stretch"}, {"position", "1.5"}, {"position", "-0.1"}, {"position", "nan"}, {"speed", "0.1"},
         {"speed", "5"}, {"background", "red"}, {"backgroundColor", "#12345"}, {"backgroundColor", "123456"},
-        {"pauseOnLowPower", "yes"}, {"image", ""}, {"position", "0.5x"},
+        {"pauseOnLowPower", "yes"}, {"image", ""}, {"position", "0.5x"}, {"freeX", "1.1"}, {"freeY", "-1"},
+        {"freeSize", "0.05"}, {"freeSize", "3.5"},
     };
     for (const auto& [k, v] : bad) CHECK(!SetConfigValue(fresh, k, v, error));
     CHECK(fresh == Config{});

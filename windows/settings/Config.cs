@@ -14,10 +14,15 @@ public sealed record Config
     public int Version { get; init; } = 1;
     /// 動かす画像のパス。null なら選んでいない
     public string? Image { get; init; }
-    /// integer / fit / fill
+    /// integer / fit / fill / free
     public string Fit { get; init; } = "integer";
     /// 画面に合わせる・埋めるときの位置（0 で上・左、0.5 で中央、1 で下・右）
     public double Position { get; init; } = 0.5;
+    /// 自由に置くときの横・縦の位置（0 で左・上の端、1 で右・下の端をそろえる）
+    public double FreeX { get; init; } = 0.5;
+    public double FreeY { get; init; } = 0.5;
+    /// 自由に置くときの大きさ。画面に合わせたときの大きさを 1 とする（0.1〜3）
+    public double FreeSize { get; init; } = 1;
     /// 余白の色の決め方。auto（画像の1枚目の左上の1ドット）/ custom（BackgroundColor）
     public string Background { get; init; } = "auto";
     /// 自分で選んだ余白の色（"#RRGGBB"）。まだ選んでいなければ null。auto にしても覚えておく
@@ -57,8 +62,11 @@ public sealed record Config
                 {
                     "version" when v.ValueKind == JsonValueKind.Number => c with { Version = v.GetInt32() },
                     "image" when v.ValueKind == JsonValueKind.String => c with { Image = v.GetString() },
-                    "fit" when v.GetString() is "integer" or "fit" or "fill" => c with { Fit = v.GetString()! },
+                    "fit" when v.GetString() is "integer" or "fit" or "fill" or "free" => c with { Fit = v.GetString()! },
                     "position" when v.ValueKind == JsonValueKind.Number => c with { Position = Math.Clamp(v.GetDouble(), 0, 1) },
+                    "freeX" when v.ValueKind == JsonValueKind.Number => c with { FreeX = Math.Clamp(v.GetDouble(), 0, 1) },
+                    "freeY" when v.ValueKind == JsonValueKind.Number => c with { FreeY = Math.Clamp(v.GetDouble(), 0, 1) },
+                    "freeSize" when v.ValueKind == JsonValueKind.Number => c with { FreeSize = Math.Clamp(v.GetDouble(), 0.1, 3) },
                     "background" when v.GetString() is "auto" or "custom" => c with { Background = v.GetString()! },
                     "backgroundColor" when v.ValueKind == JsonValueKind.String =>
                         c with { BackgroundColor = ParseColor(v.GetString()!) is { } rgb ? FormatColor(rgb) : null },
@@ -100,6 +108,9 @@ public sealed record Config
             w.WriteString("background", Background);
             if (BackgroundColor is not null) w.WriteString("backgroundColor", BackgroundColor);
             w.WriteString("fit", Fit);
+            w.WriteNumber("freeSize", FreeSize);
+            w.WriteNumber("freeX", FreeX);
+            w.WriteNumber("freeY", FreeY);
             if (Image is not null) w.WriteString("image", Image);
             w.WriteBoolean("launchAtLogin", LaunchAtLogin);
             w.WriteBoolean("pauseOnLowPower", PauseOnLowPower);

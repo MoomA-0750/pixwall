@@ -55,7 +55,7 @@ bool Gpu::Create() {
 }
 
 WallWindow::WallWindow(Gpu& gpu, const LoadedImage& image, const RECT& monitor, const DesktopParent& desktop,
-                       Color background, Fit fit, double position)
+                       Color background, const Placement& placement)
     : gpu_(gpu), image_(image) {
     HINSTANCE inst = GetModuleHandleW(nullptr);
     RegisterClassOnce(inst, WndProc);
@@ -72,7 +72,7 @@ WallWindow::WallWindow(Gpu& gpu, const LoadedImage& image, const RECT& monitor, 
                             WS_CHILD | WS_CLIPSIBLINGS, rc.left, rc.top, width_, height_, desktop.parent, nullptr,
                             inst, nullptr);
     if (!hwnd_) return;
-    if (!CreateComposition(background, fit, position)) return;
+    if (!CreateComposition(background, placement)) return;
     SetWindowPos(hwnd_, desktop.insertAfter, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
     ok_ = true;
@@ -97,7 +97,7 @@ ComPtr<IDCompositionSurface> WallWindow::MakeSurface(UINT w, UINT h, DXGI_ALPHA_
     return surface;
 }
 
-bool WallWindow::CreateComposition(Color background, Fit fit, double position) {
+bool WallWindow::CreateComposition(Color background, const Placement& placement) {
     if (!gpu_.dcomp || image_.frames.empty()) return false;
     const UINT w = static_cast<UINT>(image_.width);
     const UINT h = static_cast<UINT>(image_.height);
@@ -124,17 +124,17 @@ bool WallWindow::CreateComposition(Color background, Fit fit, double position) {
     root_->AddVisual(imageVisual_.Get(), TRUE, backgroundVisual_.Get());
     target_->SetRoot(root_.Get());
     imageVisual_->SetContent(frames_[0].Get());
-    return SetLayout(background, fit, position);
+    return SetLayout(background, placement);
 }
 
-bool WallWindow::SetLayout(Color background, Fit fit, double position) {
+bool WallWindow::SetLayout(Color background, const Placement& placement) {
     // 余白は 1×1 の面を画面いっぱいに広げる
     const uint8_t bgra[4] = {ToByte(background.b), ToByte(background.g), ToByte(background.r), 255};
     auto surface = MakeSurface(1, 1, DXGI_ALPHA_MODE_IGNORE, bgra);
     if (!surface) return false;
     backgroundSurface_ = surface;
     backgroundVisual_->SetContent(backgroundSurface_.Get());
-    const PixelRect dest = Layout(image_.width, image_.height, width_, height_, fit, position);
+    const PixelRect dest = Layout(image_.width, image_.height, width_, height_, placement);
     imageVisual_->SetTransform(ScaleThenMove(static_cast<float>(dest.width) / image_.width,
                                              static_cast<float>(dest.height) / image_.height,
                                              static_cast<float>(dest.x), static_cast<float>(dest.y)));

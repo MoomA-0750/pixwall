@@ -23,7 +23,7 @@ public sealed partial class MainWindow : Window
     /// 画面に今の設定を入れている間は、変化を書き戻さない
     private bool loading;
     /// 並べ方の選択肢の並び（MainWindow.xaml の FitBox と同じ順）
-    private static readonly string[] Fits = ["integer", "fit", "fill"];
+    private static readonly string[] Fits = ["integer", "fit", "fill", "free"];
     /// 書き出す絵（何枚目か、0 から）
     private int frame;
 
@@ -94,7 +94,11 @@ public sealed partial class MainWindow : Window
         SpeedLabel.Text = SpeedText(config.Speed);
         PositionSlider.Value = Math.Round(config.Position * 100);
         PositionLabel.Text = PositionText(config.Position);
-        PositionCard.Visibility = config.Fit != "integer" ? Visibility.Visible : Visibility.Collapsed;
+        FreeSizeSlider.Value = Math.Round(config.FreeSize * 100);
+        FreeXSlider.Value = Math.Round(config.FreeX * 100);
+        FreeYSlider.Value = Math.Round(config.FreeY * 100);
+        ShowFreeLabels(config);
+        ShowFitCards(config.Fit);
         BackgroundBox.SelectedIndex = config.Background == "custom" ? 1 : 0;
         ShowBackgroundColor();
         LowPowerSwitch.IsOn = config.PauseOnLowPower;
@@ -128,6 +132,20 @@ public sealed partial class MainWindow : Window
     }
 
     private static string SpeedText(double s) => Strings.Format("SpeedTimes", s < 1 ? $"{s:0.##}" : $"{s:0}");
+
+    /// 位置は「画面に合わせる」「画面を埋める」のとき、大きさと横・縦の位置は「自由に置く」のときだけ出す
+    private void ShowFitCards(string fit)
+    {
+        PositionCard.Visibility = fit is "fit" or "fill" ? Visibility.Visible : Visibility.Collapsed;
+        FreeCards.Visibility = fit == "free" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ShowFreeLabels(Config c)
+    {
+        FreeSizeLabel.Text = $"{c.FreeSize * 100:0}%";
+        FreeXLabel.Text = PositionText(c.FreeX);
+        FreeYLabel.Text = PositionText(c.FreeY);
+    }
 
     private static string PositionText(double p) => Math.Abs(p - 0.5) < 0.001 ? Strings.Get("Center") : $"{p * 100:0}";
 
@@ -237,8 +255,22 @@ public sealed partial class MainWindow : Window
     private void Fit_Changed(object sender, SelectionChangedEventArgs e)
     {
         if (FitBox.SelectedIndex < 0) return;
-        PositionCard.Visibility = Fits[FitBox.SelectedIndex] != "integer" ? Visibility.Visible : Visibility.Collapsed;
+        ShowFitCards(Fits[FitBox.SelectedIndex]);
         Apply(config with { Fit = Fits[FitBox.SelectedIndex] });
+    }
+
+    /// 自由に置くときの3本のつまみ。設定には 100 分の 1 に丸めて書く
+    private void Free_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        if (FreeYLabel is null) return;
+        var next = config with
+        {
+            FreeSize = Math.Round(FreeSizeSlider.Value) / 100,
+            FreeX = Math.Round(FreeXSlider.Value) / 100,
+            FreeY = Math.Round(FreeYSlider.Value) / 100,
+        };
+        ShowFreeLabels(next);
+        Apply(next);
     }
 
     private void Position_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)

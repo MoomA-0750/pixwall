@@ -14,6 +14,10 @@ struct Config {
     std::string image;  // 動かす画像のパス（UTF-8）。空なら選んでいない
     Fit fit = Fit::Integer;
     double position = 0.5;  // 画面に合わせる・埋めるときの位置（0 で上・左、1 で下・右）
+    // 自由に置くときの横・縦の位置（0〜1）と大きさ（画面に合わせたときを 1 とする。0.1〜3）。Placement を見る
+    double freeX = 0.5;
+    double freeY = 0.5;
+    double freeSize = 1;
     // 余白の色。false なら画像の1枚目の左上の1ドットの色、true なら backgroundColor（選んでいれば）
     bool customBackground = false;
     int backgroundColor = -1;  // 自分で選んだ余白の色（0xRRGGBB）。-1 ならまだ選んでいない。自動にしても覚えておく
@@ -21,6 +25,14 @@ struct Config {
     bool pauseOnLowPower = true;
     bool launchAtLogin = true;
     bool operator==(const Config&) const = default;
+
+    Placement placement() const {
+        Placement p(fit, position);
+        p.freeX = freeX;
+        p.freeY = freeY;
+        p.freeSize = freeSize;
+        return p;
+    }
 };
 
 Config ParseConfig(std::string_view json);

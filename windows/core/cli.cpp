@@ -21,8 +21,10 @@ const char* const kCliUsage =
     "\n"
     "keys and values:\n"
     "  image            path to a GIF, PNG or WebP\n"
-    "  fit              integer | fit | fill\n"
-    "  position         0 to 1 (0 top/left, 0.5 center, 1 bottom/right)\n"
+    "  fit              integer | fit | fill | free\n"
+    "  position         0 to 1 (0 top/left, 0.5 center, 1 bottom/right; fit and fill)\n"
+    "  freeX, freeY     0 to 1 (0 left/top edge, 1 right/bottom edge; free)\n"
+    "  freeSize         0.1 to 3 (1 is the size that fits the screen; free)\n"
     "  background       auto | custom\n"
     "  backgroundColor  #RRGGBB (used when background is custom)\n"
     "  speed            0.25 to 4\n"
@@ -31,7 +33,7 @@ const char* const kCliUsage =
 
 namespace {
 
-const char* const kKeys[] = {"image", "fit", "position", "background", "backgroundColor",
+const char* const kKeys[] = {"image", "fit", "position", "freeX", "freeY", "freeSize", "background", "backgroundColor",
                              "speed", "pauseOnLowPower", "launchAtLogin"};
 
 // 0.5 は "0.5"、1 は "1"（config.json と同じ）
@@ -144,8 +146,18 @@ bool ParseCli(const std::vector<std::string>& args, CliCommand& out, std::string
 
 std::string ConfigValue(const Config& c, const std::string& key) {
     if (key == "image") return c.image;
-    if (key == "fit") return c.fit == Fit::Fit ? "fit" : c.fit == Fit::Fill ? "fill" : "integer";
+    if (key == "fit") {
+        switch (c.fit) {
+            case Fit::Fit: return "fit";
+            case Fit::Fill: return "fill";
+            case Fit::Free: return "free";
+            default: return "integer";
+        }
+    }
     if (key == "position") return Number(c.position);
+    if (key == "freeX") return Number(c.freeX);
+    if (key == "freeY") return Number(c.freeY);
+    if (key == "freeSize") return Number(c.freeSize);
     if (key == "background") return c.customBackground ? "custom" : "auto";
     if (key == "backgroundColor") {
         if (c.backgroundColor < 0) return "";
@@ -185,13 +197,17 @@ bool SetConfigValue(Config& c, const std::string& key, const std::string& v, std
         if (v == "integer") c.fit = Fit::Integer;
         else if (v == "fit") c.fit = Fit::Fit;
         else if (v == "fill") c.fit = Fit::Fill;
+        else if (v == "free") c.fit = Fit::Free;
         else {
-            error = "fit must be integer, fit or fill";
+            error = "fit must be integer, fit, fill or free";
             return false;
         }
         return true;
     }
     if (key == "position") return number(0, 1, c.position);
+    if (key == "freeX") return number(0, 1, c.freeX);
+    if (key == "freeY") return number(0, 1, c.freeY);
+    if (key == "freeSize") return number(kFreeSizeMin, kFreeSizeMax, c.freeSize);
     if (key == "background") {
         if (v != "auto" && v != "custom") {
             error = "background must be auto or custom";

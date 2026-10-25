@@ -156,7 +156,7 @@ std::vector<SIZE> MonitorSizes() {
 }
 
 bool ExportStill(IWICImagingFactory* wic, const LoadedImage& image, const std::wstring& imagePath, size_t frame,
-                 Fit fit, double position, uint8_t r, uint8_t g, uint8_t b, const std::wstring& path) {
+                 const Placement& placement, uint8_t r, uint8_t g, uint8_t b, const std::wstring& path) {
     if (image.frames.empty() || path.empty()) return false;
     const auto& pixels = image.frames[frame < image.frames.size() ? frame : 0];
     const std::vector<SIZE> sizes = MonitorSizes();
@@ -172,7 +172,7 @@ bool ExportStill(IWICImagingFactory* wic, const LoadedImage& image, const std::w
             }
         }
         const auto still =
-            RenderStill(pixels.data(), image.width, image.height, sizes[i].cx, sizes[i].cy, fit, r, g, b, position);
+            RenderStill(pixels.data(), image.width, image.height, sizes[i].cx, sizes[i].cy, placement, r, g, b);
         ok = WritePng(wic, out, still, sizes[i].cx, sizes[i].cy) && ok;
     }
     return ok;
@@ -217,8 +217,8 @@ void OsWallpaper::SaveOriginals() const {
     MoveFileExW(temp.c_str(), path.c_str(), MOVEFILE_REPLACE_EXISTING);
 }
 
-void OsWallpaper::Apply(IWICImagingFactory* wic, const LoadedImage& image, const std::wstring& imagePath, Fit fit,
-                        double imagePosition, uint8_t r, uint8_t g, uint8_t b) {
+void OsWallpaper::Apply(IWICImagingFactory* wic, const LoadedImage& image, const std::wstring& imagePath,
+                        const Placement& placement, uint8_t r, uint8_t g, uint8_t b) {
     if (image.frames.empty()) return;
     ComPtr<IDesktopWallpaper> desktop;
     if (FAILED(CoCreateInstance(CLSID_DesktopWallpaper, nullptr, CLSCTX_ALL, IID_PPV_ARGS(&desktop)))) return;
@@ -232,7 +232,9 @@ void OsWallpaper::Apply(IWICImagingFactory* wic, const LoadedImage& image, const
     std::vector<Monitor> monitors;
     UINT count = 0;
     desktop->GetMonitorDevicePathCount(&count);
-    std::wstring mark = imagePath + L"|" + std::to_wstring(static_cast<int>(fit)) + L"|" + std::to_wstring(imagePosition) +
+    std::wstring mark = imagePath + L"|" + std::to_wstring(static_cast<int>(placement.fit)) + L"|" +
+                        std::to_wstring(placement.position) + L"|" + std::to_wstring(placement.freeX) + L"|" +
+                        std::to_wstring(placement.freeY) + L"|" + std::to_wstring(placement.freeSize) +
                         L"|" + std::to_wstring(r) + L"," +
                         std::to_wstring(g) + L"," + std::to_wstring(b);
     for (UINT i = 0; i < count; ++i) {
@@ -284,8 +286,7 @@ void OsWallpaper::Apply(IWICImagingFactory* wic, const LoadedImage& image, const
         const Monitor& m = monitors[i];
         const std::wstring path = dir + L"\\" + std::to_wstring(i) + L"-" + Size(m.size) + L"-" + stamp + L".png";
         const auto still =
-            RenderStill(image.frames[0].data(), image.width, image.height, m.size.cx, m.size.cy, fit, r, g, b,
-                        imagePosition);
+            RenderStill(image.frames[0].data(), image.width, image.height, m.size.cx, m.size.cy, placement, r, g, b);
         if (WritePng(wic, path, still, m.size.cx, m.size.cy) && SUCCEEDED(desktop->SetWallpaper(m.id.c_str(), path.c_str()))) {
             keep.push_back(path);
         }

@@ -36,7 +36,7 @@ struct Gpu {
 class WallWindow {
 public:
     WallWindow(Gpu& gpu, const LoadedImage& image, const RECT& monitor, const DesktopParent& desktop,
-               Color background, Fit fit, double position);
+               Color background, const Placement& placement);
     ~WallWindow();
     WallWindow(const WallWindow&) = delete;
     WallWindow& operator=(const WallWindow&) = delete;
@@ -46,11 +46,11 @@ public:
     bool Render(size_t frame);
     // 並べ方・位置・余白の色だけを変える。フレームの面は作り直さない（位置のつまみを動かしている間も軽いように）。
     // GPU が失われたら false
-    bool SetLayout(Color background, Fit fit, double position);
+    bool SetLayout(Color background, const Placement& placement);
 
 private:
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp);
-    bool CreateComposition(Color background, Fit fit, double position);
+    bool CreateComposition(Color background, const Placement& placement);
     Microsoft::WRL::ComPtr<IDCompositionSurface> MakeSurface(UINT w, UINT h, DXGI_ALPHA_MODE alpha,
                                                              const uint8_t* bgra);
 

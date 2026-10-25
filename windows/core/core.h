@@ -7,8 +7,24 @@
 
 namespace pixwall {
 
-// 並べ方。設定の JSON にもこの名前で書く（integer / fit / fill）
-enum class Fit { Integer, Fit, Fill };
+// 並べ方。設定の JSON にもこの名前で書く（integer / fit / fill / free）
+enum class Fit { Integer, Fit, Fill, Free };
+
+// 自由に置くときの大きさの範囲（画面に合わせたときの大きさを 1 とする）
+constexpr double kFreeSizeMin = 0.1;
+constexpr double kFreeSizeMax = 3;
+
+// 並べ方と、それぞれの並べ方で使う位置・大きさ。設定の JSON では Config の同じ名前の項目に書く
+struct Placement {
+    Fit fit = Fit::Integer;
+    double position = 0.5;  // 画面に合わせる・埋めるときの位置（0 で上・左、0.5 で中央、1 で下・右）
+    double freeX = 0.5;     // 自由に置くときの横の位置（0 で画像の左の端を画面の左の端に、1 で右の端を右の端にそろえる）
+    double freeY = 0.5;     // 自由に置くときの縦の位置（0 で上の端、1 で下の端をそろえる）
+    double freeSize = 1;    // 自由に置くときの大きさ。画面に合わせたときの大きさを 1 とする
+
+    Placement(Fit fit = Fit::Integer, double position = 0.5) : fit(fit), position(position) {}
+    bool operator==(const Placement&) const = default;
+};
 
 // 物理ピクセルでの大きさと位置。画面の左上が原点
 struct PixelRect {
@@ -23,16 +39,21 @@ struct PixelRect {
 // 画面の中央に置く。Fill では画面より大きくなり、x・y が負になる。
 // Integer で整数倍に収まらない大きな画像は Fit と同じ。
 // Fit と Fill では、余白（Fill でははみ出し）の中のどこに置くかを position で決める（0 で上・左、0.5 で中央、1 で下・右）。
-// Fill の 0 は、画像の上・左の端を画面の端にそろえる（はみ出すのは下・右）
-PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHeight, Fit fit,
-                 double position = 0.5);
+// Fill の 0 は、画像の上・左の端を画面の端にそろえる（はみ出すのは下・右）。
+// Free では、画面に合わせたときの大きさに freeSize を掛け、横は freeX、縦は freeY で置く（Fill の position と同じ決まり）
+PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHeight, const Placement& placement);
+
+inline PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHeight, Fit fit,
+                        double position = 0.5) {
+    return Layout(imageWidth, imageHeight, screenWidth, screenHeight, Placement(fit, position));
+}
 
 // 静止画を描く。frame（premultiplied の BGRA、imageWidth × imageHeight）を、canvas の大きさの絵に
 // Layout で置き、最近傍で広げる（ドットをぼかさない）。余白と透明なところは background（r, g, b）。
 // 返すのは不透明な BGRA（canvasWidth * canvasHeight * 4 バイト）。OS の壁紙と「静止画を書き出す」に使う
 std::vector<uint8_t> RenderStill(const uint8_t* frame, int imageWidth, int imageHeight,
-                                 int canvasWidth, int canvasHeight, Fit fit,
-                                 uint8_t r, uint8_t g, uint8_t b, double position = 0.5);
+                                 int canvasWidth, int canvasHeight, const Placement& placement,
+                                 uint8_t r, uint8_t g, uint8_t b);
 
 // GIF に書かれた待ち時間（秒）を、実際に待つ時間にする。
 // 10ms 以下はブラウザと同じく 100ms。速さの倍率は 0.25〜4 に収める

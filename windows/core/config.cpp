@@ -196,6 +196,7 @@ const char* FitName(Fit fit) {
     switch (fit) {
         case Fit::Fit: return "fit";
         case Fit::Fill: return "fill";
+        case Fit::Free: return "free";
         default: return "integer";
     }
 }
@@ -231,8 +232,12 @@ Config ParseConfig(std::string_view json) {
             if (*s == "integer") c.fit = Fit::Integer;
             if (*s == "fit") c.fit = Fit::Fit;
             if (*s == "fill") c.fit = Fit::Fill;
+            if (*s == "free") c.fit = Fit::Free;
         }
         if (key == "position" && n) c.position = std::clamp(*n, 0.0, 1.0);
+        if (key == "freeX" && n) c.freeX = std::clamp(*n, 0.0, 1.0);
+        if (key == "freeY" && n) c.freeY = std::clamp(*n, 0.0, 1.0);
+        if (key == "freeSize" && n) c.freeSize = std::clamp(*n, kFreeSizeMin, kFreeSizeMax);
         if (key == "background" && s) {
             if (*s == "auto") c.customBackground = false;
             if (*s == "custom") c.customBackground = true;
@@ -248,8 +253,11 @@ Config ParseConfig(std::string_view json) {
 std::string FormatConfig(const Config& c) {
     char speed[32];
     std::snprintf(speed, sizeof(speed), "%g", c.speed);
-    char position[32];
-    std::snprintf(position, sizeof(position), "%g", c.position);
+    const auto number = [](double v) {
+        char s[32];
+        std::snprintf(s, sizeof(s), "%g", v);
+        return std::string(s);
+    };
     std::string out = "{\n";
     out += std::string("  \"background\" : \"") + (c.customBackground ? "custom" : "auto") + "\",\n";
     if (c.backgroundColor >= 0) {
@@ -260,6 +268,9 @@ std::string FormatConfig(const Config& c) {
     out += "  \"fit\" : \"";
     out += FitName(c.fit);
     out += "\",\n";
+    out += "  \"freeSize\" : " + number(c.freeSize) + ",\n";
+    out += "  \"freeX\" : " + number(c.freeX) + ",\n";
+    out += "  \"freeY\" : " + number(c.freeY) + ",\n";
     if (!c.image.empty()) {
         out += "  \"image\" : ";
         Quote(out, c.image);
@@ -267,7 +278,7 @@ std::string FormatConfig(const Config& c) {
     }
     out += std::string("  \"launchAtLogin\" : ") + (c.launchAtLogin ? "true" : "false") + ",\n";
     out += std::string("  \"pauseOnLowPower\" : ") + (c.pauseOnLowPower ? "true" : "false") + ",\n";
-    out += std::string("  \"position\" : ") + position + ",\n";
+    out += "  \"position\" : " + number(c.position) + ",\n";
     out += std::string("  \"speed\" : ") + speed + ",\n";
     out += "  \"version\" : " + std::to_string(c.version) + "\n}";
     return out;

@@ -115,7 +115,7 @@ int Export(const CliCommand& command, const Config& config) {
         b = Byte(p[0] / 255.0f / a);
     }
     const std::wstring path = FullPath(command.path);
-    if (!ExportStill(wic.Get(), image, Wide(config.image), command.frame, config.fit, config.position, r, g, b, path)) {
+    if (!ExportStill(wic.Get(), image, Wide(config.image), command.frame, config.placement(), r, g, b, path)) {
         Fail("cannot write " + Utf8(path));
         return 1;
     }

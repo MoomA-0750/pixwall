@@ -36,7 +36,7 @@ private class Plan(gif: GifImage, config: Config, val size: Int) {
     private val rows: IntArray
 
     init {
-        val r = layout(gif.width, gif.height, size, size, config.fit, config.position)
+        val r = layout(gif.width, gif.height, size, size, config.placement)
         val left = max(r.x, 0)
         val top = max(r.y, 0)
         rect = PixelRect(left, top, min(r.x + r.width, size) - left, min(r.y + r.height, size) - top)

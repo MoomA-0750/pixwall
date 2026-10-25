@@ -22,9 +22,15 @@
     <string name="fit_fit_detail">Shows the whole image, with margins.</string>
     <string name="fit_fill">Fill screen</string>
     <string name="fit_fill_detail">Covers the screen. Edges may be cut off.</string>
+    <string name="fit_free">Free placement</string>
+    <string name="fit_free_detail">Choose the size and where it goes.</string>
 
     <string name="position">Position</string>
     <string name="position_value">%1$d (0 = top / left, 50 = center, 100 = bottom / right)</string>
+    <string name="free_section">Size and position</string>
+    <string name="free_size_value">Size %1$d%% (100%% fits the screen)</string>
+    <string name="free_x_value">Horizontal %1$d (0 = left edge, 100 = right edge)</string>
+    <string name="free_y_value">Vertical %1$d (0 = top edge, 100 = bottom edge)</string>
 
     <string name="background">Margin color</string>
     <string name="background_auto">Automatic</string>

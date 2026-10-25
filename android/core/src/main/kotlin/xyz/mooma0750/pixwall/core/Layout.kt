@@ -14,12 +14,31 @@ enum class Fit(val json: String) {
 
     /** 画面を埋める（はみ出す） */
     FILL("fill"),
+
+    /** 自由に置く（大きさと横・縦の位置を自分で決める） */
+    FREE("free"),
     ;
 
     companion object {
         fun fromJson(s: String?): Fit? = entries.firstOrNull { it.json == s }
     }
 }
+
+/** 自由に置くときの大きさの範囲（画面に合わせたときの大きさを 1 とする） */
+val FREE_SIZE_RANGE = 0.1..3.0
+
+/** 並べ方と、それぞれの並べ方で使う位置・大きさ（Mac の Placement と同じ）。設定の JSON では Config の同じ名前の項目に書く */
+data class Placement(
+    val fit: Fit = Fit.INTEGER,
+    /** 画面に合わせる・埋めるときの位置（0 で上・左、0.5 で中央、1 で下・右） */
+    val position: Double = 0.5,
+    /** 自由に置くときの横の位置（0 で画像の左の端を画面の左の端に、1 で右の端を右の端にそろえる） */
+    val freeX: Double = 0.5,
+    /** 自由に置くときの縦の位置（0 で上の端、1 で下の端をそろえる） */
+    val freeY: Double = 0.5,
+    /** 自由に置くときの大きさ。画面に合わせたときの大きさを 1 とする */
+    val freeSize: Double = 1.0,
+)
 
 /** 物理ピクセルでの大きさと位置 */
 data class PixelRect(val x: Int, val y: Int, val width: Int, val height: Int)
@@ -35,7 +54,17 @@ fun layout(
     screenHeight: Int,
     fit: Fit,
     position: Double = 0.5,
+): PixelRect = layout(imageWidth, imageHeight, screenWidth, screenHeight, Placement(fit, position))
+
+/** FREE では、画面に合わせたときの大きさに freeSize を掛け、横は freeX、縦は freeY で置く（FILL の position と同じ決まり） */
+fun layout(
+    imageWidth: Int,
+    imageHeight: Int,
+    screenWidth: Int,
+    screenHeight: Int,
+    placement: Placement,
 ): PixelRect {
+    val fit = placement.fit
     if (imageWidth <= 0 || imageHeight <= 0 || screenWidth <= 0 || screenHeight <= 0) return PixelRect(0, 0, 0, 0)
     val sx = screenWidth.toDouble() / imageWidth
     val sy = screenHeight.toDouble() / imageHeight
@@ -47,12 +76,18 @@ fun layout(
                 imageWidth * scale to imageHeight * scale
             }
             fit == Fit.FILL -> scaled(imageWidth, imageHeight, max(sx, sy))
+            fit == Fit.FREE -> scaled(imageWidth, imageHeight, min(sx, sy) * placement.freeSize.coerceIn(FREE_SIZE_RANGE))
             else -> scaled(imageWidth, imageHeight, min(sx, sy))
         }
-    val p = if (fit == Fit.INTEGER) 0.5 else position.coerceIn(0.0, 1.0)
+    val (px, py) =
+        when (fit) {
+            Fit.INTEGER -> 0.5 to 0.5
+            Fit.FREE -> placement.freeX to placement.freeY
+            else -> placement.position to placement.position
+        }
     // 余白×位置を 0 の側へ切り捨てる（はみ出す負の余白でも）
-    fun place(slack: Int) = (slack * p).toInt()
-    return PixelRect(place(screenWidth - width), place(screenHeight - height), width, height)
+    fun place(slack: Int, p: Double) = (slack * p.coerceIn(0.0, 1.0)).toInt()
+    return PixelRect(place(screenWidth - width, px), place(screenHeight - height, py), width, height)
 }
 
 private fun scaled(w: Int, h: Int, scale: Double): Pair<Int, Int> =

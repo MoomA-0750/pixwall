@@ -21,9 +21,15 @@
     <string name="fit_fit_detail">画像の全体を出し、余白ができます。</string>
     <string name="fit_fill">画面を埋める</string>
     <string name="fit_fill_detail">画面を埋め、はしが切れることがあります。</string>
+    <string name="fit_free">自由に置く</string>
+    <string name="fit_free_detail">大きさと置く場所を選べます。</string>
 
     <string name="position">位置</string>
     <string name="position_value">%1$d（0 で上・左、50 で中央、100 で下・右）</string>
+    <string name="free_section">大きさと位置</string>
+    <string name="free_size_value">大きさ %1$d%%（100%% で画面に合わせた大きさ）</string>
+    <string name="free_x_value">横 %1$d（0 で左の端、100 で右の端）</string>
+    <string name="free_y_value">縦 %1$d（0 で上の端、100 で下の端）</string>
 
     <string name="background">余白の色</string>
     <string name="background_auto">自動</string>

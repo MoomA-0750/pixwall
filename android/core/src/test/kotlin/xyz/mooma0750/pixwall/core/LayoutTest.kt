@@ -44,6 +44,22 @@ class LayoutTest {
         assertEquals(PixelRect(-2, 0, 9, 3), layout(3, 1, 4, 3, Fit.FILL))
     }
 
+    // 自由に置く: 画面に合わせた大きさ×freeSize。横・縦は別々に、余白（はみ出し）の中の割合で置く
+    @Test
+    fun freeSizeAndPosition() {
+        fun free(x: Double, y: Double, size: Double) =
+            layout(320, 180, 2880, 1800, Placement(Fit.FREE, freeX = x, freeY = y, freeSize = size))
+        assertEquals(PixelRect(0, 90, 2880, 1620), free(0.5, 0.5, 1.0))
+        assertEquals(PixelRect(0, 990, 1440, 810), free(0.0, 1.0, 0.5))
+        assertEquals(PixelRect(1440, 0, 1440, 810), free(1.0, 0.0, 0.5))
+        assertEquals(PixelRect(0, 0, 5760, 3240), free(0.0, 0.0, 2.0))
+        assertEquals(PixelRect(-2880, -1440, 5760, 3240), free(1.0, 1.0, 2.0))
+        assertEquals(free(0.0, 1.0, 3.0), free(-1.0, 2.0, 100.0))
+        assertEquals(free(0.5, 0.5, 0.1), free(0.5, 0.5, 0.0))
+        // position はほかの並べ方の値で、自由に置くときは使わない
+        assertEquals(PixelRect(720, 495, 1440, 810), layout(320, 180, 2880, 1800, Placement(Fit.FREE, position = 0.0, freeSize = 0.5)))
+    }
+
     @Test
     fun shortDelaysBecome100ms() {
         assertEquals(100L, frameDelayMillis(0))

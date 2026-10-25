@@ -17,7 +17,7 @@ import android.service.wallpaper.WallpaperService
 import android.util.Log
 import android.view.SurfaceHolder
 import xyz.mooma0750.pixwall.core.Config
-import xyz.mooma0750.pixwall.core.Fit
+import xyz.mooma0750.pixwall.core.Placement
 import xyz.mooma0750.pixwall.core.PixelRect
 import xyz.mooma0750.pixwall.core.frameDelayMillis
 import xyz.mooma0750.pixwall.core.layout
@@ -40,8 +40,7 @@ class PixwallWallpaperService : WallpaperService() {
         private var rectFrames: Frames? = null
         private var rectWidth = 0
         private var rectHeight = 0
-        private var rectFit: Fit? = null
-        private var rectPosition = 0.0
+        private var rectPlacement: Placement? = null
 
         private var config = Config()
         private var frames: Frames? = null
@@ -216,13 +215,12 @@ class PixwallWallpaperService : WallpaperService() {
                 return
             }
             // 置く位置は、画像・面の大きさ・並べ方・位置が変わったときだけ計算し直す（毎フレームの確保を減らす）
-            if (f !== rectFrames || surfaceWidth != rectWidth || surfaceHeight != rectHeight || config.fit != rectFit || config.position != rectPosition) {
-                rect = layout(f.width, f.height, surfaceWidth, surfaceHeight, config.fit, config.position)
+            if (f !== rectFrames || surfaceWidth != rectWidth || surfaceHeight != rectHeight || config.placement != rectPlacement) {
+                rect = layout(f.width, f.height, surfaceWidth, surfaceHeight, config.placement)
                 rectFrames = f
                 rectWidth = surfaceWidth
                 rectHeight = surfaceHeight
-                rectFit = config.fit
-                rectPosition = config.position
+                rectPlacement = config.placement
             }
             renderer?.draw(surfaceWidth, surfaceHeight, background(f), index.coerceIn(0, f.count - 1), rect)
         }

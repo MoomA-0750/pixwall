@@ -12,6 +12,10 @@ data class Config(
     val fit: Fit = Fit.INTEGER,
     /** 画面に合わせる・埋めるときの位置（0 で上・左、0.5 で中央、1 で下・右） */
     val position: Double = 0.5,
+    /** 自由に置くときの横・縦の位置（0〜1）と大きさ（画面に合わせたときを 1 とする。0.1〜3）。Placement を見る */
+    val freeX: Double = 0.5,
+    val freeY: Double = 0.5,
+    val freeSize: Double = 1.0,
     /** 余白の色を自分で選ぶか（false は「自動」。画像の1枚目の左上の1ドットの色） */
     val customBackground: Boolean = false,
     /** 自分で選んだ余白の色（0xRRGGBB）。まだ選んでいなければ null。自動にしても覚えておく */
@@ -21,6 +25,9 @@ data class Config(
     /** 省電力モードのときに止める */
     val pauseOnLowPower: Boolean = true,
 ) {
+    /** 並べ方と位置・大きさ */
+    val placement: Placement get() = Placement(fit, position, freeX, freeY, freeSize)
+
     /** 余白に使う、自分で選んだ色。自動のとき・色をまだ選んでいないときは null（画像の左上の色を使う） */
     val customColor: Int? get() = if (customBackground) backgroundColor else null
 
@@ -30,6 +37,9 @@ data class Config(
         image?.let { o.put("image", it) }
         o.put("fit", fit.json)
         o.put("position", position)
+        o.put("freeX", freeX)
+        o.put("freeY", freeY)
+        o.put("freeSize", freeSize)
         o.put("background", if (customBackground) "custom" else "auto")
         backgroundColor?.let { o.put("backgroundColor", hexColor(it)) }
         o.put("speed", speed)
@@ -49,6 +59,9 @@ data class Config(
                 image = o.opt("image") as? String,
                 fit = Fit.fromJson(o.opt("fit") as? String) ?: d.fit,
                 position = (num("position") ?: d.position).coerceIn(0.0, 1.0),
+                freeX = (num("freeX") ?: d.freeX).coerceIn(0.0, 1.0),
+                freeY = (num("freeY") ?: d.freeY).coerceIn(0.0, 1.0),
+                freeSize = (num("freeSize") ?: d.freeSize).coerceIn(FREE_SIZE_RANGE),
                 customBackground = (o.opt("background") as? String)?.let { it == "custom" } ?: d.customBackground,
                 backgroundColor = (o.opt("backgroundColor") as? String)?.let(::parseHexColor),
                 speed = (num("speed") ?: d.speed).coerceIn(0.25, 4.0),

@@ -154,10 +154,16 @@ private fun SettingsList(
             ImageCard(preview != null, imageState, isActiveWallpaper, onPickImage, onSetWallpaper)
         }
         fitSection(config, onChange)
-        if (config.fit != Fit.INTEGER) {
+        if (config.fit == Fit.FIT || config.fit == Fit.FILL) {
             item {
                 Section(stringResource(R.string.position))
                 PositionSlider(config, onChange)
+            }
+        }
+        if (config.fit == Fit.FREE) {
+            item {
+                Section(stringResource(R.string.free_section))
+                FreeSliders(config, onChange)
             }
         }
         backgroundSection(config, preview, onChange)
@@ -301,7 +307,7 @@ private fun WallpaperCanvas(config: Config, preview: Preview?, index: State<Int>
         }
         drawRect(Color((config.customColor ?: preview.autoBackground) or 0xFF000000.toInt()))
         val image = preview.frames[index.value.coerceIn(0, preview.frames.lastIndex)]
-        val r = layout(image.width, image.height, sw, sh, config.fit, config.position)
+        val r = layout(image.width, image.height, sw, sh, config.placement)
         val s = size.width / sw
         drawImage(
             image,
@@ -317,6 +323,7 @@ private fun LazyListScope.fitSection(config: Config, onChange: (Config) -> Unit)
         Fit.INTEGER to (R.string.fit_integer to R.string.fit_integer_detail),
         Fit.FIT to (R.string.fit_fit to R.string.fit_fit_detail),
         Fit.FILL to (R.string.fit_fill to R.string.fit_fill_detail),
+        Fit.FREE to (R.string.fit_free to R.string.fit_free_detail),
     )
     item { Section(stringResource(R.string.fit)) }
     fits.forEachIndexed { i, (fit, labels) ->
@@ -338,18 +345,34 @@ private fun LazyListScope.fitSection(config: Config, onChange: (Config) -> Unit)
 /** 0 で上・左、50 で中央、100 で下・右。1 刻み。動かしている間も壁紙がついてくる */
 @Composable
 private fun PositionSlider(config: Config, onChange: (Config) -> Unit) {
-    val percent = (config.position * 100).roundToInt()
+    PercentSlider(R.string.position_value, config.position, 0..100) { onChange(config.copy(position = it)) }
+}
+
+/** 自由に置くときの大きさ（10〜300%）と横・縦の位置（0〜100）。1 刻み。動かしている間も壁紙がついてくる */
+@Composable
+private fun FreeSliders(config: Config, onChange: (Config) -> Unit) {
+    Column {
+        PercentSlider(R.string.free_size_value, config.freeSize, 10..300) { onChange(config.copy(freeSize = it)) }
+        PercentSlider(R.string.free_x_value, config.freeX, 0..100) { onChange(config.copy(freeX = it)) }
+        PercentSlider(R.string.free_y_value, config.freeY, 0..100) { onChange(config.copy(freeY = it)) }
+    }
+}
+
+/** 0〜1 などの値を % の 1 刻みで動かす。label は % の数を %1$d で受ける */
+@Composable
+private fun PercentSlider(label: Int, value: Double, range: IntRange, onChange: (Double) -> Unit) {
+    val percent = (value * 100).roundToInt()
     Column(Modifier.padding(horizontal = 4.dp)) {
         Text(
-            stringResource(R.string.position_value, percent),
+            stringResource(label, percent),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Slider(
             value = percent.toFloat(),
-            onValueChange = { onChange(config.copy(position = it.roundToInt() / 100.0)) },
-            // 1 刻みに丸める（steps で刻むと目盛りが 99 個並ぶので使わない）
-            valueRange = 0f..100f,
+            onValueChange = { onChange(it.roundToInt() / 100.0) },
+            // 1 刻みに丸める（steps で刻むと目盛りが並びすぎるので使わない）
+            valueRange = range.first.toFloat()..range.last.toFloat(),
         )
     }
 }

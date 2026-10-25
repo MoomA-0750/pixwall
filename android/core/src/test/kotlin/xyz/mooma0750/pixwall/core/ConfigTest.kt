@@ -31,9 +31,12 @@ class ConfigTest {
 
     @Test
     fun valuesAreClamped() {
-        val c = Config.parse("""{"position": 3, "speed": 100}""")
+        val c = Config.parse("""{"position": 3, "speed": 100, "freeX": -1, "freeY": "a", "freeSize": 9}""")
         assertEquals(1.0, c.position, 0.0)
         assertEquals(4.0, c.speed, 0.0)
+        assertEquals(0.0, c.freeX, 0.0)
+        assertEquals(0.5, c.freeY, 0.0)
+        assertEquals(3.0, c.freeSize, 0.0)
     }
 
     // 自動に戻しても選んだ色は覚えておく。読めない色は選んでいないのと同じ
@@ -49,6 +52,9 @@ class ConfigTest {
     fun roundTrips() {
         val c = Config(image = "content://a/b.gif", fit = Fit.FIT, position = 0.1, customBackground = true, backgroundColor = 0x0A0B0C, speed = 0.5, pauseOnLowPower = false)
         assertEquals(c, Config.parse(c.toJson()))
+        val free = c.copy(fit = Fit.FREE, freeX = 0.1, freeY = 0.9, freeSize = 2.5)
+        assertEquals(free, Config.parse(free.toJson()))
+        assertEquals(true, free.toJson().contains("\"free\""))
         // 色をまだ選んでいなければ書かない
         assertEquals(false, Config().toJson().contains("backgroundColor"))
         assertEquals(true, c.toJson().contains("\"#0A0B0C\""))

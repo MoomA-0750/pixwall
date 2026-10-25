@@ -93,7 +93,7 @@ enum Ctl {
             return 2
         }
         let url = URL(fileURLWithPath: absolute(path))
-        guard StillImage.export(image, imagePath: imagePath, frame: frame, fit: config.fit, position: config.position,
+        guard StillImage.export(image, imagePath: imagePath, frame: frame, placement: config.placement,
                                 background: config.fillColor(for: image), to: url) else {
             fail("cannot write \(url.path)")
             return 1

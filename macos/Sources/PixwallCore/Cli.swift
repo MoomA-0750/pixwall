@@ -5,6 +5,9 @@ public enum ConfigKey: String, CaseIterable {
     case image
     case fit
     case position
+    case freeX
+    case freeY
+    case freeSize
     case background
     case backgroundColor
     case speed
@@ -62,8 +65,10 @@ public let cliUsage = """
 
     keys and values:
       image            path to a GIF, PNG or WebP
-      fit              integer | fit | fill
-      position         0 to 1 (0 top/left, 0.5 center, 1 bottom/right)
+      fit              integer | fit | fill | free
+      position         0 to 1 (0 top/left, 0.5 center, 1 bottom/right; fit and fill)
+      freeX, freeY     0 to 1 (0 left/top edge, 1 right/bottom edge; free)
+      freeSize         0.1 to 3 (1 is the size that fits the screen; free)
       background       auto | custom
       backgroundColor  #RRGGBB (used when background is custom)
       speed            0.25 to 4
@@ -129,6 +134,9 @@ extension Config {
         case .image: return image ?? ""
         case .fit: return fit.rawValue
         case .position: return number(position)
+        case .freeX: return number(freeX)
+        case .freeY: return number(freeY)
+        case .freeSize: return number(freeSize)
         case .background: return background.rawValue
         case .backgroundColor: return backgroundColor ?? ""
         case .speed: return number(speed)
@@ -155,9 +163,12 @@ extension Config {
             guard !text.isEmpty else { throw CliError("image must be a path") }
             image = text
         case .fit:
-            guard let v = Fit(rawValue: text) else { throw CliError("fit must be integer, fit or fill") }
+            guard let v = Fit(rawValue: text) else { throw CliError("fit must be integer, fit, fill or free") }
             fit = v
         case .position: position = try double(0...1)
+        case .freeX: freeX = try double(0...1)
+        case .freeY: freeY = try double(0...1)
+        case .freeSize: freeSize = try double(Placement.freeSizeRange)
         case .background:
             guard let v = BackgroundMode(rawValue: text) else { throw CliError("background must be auto or custom") }
             background = v

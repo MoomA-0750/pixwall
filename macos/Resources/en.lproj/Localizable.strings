@@ -21,6 +21,13 @@
 "位置" = "Position";
 "0 で上・左、100 で下・右" = "0 is top or left, 100 is bottom or right";
 "中央" = "Center";
+"自由に置く" = "Free Placement";
+"大きさ" = "Size";
+"100% で画面に合わせた大きさ" = "100% is the size that fits the screen";
+"横の位置" = "Horizontal Position";
+"0 で左の端、100 で右の端" = "0 is the left edge, 100 is the right edge";
+"縦の位置" = "Vertical Position";
+"0 で上の端、100 で下の端" = "0 is the top edge, 100 is the bottom edge";
 "余白の色" = "Margin Color";
 "自動では画像の左上の色" = "Automatic uses the image's top-left pixel";
 "自動" = "Automatic";

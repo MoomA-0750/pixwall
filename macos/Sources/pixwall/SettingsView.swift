@@ -57,8 +57,8 @@ final class SettingsModel {
         panel.nameFieldStringValue = "\(stem)-\(size.width)x\(size.height).png"
         panel.directoryURL = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        exportResult = StillImage.export(image, imagePath: path, frame: frame, fit: config.fit,
-                                         position: config.position, background: config.fillColor(for: image), to: url)
+        exportResult = StillImage.export(image, imagePath: path, frame: frame, placement: config.placement,
+                                         background: config.fillColor(for: image), to: url)
             ? String(localized: "書き出しました: \(url.path)")
             : String(localized: "書き出せませんでした: \(url.path)")
     }
@@ -124,20 +124,36 @@ struct SettingsView: View {
                     Text("整数倍で最大").tag(Fit.integer)
                     Text("画面に合わせる").tag(Fit.fit)
                     Text("画面を埋める").tag(Fit.fill)
+                    Text("自由に置く").tag(Fit.free)
                 }
                 // 画面に合わせる・埋めるときだけ。余白（埋めるときははみ出し）が上下にできる画面では上下、左右にできる画面では左右に動く
-                if model.config.fit != .integer {
+                if model.config.fit == .fit || model.config.fit == .fill {
                     LabeledContent {
-                        HStack {
-                            Slider(value: positionPercent, in: 0...100)
-                                .frame(width: 160)
-                            Text(positionLabel)
-                                .monospacedDigit()
-                                .frame(width: 48, alignment: .trailing)
-                        }
+                        percentSlider(value: percent(\.position), in: 0...100, label: percentLabel(model.config.position))
                     } label: {
                         Text("位置")
                         Text("0 で上・左、100 で下・右")
+                    }
+                }
+                // 自由に置くときは、大きさと横・縦の位置を別々に決める
+                if model.config.fit == .free {
+                    LabeledContent {
+                        percentSlider(value: freeSizePercent, in: 10...300, label: String(format: "%.0f%%", freeSizePercent.wrappedValue))
+                    } label: {
+                        Text("大きさ")
+                        Text("100% で画面に合わせた大きさ")
+                    }
+                    LabeledContent {
+                        percentSlider(value: percent(\.freeX), in: 0...100, label: percentLabel(model.config.freeX))
+                    } label: {
+                        Text("横の位置")
+                        Text("0 で左の端、100 で右の端")
+                    }
+                    LabeledContent {
+                        percentSlider(value: percent(\.freeY), in: 0...100, label: percentLabel(model.config.freeY))
+                    } label: {
+                        Text("縦の位置")
+                        Text("0 で上の端、100 で下の端")
                     }
                 }
                 // 余白と、画像の透明なところの色
@@ -236,14 +252,25 @@ struct SettingsView: View {
 
     /// 位置は 1 刻み（Slider の step にすると目盛りが 101 本並ぶので、値のほうを丸める）。
     /// つかんでいる間も壁紙がついてくる（常駐側は窓を置き直すだけで、OS の壁紙は止まってから描く）。
-    /// 設定には 0〜1 で、端数の出ないよう 100 分の 1 に丸めて書く
-    private var positionPercent: Binding<Double> {
-        Binding(get: { (model.config.position * 100).rounded() }, set: { model.config.position = $0.rounded() / 100 })
+    /// 設定には 0〜1 で、端数の出ないよう 100 分の 1 に丸めて書く。大きさ（0.1〜3）も同じく % で動かす
+    private func percent(_ key: WritableKeyPath<Config, Double>) -> Binding<Double> {
+        Binding(get: { (model.config[keyPath: key] * 100).rounded() }, set: { model.config[keyPath: key] = $0.rounded() / 100 })
     }
 
-    private var positionLabel: String {
-        let p = model.config.position
-        return abs(p - 0.5) < 0.001 ? String(localized: "中央") : String(format: "%.0f", p * 100)
+    private func percentLabel(_ p: Double) -> String {
+        abs(p - 0.5) < 0.001 ? String(localized: "中央") : String(format: "%.0f", p * 100)
+    }
+
+    private var freeSizePercent: Binding<Double> { percent(\.freeSize) }
+
+    private func percentSlider(value: Binding<Double>, in range: ClosedRange<Double>, label: String) -> some View {
+        HStack {
+            Slider(value: value, in: range)
+                .frame(width: 160)
+            Text(label)
+                .monospacedDigit()
+                .frame(width: 48, alignment: .trailing)
+        }
     }
 
     private var speedLabel: String {

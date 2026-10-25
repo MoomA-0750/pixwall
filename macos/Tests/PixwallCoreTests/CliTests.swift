@@ -29,6 +29,8 @@ final class CliTests: XCTestCase {
         XCTAssertEqual(c.value(for: .image), "")
         XCTAssertEqual(c.value(for: .fit), "integer")
         XCTAssertEqual(c.value(for: .position), "0.5")
+        XCTAssertEqual(c.value(for: .freeX), "0.5")
+        XCTAssertEqual(c.value(for: .freeSize), "1")
         XCTAssertEqual(c.value(for: .speed), "1")
         XCTAssertEqual(c.value(for: .background), "auto")
         XCTAssertEqual(c.value(for: .backgroundColor), "")
@@ -42,6 +44,9 @@ final class CliTests: XCTestCase {
         try c.set(.fit, to: "fill")
         try c.set(.position, to: "0.25")
         try c.set(.speed, to: "4")
+        try c.set(.freeX, to: "0")
+        try c.set(.freeY, to: "1")
+        try c.set(.freeSize, to: "0.1")
         try c.set(.background, to: "custom")
         try c.set(.backgroundColor, to: "#1e2a3b")
         try c.set(.pauseOnLowPower, to: "false")
@@ -50,6 +55,9 @@ final class CliTests: XCTestCase {
         XCTAssertEqual(c.fit, .fill)
         XCTAssertEqual(c.position, 0.25)
         XCTAssertEqual(c.speed, 4)
+        XCTAssertEqual(c.placement, Placement(fit: .fill, position: 0.25, freeX: 0, freeY: 1, freeSize: 0.1))
+        try c.set(.fit, to: "free")
+        XCTAssertEqual(c.fit, .free)
         XCTAssertEqual(c.customBackground, RGB(r: 0x1E, g: 0x2A, b: 0x3B))
         XCTAssertEqual(c.backgroundColor, "#1E2A3B")
         XCTAssertFalse(c.pauseOnLowPower)
@@ -63,7 +71,8 @@ final class CliTests: XCTestCase {
         let cases: [(ConfigKey, String)] = [
             (.fit, "stretch"), (.position, "1.5"), (.position, "-0.1"), (.position, "nan"), (.speed, "0.1"),
             (.speed, "5"), (.background, "red"), (.backgroundColor, "#12345"), (.backgroundColor, "123456"),
-            (.pauseOnLowPower, "yes"), (.image, ""),
+            (.pauseOnLowPower, "yes"), (.image, ""), (.freeX, "1.1"), (.freeY, "-1"), (.freeSize, "0.05"),
+            (.freeSize, "3.5"),
         ]
         for (key, value) in cases {
             XCTAssertThrowsError(try c.set(key, to: value), "\(key) \(value)")

@@ -75,9 +75,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else if let image, !windows.isEmpty {
             let background = config.fillColor(for: image)
             windows.forEach {
-                $0.update(fit: config.fit, position: config.position, background: background, speed: config.speed)
+                $0.update(placement: config.placement, background: background, speed: config.speed)
             }
-            if config.fit != old.fit || config.position != old.position || config.customBackground != old.customBackground {
+            if config.placement != old.placement || config.customBackground != old.customBackground {
                 scheduleOsWallpaper()
             }
             return
@@ -97,7 +97,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         osWallpaperWork?.cancel()
         osWallpaperWork = nil
         guard let image, let path = config.image else { return }
-        osWallpaper.apply(image, imagePath: path, fit: config.fit, position: config.position,
+        osWallpaper.apply(image, imagePath: path, placement: config.placement,
                           background: config.fillColor(for: image))
     }
 
@@ -137,7 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         windows = NSScreen.screens.map { screen in
-            let w = WallpaperWindow(screen: screen, image: image, fit: config.fit, position: config.position,
+            let w = WallpaperWindow(screen: screen, image: image, placement: config.placement,
                                     background: config.fillColor(for: image), speed: config.speed)
             w.sharedPause = pause
             return w
@@ -233,7 +233,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ws.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) {
             [weak self] _ in
             guard let self, let image = self.image, let path = self.config.image, !self.windows.isEmpty else { return }
-            self.osWallpaper.apply(image, imagePath: path, fit: self.config.fit, position: self.config.position,
+            self.osWallpaper.apply(image, imagePath: path, placement: self.config.placement,
                                    background: self.config.fillColor(for: image))
         }
         ws.addObserver(forName: NSWorkspace.willPowerOffNotification, object: nil, queue: .main) { [weak self] _ in

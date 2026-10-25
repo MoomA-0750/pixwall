@@ -20,6 +20,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertEqual(c.fit, .integer)
         XCTAssertEqual(c.speed, 1)
         XCTAssertEqual(c.position, 0.5)
+        XCTAssertEqual(c.placement, Placement())
         XCTAssertEqual(c.background, .auto)
         XCTAssertNil(c.backgroundColor)
         XCTAssertNil(c.customBackground)
@@ -33,6 +34,9 @@ final class ConfigTests: XCTestCase {
         c.fit = .fill
         c.speed = 2
         c.position = 0.25
+        c.placement.freeX = 0.1
+        c.placement.freeY = 0.9
+        c.placement.freeSize = 2.5
         c.background = .custom
         c.backgroundColor = "#1E2A3B"
         c.pauseOnLowPower = false
@@ -50,13 +54,22 @@ final class ConfigTests: XCTestCase {
         let text = try String(contentsOf: url, encoding: .utf8)
         XCTAssertTrue(text.contains(#""image" : "/a.gif""#), text)
         XCTAssertTrue(text.contains(#""fit" : "integer""#), text)
+
+        c.fit = .free
+        try c.save(to: url)
+        XCTAssertTrue(try String(contentsOf: url, encoding: .utf8).contains(#""fit" : "free""#))
+        XCTAssertEqual(Config.load(from: url).fit, .free)
     }
 
     func testBrokenOrUnknownValuesFallBack() throws {
         let url = dir.appendingPathComponent("config.json")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        try #"{"fit": "tile?", "speed": 100, "position": 3, "image": "/x.gif"}"#.write(to: url, atomically: true, encoding: .utf8)
+        try #"{"fit": "tile?", "speed": 100, "position": 3, "image": "/x.gif", "freeX": -1, "freeY": "a", "freeSize": 9}"#
+            .write(to: url, atomically: true, encoding: .utf8)
         let c = Config.load(from: url)
+        XCTAssertEqual(c.freeX, 0)
+        XCTAssertEqual(c.freeY, 0.5)
+        XCTAssertEqual(c.freeSize, 3)
         XCTAssertEqual(c.fit, .integer)
         XCTAssertEqual(c.speed, 4)
         XCTAssertEqual(c.position, 1)

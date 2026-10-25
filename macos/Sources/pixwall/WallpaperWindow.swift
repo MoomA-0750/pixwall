@@ -7,8 +7,7 @@ import QuartzCore
 final class WallpaperWindow: NSWindow {
     private let targetScreen: NSScreen
     private let image: AnimatedImage
-    private var fit: Fit
-    private var position: Double
+    private var placement: Placement
     private var speed: Double
     private let rootLayer = CALayer()
     private let imageLayer = CALayer()
@@ -26,11 +25,10 @@ final class WallpaperWindow: NSWindow {
     /// 窓に覆われたかを見る範囲。メニューバーと Dock のまわりは、隠れていなくても見ない
     var coverageTarget: CGRect { (screen ?? targetScreen).visibleFrame }
 
-    init(screen: NSScreen, image: AnimatedImage, fit: Fit, position: Double, background: CGColor, speed: Double) {
+    init(screen: NSScreen, image: AnimatedImage, placement: Placement, background: CGColor, speed: Double) {
         targetScreen = screen
         self.image = image
-        self.fit = fit
-        self.position = position
+        self.placement = placement
         self.speed = speed
         super.init(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
 
@@ -97,7 +95,7 @@ final class WallpaperWindow: NSWindow {
         let rect = PixwallCore.layout(imageWidth: image.width, imageHeight: image.height,
                           screenWidth: Int((size.width * scale).rounded()),
                           screenHeight: Int((size.height * scale).rounded()),
-                          fit: fit, position: position)
+                          placement: placement)
         // layout は左上が原点、CALayer は左下が原点の点（ポイント）で置く
         let screenHeight = Int((size.height * scale).rounded())
         imageLayer.frame = CGRect(x: CGFloat(rect.x) / scale,
@@ -112,9 +110,8 @@ final class WallpaperWindow: NSWindow {
     }
 
     /// 並べ方・位置・余白の色・速さだけを変える。フレームの layer は作り直さない（位置のつまみを動かしている間も軽いように）
-    func update(fit: Fit, position: Double, background: CGColor, speed: Double) {
-        self.fit = fit
-        self.position = position
+    func update(placement: Placement, background: CGColor, speed: Double) {
+        self.placement = placement
         self.speed = speed
         backgroundColor = NSColor(cgColor: background) ?? .black
         rootLayer.backgroundColor = background

@@ -9,7 +9,12 @@
     <string name="fit_fit_detail">画像の全体を出し、余白ができます。</string>
     <string name="fit_fill">画面を埋める</string>
     <string name="fit_fill_detail">画面を埋め、はしが切れることがあります。</string>
+    <string name="fit_free">自由に置く</string>
+    <string name="fit_free_detail">大きさと置く場所を選べます。</string>
     <string name="position_value">位置 %1$d</string>
+    <string name="free_size_value">大きさ %1$d%%</string>
+    <string name="free_x_value">横の位置 %1$d</string>
+    <string name="free_y_value">縦の位置 %1$d</string>
     <string name="install">文字盤にする</string>
     <string name="installing">作っています…</string>
     <string name="installed_active">文字盤にしました</string>

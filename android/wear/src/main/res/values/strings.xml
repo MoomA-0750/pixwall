@@ -10,7 +10,12 @@
     <string name="fit_fit_detail">Shows the whole image, with margins.</string>
     <string name="fit_fill">Fill screen</string>
     <string name="fit_fill_detail">Covers the screen. Edges may be cut off.</string>
+    <string name="fit_free">Free placement</string>
+    <string name="fit_free_detail">Choose the size and where it goes.</string>
     <string name="position_value">Position %1$d</string>
+    <string name="free_size_value">Size %1$d%%</string>
+    <string name="free_x_value">Horizontal %1$d</string>
+    <string name="free_y_value">Vertical %1$d</string>
     <string name="install">Set watch face</string>
     <string name="installing">Making…</string>
     <string name="installed_active">Watch face set</string>

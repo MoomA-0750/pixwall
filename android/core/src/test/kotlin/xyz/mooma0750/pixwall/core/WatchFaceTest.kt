@@ -100,6 +100,17 @@ class WatchFaceTest {
         assertEquals(OPAQUE or 0x123456, art.preview[454 * 453])
     }
 
+    // 自由に置く: 半分の大きさで右下。見える範囲だけを書き、残りは余白の色
+    @Test
+    fun freePlacesSmallerPicture() {
+        val pixels = IntArray(64 * 64) { 0x141838 }
+        val art = renderWatchFace(gif(64, 64, pixels), Config(fit = Fit.FREE, freeX = 1.0, freeY = 1.0, freeSize = 0.5))
+        assertEquals(PixelRect(227, 227, 227, 227), art.rect)
+        assertEquals(227L * 227 * 4, art.memoryBytes)
+        assertEquals(OPAQUE or 0x141838, art.preview[453 * 454 + 453])
+        assertTrue(watchFaceXml(art).contains("""<PartAnimatedImage name="gif" x="227" y="227" width="227" height="227">"""))
+    }
+
     // 速さは待ち時間に効き、拡大しても同じ絵のフレームはまとめる
     @Test
     fun speedAndMergedFrames() {

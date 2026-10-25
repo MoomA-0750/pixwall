@@ -195,6 +195,7 @@ private fun SettingsScreen(autoInstall: Boolean) {
                 Triple(Fit.INTEGER, R.string.fit_integer, R.string.fit_integer_detail),
                 Triple(Fit.FIT, R.string.fit_fit, R.string.fit_fit_detail),
                 Triple(Fit.FILL, R.string.fit_fill, R.string.fit_fill_detail),
+                Triple(Fit.FREE, R.string.fit_free, R.string.fit_free_detail),
             ).forEach { (fit, label, detail) ->
                 item(key = fit.json) {
                     RadioButton(
@@ -207,19 +208,30 @@ private fun SettingsScreen(autoInstall: Boolean) {
                     )
                 }
             }
-            // 位置は「画面に合わせる」「画面を埋める」のときだけ（整数倍は中央のまま）
-            if (config.fit != Fit.INTEGER) {
-                item {
+            // 位置は「画面に合わせる」「画面を埋める」のとき、大きさと横・縦の位置は「自由に置く」のとき（整数倍は中央のまま）。
+            // どれも 10 刻み（時計の画面では細かく合わせにくい）
+            val sliders = when (config.fit) {
+                Fit.FIT, Fit.FILL -> listOf(
+                    TenthSlider(R.string.position_value, config.position, 0..10) { config.copy(position = it) },
+                )
+                Fit.FREE -> listOf(
+                    TenthSlider(R.string.free_size_value, config.freeSize, 1..30) { config.copy(freeSize = it) },
+                    TenthSlider(R.string.free_x_value, config.freeX, 0..10) { config.copy(freeX = it) },
+                    TenthSlider(R.string.free_y_value, config.freeY, 0..10) { config.copy(freeY = it) },
+                )
+                else -> emptyList()
+            }
+            sliders.forEach { s ->
+                item(key = "${s.label}-label") {
                     ListHeader(modifier = Modifier.transformedHeight(this, spec), transformation = SurfaceTransformation(spec)) {
-                        Text(stringResource(R.string.position_value, (config.position * 100).roundToInt()))
+                        Text(stringResource(s.label, (s.value * 100).roundToInt()))
                     }
                 }
-                item {
-                    // 10 刻み（時計の画面では細かく合わせにくい）
+                item(key = "${s.label}-slider") {
                     Slider(
-                        value = (config.position * 10).roundToInt(),
-                        onValueChange = { update(config.copy(position = it / 10.0)) },
-                        valueProgression = 0..10,
+                        value = (s.value * 10).roundToInt().coerceIn(s.range.first, s.range.last),
+                        onValueChange = { update(s.change(it / 10.0)) },
+                        valueProgression = s.range,
                         segmented = false,
                         modifier = Modifier.transformedHeight(this, spec),
                     )
@@ -230,6 +242,9 @@ private fun SettingsScreen(autoInstall: Boolean) {
 
     ResultDialogs(result) { result = null }
 }
+
+/** 10 分の 1 刻みのつまみ。label は % の数を %1$d で受け、range は値の 10 倍 */
+private class TenthSlider(val label: Int, val value: Double, val range: IntRange, val change: (Double) -> Config)
 
 @Composable
 private fun ResultDialogs(result: InstallResult?, dismiss: () -> Unit) {

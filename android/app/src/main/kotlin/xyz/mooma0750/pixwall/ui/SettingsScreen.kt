@@ -40,7 +40,11 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDialog
 import androidx.compose.material3.ToggleButton
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -70,6 +74,11 @@ import xyz.mooma0750.pixwall.R
 import xyz.mooma0750.pixwall.core.Config
 import xyz.mooma0750.pixwall.core.Fit
 import xyz.mooma0750.pixwall.core.SPEEDS
+import xyz.mooma0750.pixwall.core.SlotRef
+import xyz.mooma0750.pixwall.core.SwitchBy
+import xyz.mooma0750.pixwall.core.TimeSlot
+import xyz.mooma0750.pixwall.core.formatClock
+import xyz.mooma0750.pixwall.core.mainSlot
 import xyz.mooma0750.pixwall.core.frameDelayMillis
 import xyz.mooma0750.pixwall.core.layout
 import kotlin.math.roundToInt
@@ -87,6 +96,11 @@ enum class ImageState { NONE, LOADED, UNREADABLE }
 @Composable
 fun SettingsScreen(
     config: Config,
+    editing: SlotRef,
+    activeTime: Int?,
+    onEdit: (SlotRef) -> Unit,
+    onSwitch: (SwitchBy) -> Unit,
+    onTimes: (List<TimeSlot>) -> Unit,
     preview: Preview?,
     imageState: ImageState,
     isActiveWallpaper: Boolean,
@@ -110,7 +124,10 @@ fun SettingsScreen(
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val previewHeight = maxHeight * PREVIEW_HEIGHT
             val list = @Composable { modifier: Modifier ->
-                SettingsList(config, preview, imageState, isActiveWallpaper, onPickImage, onSetWallpaper, onChange, modifier)
+                SettingsList(
+                    config, editing, activeTime, onEdit, onSwitch, onTimes,
+                    preview, imageState, isActiveWallpaper, onPickImage, onSetWallpaper, onChange, modifier,
+                )
             }
             if (maxWidth >= WIDE_LAYOUT) {
                 Row(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
@@ -136,6 +153,11 @@ private const val PREVIEW_HEIGHT = 0.42f
 @Composable
 private fun SettingsList(
     config: Config,
+    editing: SlotRef,
+    activeTime: Int?,
+    onEdit: (SlotRef) -> Unit,
+    onSwitch: (SwitchBy) -> Unit,
+    onTimes: (List<TimeSlot>) -> Unit,
     preview: Preview?,
     imageState: ImageState,
     isActiveWallpaper: Boolean,
@@ -153,6 +175,7 @@ private fun SettingsList(
         item {
             ImageCard(preview != null, imageState, isActiveWallpaper, onPickImage, onSetWallpaper)
         }
+        switchSection(config, editing, activeTime, onEdit, onSwitch, onTimes)
         fitSection(config, onChange)
         if (config.fit == Fit.FIT || config.fit == Fit.FILL) {
             item {
@@ -181,6 +204,148 @@ private fun SettingsList(
                 trailingContent = { Switch(checked = config.pauseOnLowPower, onCheckedChange = null) },
             ) {
                 Text(stringResource(R.string.pause_on_low_power))
+            }
+        }
+    }
+}
+
+/**
+ * 出す画像を何で切り替えるか。時刻のときは時刻の一覧（行を選ぶと、下の欄でその時刻の画像と並べ方を編集する）、
+ * ダーク・ライトのときはどちらを編集するか
+ */
+private fun LazyListScope.switchSection(
+    config: Config,
+    editing: SlotRef,
+    activeTime: Int?,
+    onEdit: (SlotRef) -> Unit,
+    onSwitch: (SwitchBy) -> Unit,
+    onTimes: (List<TimeSlot>) -> Unit,
+) {
+    item {
+        Section(stringResource(R.string.switch_section))
+        val modes = listOf(SwitchBy.NONE to R.string.switch_none, SwitchBy.TIME to R.string.switch_time, SwitchBy.APPEARANCE to R.string.switch_appearance)
+        ConnectedToggles(modes, config.switchBy, onSwitch)
+        if (config.switchBy != SwitchBy.NONE) {
+            Text(
+                stringResource(R.string.switch_detail),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+            )
+        }
+    }
+    when (config.switchBy) {
+        SwitchBy.NONE -> Unit
+        SwitchBy.TIME -> {
+            config.timeSlots.forEachIndexed { i, t ->
+                item {
+                    TimeRow(i, t, config.timeSlots, editing == SlotRef.Time(i), i == activeTime, onEdit, onTimes)
+                    Spacer(Modifier.height(ListItemDefaults.SegmentedGap))
+                }
+            }
+            item {
+                OutlinedButton(
+                    onClick = {
+                        // 今編集しているものを写し、一番遅い時刻の1時間後から始める
+                        val start = ((config.timeSlots.maxOfOrNull { it.start } ?: 0) + 60) % (24 * 60)
+                        onTimes(config.timeSlots + TimeSlot(start, config.mainSlot))
+                        onEdit(SlotRef.Time(config.timeSlots.size))
+                    },
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.time_add))
+                }
+            }
+        }
+        SwitchBy.APPEARANCE -> item {
+            Spacer(Modifier.height(8.dp))
+            ConnectedToggles(listOf(SlotRef.Light to R.string.edit_light, SlotRef.Dark to R.string.edit_dark), editing, onEdit)
+        }
+    }
+}
+
+/** 時刻の一覧の1行。押すと選び、「変える」で時刻を選ぶ画面を出す */
+@Composable
+private fun TimeRow(
+    i: Int,
+    t: TimeSlot,
+    times: List<TimeSlot>,
+    selected: Boolean,
+    active: Boolean,
+    onEdit: (SlotRef) -> Unit,
+    onTimes: (List<TimeSlot>) -> Unit,
+) {
+    var picking by rememberSaveable { mutableStateOf(false) }
+    SegmentedListItem(
+        selected = selected,
+        onClick = { onEdit(SlotRef.Time(i)) },
+        shapes = ListItemDefaults.segmentedShapes(i, times.size),
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        leadingContent = { RadioButton(selected = selected, onClick = null) },
+        supportingContent = if (active) ({ Text(stringResource(R.string.time_now)) }) else null,
+        trailingContent = {
+            Row {
+                TextButton(onClick = { picking = true }, shapes = ButtonDefaults.shapes()) { Text(stringResource(R.string.time_change)) }
+                if (times.size > 1) {
+                    TextButton(
+                        onClick = {
+                            onTimes(times.filterIndexed { k, _ -> k != i })
+                            if (selected) onEdit(SlotRef.Time(maxOf(0, i - 1)))
+                        },
+                        shapes = ButtonDefaults.shapes(),
+                    ) {
+                        Text(stringResource(R.string.time_remove))
+                    }
+                }
+            }
+        },
+    ) {
+        Text(stringResource(R.string.time_from, formatClock(t.start)))
+    }
+    if (picking) {
+        val state = rememberTimePickerState(initialHour = t.start / 60, initialMinute = t.start % 60, is24Hour = true)
+        TimePickerDialog(
+            onDismissRequest = { picking = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        picking = false
+                        onTimes(times.mapIndexed { k, s -> if (k == i) s.copy(start = state.hour * 60 + state.minute) else s })
+                        onEdit(SlotRef.Time(i))
+                    },
+                    shapes = ButtonDefaults.shapes(),
+                ) {
+                    Text(stringResource(R.string.time_ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { picking = false }, shapes = ButtonDefaults.shapes()) { Text(stringResource(R.string.time_cancel)) }
+            },
+            title = { Text(stringResource(R.string.time_from, formatClock(t.start))) },
+        ) {
+            TimePicker(state)
+        }
+    }
+}
+
+/** つながったトグルのボタン（1つを選ぶ） */
+@Composable
+private fun <T> ConnectedToggles(options: List<Pair<T, Int>>, selected: T, onSelect: (T) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween)) {
+        options.forEachIndexed { i, (value, label) ->
+            ToggleButton(
+                checked = selected == value,
+                onCheckedChange = { onSelect(value) },
+                shapes = when (i) {
+                    0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
+                    options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
+                    else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
+                },
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
+            ) {
+                Text(stringResource(label), maxLines = 1)
             }
         }
     }

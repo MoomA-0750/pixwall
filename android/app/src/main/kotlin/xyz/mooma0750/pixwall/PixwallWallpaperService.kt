@@ -2,9 +2,11 @@ package xyz.mooma0750.pixwall
 
 import android.app.WallpaperColors
 import android.content.BroadcastReceiver
+import android.content.ComponentCallbacks
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
@@ -21,11 +23,15 @@ import xyz.mooma0750.pixwall.core.Placement
 import xyz.mooma0750.pixwall.core.PixelRect
 import xyz.mooma0750.pixwall.core.frameDelayMillis
 import xyz.mooma0750.pixwall.core.layout
+import xyz.mooma0750.pixwall.core.minutesToNextSwitch
+import xyz.mooma0750.pixwall.core.resolved
+import java.util.Calendar
 import java.util.concurrent.Executors
 
 /**
  * ライブ壁紙。絵が変わる瞬間だけ OpenGL ES で描き（GlRenderer）、待っている間は Handler の予約で眠る。
- * 見えていない（アプリが前にある・画面が消えている）とき、省電力モード（設定で選べる）のときは止める
+ * 見えていない（アプリが前にある・画面が消えている）とき、省電力モード（設定で選べる）のときは止める。
+ * 出す画像を時刻・ダークモードで切り替えるときは、見えている間は次の時刻に1回だけ目を覚まし、見えるようになったときにも選び直す
  */
 class PixwallWallpaperService : WallpaperService() {
     override fun onCreateEngine(): Engine = PixwallEngine()
@@ -42,6 +48,10 @@ class PixwallWallpaperService : WallpaperService() {
         private var rectHeight = 0
         private var rectPlacement: Placement? = null
 
+        /** config.json のとおりの設定 */
+        private var saved = Config()
+
+        /** 今出すもの（時刻・ダークモードで選んだ画像と並べ方）を image と並べ方に入れた設定。描くのはこちら */
         private var config = Config()
         private var frames: Frames? = null
         private var loadedImage: String? = null
@@ -54,6 +64,22 @@ class PixwallWallpaperService : WallpaperService() {
         private var powerSave = false
 
         private val tick = Runnable { advance() }
+        private val switchTick = Runnable { reselect() }
+
+        // 時計・時間帯を変えたら選び直す
+        private val timeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) = reselect()
+        }
+
+        // ダークモード・ライトモードの切り替え（壁紙のプロセスの Configuration が替わる）
+        private val appearanceCallbacks = object : ComponentCallbacks {
+            override fun onConfigurationChanged(newConfig: Configuration) {
+                handler.post { reselect() }
+            }
+
+            @Deprecated("ComponentCallbacks の決まりで書く")
+            override fun onLowMemory() = Unit
+        }
 
         private val powerReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
@@ -74,14 +100,25 @@ class PixwallWallpaperService : WallpaperService() {
             renderer = runCatching { GlRenderer() }.onFailure { Log.e(TAG, "cannot start OpenGL ES", it) }.getOrNull()
             powerSave = power.isPowerSaveMode
             registerReceiver(powerReceiver, IntentFilter(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED))
+            registerReceiver(
+                timeReceiver,
+                IntentFilter().apply {
+                    addAction(Intent.ACTION_TIME_CHANGED)
+                    addAction(Intent.ACTION_TIMEZONE_CHANGED)
+                },
+            )
+            registerComponentCallbacks(appearanceCallbacks)
             configObserver.startWatching()
             reloadConfig()
         }
 
         override fun onDestroy() {
             handler.removeCallbacks(tick)
+            handler.removeCallbacks(switchTick)
             configObserver.stopWatching()
             unregisterReceiver(powerReceiver)
+            unregisterReceiver(timeReceiver)
+            unregisterComponentCallbacks(appearanceCallbacks)
             loadGeneration++
             loader.shutdown()
             frames?.recycle()
@@ -119,10 +156,13 @@ class PixwallWallpaperService : WallpaperService() {
         override fun onVisibilityChanged(visible: Boolean) {
             this.visible = visible
             if (visible) {
+                // 見えていない間に切り替わる時刻を過ぎていれば、ここで替える
+                reselect()
                 draw()
                 nextAt = 0
             }
             schedule()
+            scheduleSwitch()
         }
 
         override fun onComputeColors(): WallpaperColors? {
@@ -138,8 +178,22 @@ class PixwallWallpaperService : WallpaperService() {
         private fun background(f: Frames): Int = config.customColor ?: f.autoBackground
 
         private fun reloadConfig() {
+            saved = ConfigStore.load(this@PixwallWallpaperService)
+            reselect()
+        }
+
+        private val isDark: Boolean
+            get() = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+
+        private fun minuteOfDay(now: Calendar = Calendar.getInstance()) =
+            now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+
+        /** 今の時刻・ダークモードで出すものを選ぶ。画像が同じなら読み直さない */
+        private fun reselect() {
             val old = config
-            config = ConfigStore.load(this@PixwallWallpaperService)
+            config = saved.resolved(minuteOfDay(), isDark)
+            scheduleSwitch()
+            if (config == old && frames != null) return
             if (config.image != loadedImage) {
                 loadImage(config.image)
             } else {
@@ -186,6 +240,16 @@ class PixwallWallpaperService : WallpaperService() {
         private fun shouldRun(): Boolean {
             val f = frames ?: return false
             return visible && surfaceWidth > 0 && f.count > 1 && !(powerSave && config.pauseOnLowPower)
+        }
+
+        /** 見えている間だけ、次に切り替わる時刻（の 0 秒）に1回目を覚ます。見えていない間は、見えたときに選び直す */
+        private fun scheduleSwitch() {
+            handler.removeCallbacks(switchTick)
+            if (!visible) return
+            val now = Calendar.getInstance()
+            val wait = saved.minutesToNextSwitch(minuteOfDay(now)) ?: return
+            val ms = wait * 60_000L - (now.get(Calendar.SECOND) * 1000 + now.get(Calendar.MILLISECOND))
+            handler.postDelayed(switchTick, ms.coerceAtLeast(1))
         }
 
         /** 次のフレームを予約する。動かさないときは予約を消して眠る */

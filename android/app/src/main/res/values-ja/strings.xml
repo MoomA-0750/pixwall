@@ -43,4 +43,18 @@
     <string name="pause_section">止める条件</string>
     <string name="pause_on_low_power">省電力モードで止める</string>
     <string name="pause_on_low_power_detail">今のフレームのまま止めます。画面が消えている・アプリで隠れている間は、いつも止めます。</string>
+    <string name="switch_section">画像の切り替え</string>
+    <string name="switch_none">切り替えない</string>
+    <string name="switch_time">時刻で</string>
+    <string name="switch_appearance">ダーク・ライト</string>
+    <string name="switch_detail">時刻ごと、またはライト・ダークごとに画像と並べ方を選べます。行を選ぶと、下でその画像と並べ方を変えられます。</string>
+    <string name="time_from">%1$s から</string>
+    <string name="time_now">今出しています</string>
+    <string name="time_change">変える</string>
+    <string name="time_remove">削除</string>
+    <string name="time_add">時刻を足す</string>
+    <string name="time_ok">OK</string>
+    <string name="time_cancel">キャンセル</string>
+    <string name="edit_light">ライト</string>
+    <string name="edit_dark">ダーク</string>
 </resources>

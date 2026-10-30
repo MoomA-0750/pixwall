@@ -1,5 +1,6 @@
 package xyz.mooma0750.pixwall.core
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -24,6 +25,13 @@ data class Config(
     val speed: Double = 1.0,
     /** 省電力モードのときに止める */
     val pauseOnLowPower: Boolean = true,
+    /** 出す画像を何で切り替えるか（Switching.kt） */
+    val switchBy: SwitchBy = SwitchBy.NONE,
+    /** 時刻で切り替えるときの、時刻ごとの画像と並べ方（書いた順） */
+    val timeSlots: List<TimeSlot> = emptyList(),
+    /** ダーク・ライトで切り替えるときの画像と並べ方。null なら image と並べ方を使う */
+    val lightSlot: Slot? = null,
+    val darkSlot: Slot? = null,
 ) {
     /** 並べ方と位置・大きさ */
     val placement: Placement get() = Placement(fit, position, freeX, freeY, freeSize)
@@ -44,6 +52,10 @@ data class Config(
         backgroundColor?.let { o.put("backgroundColor", hexColor(it)) }
         o.put("speed", speed)
         o.put("pauseOnLowPower", pauseOnLowPower)
+        o.put("switchBy", switchBy.json)
+        o.put("timeSlots", JSONArray(timeSlots.map { it.toJson() }))
+        lightSlot?.let { o.put("lightSlot", it.toJson()) }
+        darkSlot?.let { o.put("darkSlot", it.toJson()) }
         return o.toString(2).replace("\\/", "/")
     }
 
@@ -54,19 +66,19 @@ data class Config(
             val o = runCatching { JSONObject(text ?: return d) }.getOrNull() ?: return d
             fun num(key: String) = (o.opt(key) as? Number)?.toDouble()
             fun bool(key: String) = o.opt(key) as? Boolean
+            // 画像と並べ方は、切り替える先の1つ（Slot）と同じ読み方をする
             return Config(
                 version = num("version")?.toInt() ?: d.version,
-                image = o.opt("image") as? String,
-                fit = Fit.fromJson(o.opt("fit") as? String) ?: d.fit,
-                position = (num("position") ?: d.position).coerceIn(0.0, 1.0),
-                freeX = (num("freeX") ?: d.freeX).coerceIn(0.0, 1.0),
-                freeY = (num("freeY") ?: d.freeY).coerceIn(0.0, 1.0),
-                freeSize = (num("freeSize") ?: d.freeSize).coerceIn(FREE_SIZE_RANGE),
                 customBackground = (o.opt("background") as? String)?.let { it == "custom" } ?: d.customBackground,
                 backgroundColor = (o.opt("backgroundColor") as? String)?.let(::parseHexColor),
                 speed = (num("speed") ?: d.speed).coerceIn(0.25, 4.0),
                 pauseOnLowPower = bool("pauseOnLowPower") ?: d.pauseOnLowPower,
-            )
+                switchBy = SwitchBy.fromJson(o.opt("switchBy") as? String) ?: d.switchBy,
+                // 読めない1つは飛ばす
+                timeSlots = readTimeSlots(o.optJSONArray("timeSlots")),
+                lightSlot = o.optJSONObject("lightSlot")?.let(Slot::read),
+                darkSlot = o.optJSONObject("darkSlot")?.let(Slot::read),
+            ).withMain(Slot.read(o))
         }
     }
 }

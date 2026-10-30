@@ -6,7 +6,7 @@ import SwiftUI
 /// 変えたら config.json に書いて、常駐側に読み直してもらう（Windows の設定画面と同じ）
 @MainActor
 final class SettingsApp: NSObject, NSApplicationDelegate {
-    /// 最後に書いた設定。読めない画像を選んだときはここへ戻す
+    /// 最後に書いた設定
     private var saved = Config.load(from: Resident.configURL)
     private lazy var model = SettingsModel(config: saved)
     private var window: NSWindow?
@@ -22,10 +22,6 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.mainMenu = makeMainMenu()
         model.paused = startPaused
-        if let image = saved.image {
-            model.image = AnimatedImage(url: URL(fileURLWithPath: image))
-            if model.image == nil { model.loadError = image }
-        }
         model.loginItemNeedsApproval = Resident.updateLoginItem(saved.launchAtLogin)
         model.onChange = { [weak self] in self?.apply($0) }
         model.onPause = { Resident.post(.setPaused, userInfo: ["paused": $0]) }
@@ -61,20 +57,8 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
     }
 
     private func apply(_ new: Config) {
+        // 読めない画像は、選ぶときに断っている（SettingsModel.chooseImage）
         if new == saved { return }
-        if new.image != saved.image, let image = new.image {
-            // 読めない画像は設定に書かない。壁紙はそのまま
-            guard let loaded = AnimatedImage(url: URL(fileURLWithPath: image)) else {
-                model.loadError = image
-                let saved = self.saved
-                // config の didSet の中から呼ばれるので、今の変更が終わってから戻す
-                Task { @MainActor [weak self] in self?.model.config = saved }
-                return
-            }
-            model.loadError = nil
-            model.image = loaded
-            model.exportResult = nil
-        }
         saved = new
         try? new.save(to: Resident.configURL)
         model.loginItemNeedsApproval = Resident.updateLoginItem(new.launchAtLogin)
@@ -85,13 +69,9 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
     private func reload() {
         let disk = Config.load(from: Resident.configURL)
         if disk == saved { return }
-        if disk.image != saved.image {
-            model.image = disk.image.flatMap { AnimatedImage(url: URL(fileURLWithPath: $0)) }
-            model.loadError = model.image == nil ? disk.image : nil
-            model.exportResult = nil
-        }
         saved = disk
         model.config = disk
+        model.loadPreview()
     }
 
     /// 壁紙ごと終える

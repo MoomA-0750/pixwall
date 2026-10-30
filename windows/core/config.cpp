@@ -10,8 +10,14 @@ namespace pixwall {
 
 namespace {
 
-// 平らなオブジェクト（値は文字列・数・真偽・null）だけ読む。入れ子の値は読み飛ばす
-using Value = std::variant<std::monostate, std::string, double, bool>;
+// 入れ子のオブジェクト・配列は、中身を読まずに元の文字列のまま渡す（読むなら、もう一度 Reader で読む）
+struct Raw {
+    std::string_view text;
+    char open;  // '{' か '['
+};
+
+// 値は文字列・数・真偽・null・入れ子
+using Value = std::variant<std::monostate, std::string, double, bool, Raw>;
 
 class Reader {
 public:
@@ -37,6 +43,24 @@ public:
             Space();
             if (Eat(',')) continue;
             return Eat('}');
+        }
+    }
+
+    // 配列の1つずつに f を呼ぶ。形が崩れていたら false
+    template <class F>
+    bool Array(F&& f) {
+        Space();
+        if (!Eat('[')) return false;
+        Space();
+        if (Eat(']')) return true;
+        for (;;) {
+            Space();
+            auto value = Any();
+            if (!value) return false;
+            f(*value);
+            Space();
+            if (Eat(',')) continue;
+            return Eat(']');
         }
     }
 
@@ -152,8 +176,9 @@ private:
             return Value{*s};
         }
         if (c == '{' || c == '[') {
+            const size_t begin = i_;
             if (!Skip(c, c == '{' ? '}' : ']')) return std::nullopt;
-            return Value{};
+            return Value{Raw{s_.substr(begin, i_ - begin), c}};
         }
         if (Word("true")) return Value{true};
         if (Word("false")) return Value{false};
@@ -201,7 +226,198 @@ const char* FitName(Fit fit) {
     }
 }
 
+// Slot の項目（image・fit・position・freeX・freeY・freeSize）なら読んで true
+bool ReadSlotKey(Slot& slot, const std::string& key, const Value& v) {
+    const auto* s = std::get_if<std::string>(&v);
+    const auto* n = std::get_if<double>(&v);
+    Placement& p = slot.placement;
+    if (key == "image") {
+        slot.image = s ? *s : std::string();
+    } else if (key == "fit") {
+        if (s && *s == "integer") p.fit = Fit::Integer;
+        if (s && *s == "fit") p.fit = Fit::Fit;
+        if (s && *s == "fill") p.fit = Fit::Fill;
+        if (s && *s == "free") p.fit = Fit::Free;
+    } else if (key == "position") {
+        if (n) p.position = std::clamp(*n, 0.0, 1.0);
+    } else if (key == "freeX") {
+        if (n) p.freeX = std::clamp(*n, 0.0, 1.0);
+    } else if (key == "freeY") {
+        if (n) p.freeY = std::clamp(*n, 0.0, 1.0);
+    } else if (key == "freeSize") {
+        if (n) p.freeSize = std::clamp(*n, kFreeSizeMin, kFreeSizeMax);
+    } else {
+        return false;
+    }
+    return true;
+}
+
+// 入れ子のオブジェクトを Slot として読む。オブジェクトでなければ nullopt。start があれば読む（読めなければ 0）
+std::optional<Slot> ReadSlot(const Value& v, int* start = nullptr) {
+    const auto* raw = std::get_if<Raw>(&v);
+    if (!raw || raw->open != '{') return std::nullopt;
+    Slot slot;
+    if (start) *start = 0;
+    const bool ok = Reader(raw->text).Object([&](const std::string& key, const Value& value) {
+        if (ReadSlotKey(slot, key, value)) return;
+        if (key == "start" && start) {
+            const auto* s = std::get_if<std::string>(&value);
+            *start = s ? std::max(ParseClock(*s), 0) : 0;
+        }
+    });
+    if (!ok) return std::nullopt;
+    return slot;
+}
+
+std::string Number(double v) {
+    char s[32];
+    std::snprintf(s, sizeof(s), "%g", v);
+    return s;
+}
+
+// Slot の項目を名前順に書く（start は TimeSlot のときだけ）。indent は項目の前の空白
+void WriteSlot(std::string& out, const Slot& slot, const std::string& indent, const int* start) {
+    const Placement& p = slot.placement;
+    out += "{\n";
+    out += indent + "\"fit\" : \"" + FitName(p.fit) + "\",\n";
+    out += indent + "\"freeSize\" : " + Number(p.freeSize) + ",\n";
+    out += indent + "\"freeX\" : " + Number(p.freeX) + ",\n";
+    out += indent + "\"freeY\" : " + Number(p.freeY) + ",\n";
+    if (!slot.image.empty()) {
+        out += indent + "\"image\" : ";
+        Quote(out, slot.image);
+        out += ",\n";
+    }
+    out += indent + "\"position\" : " + Number(p.position);
+    if (start) out += ",\n" + indent + "\"start\" : \"" + FormatClock(*start) + "\"";
+    out += "\n" + indent.substr(2) + "}";
+}
+
+const char* SwitchByName(SwitchBy mode) {
+    switch (mode) {
+        case SwitchBy::Time: return "time";
+        case SwitchBy::Appearance: return "appearance";
+        default: return "none";
+    }
+}
+
 }  // namespace
+
+int ParseClock(std::string_view s) {
+    const size_t colon = s.find(':');
+    if (colon == std::string_view::npos || colon < 1 || colon > 2 || s.size() != colon + 3) return -1;
+    int h = 0, m = 0;
+    for (size_t i = 0; i < s.size(); ++i) {
+        if (i == colon) continue;
+        if (s[i] < '0' || s[i] > '9') return -1;
+        (i < colon ? h : m) = (i < colon ? h : m) * 10 + (s[i] - '0');
+    }
+    return h < 24 && m < 60 ? h * 60 + m : -1;
+}
+
+std::string FormatClock(int minutes) {
+    const int m = ((minutes % kMinutesPerDay) + kMinutesPerDay) % kMinutesPerDay;
+    char s[8];
+    std::snprintf(s, sizeof(s), "%02d:%02d", m / 60, m % 60);
+    return s;
+}
+
+void Config::setMainSlot(const Slot& slot) {
+    image = slot.image;
+    fit = slot.placement.fit;
+    position = slot.placement.position;
+    freeX = slot.placement.freeX;
+    freeY = slot.placement.freeY;
+    freeSize = slot.placement.freeSize;
+}
+
+int Config::ActiveTimeIndex(int minute) const {
+    int best = -1;      // 今以前に始まるもののうち一番遅いもの
+    int latest = -1;    // 一番遅く始まるもの
+    for (int i = 0; i < static_cast<int>(timeSlots.size()); ++i) {
+        const int start = timeSlots[i].start;
+        if (start <= minute && (best < 0 || start >= timeSlots[best].start)) best = i;
+        if (latest < 0 || start >= timeSlots[latest].start) latest = i;
+    }
+    return best >= 0 ? best : latest;
+}
+
+Slot Config::ActiveSlot(int minute, bool dark) const {
+    switch (switchBy) {
+        case SwitchBy::Time: {
+            const int i = ActiveTimeIndex(minute);
+            return i >= 0 ? timeSlots[i].slot : mainSlot();
+        }
+        case SwitchBy::Appearance: {
+            const auto& slot = dark ? darkSlot : lightSlot;
+            return slot ? *slot : mainSlot();
+        }
+        default: return mainSlot();
+    }
+}
+
+Config Config::Resolved(int minute, bool dark) const {
+    Config c = *this;
+    c.setMainSlot(ActiveSlot(minute, dark));
+    return c;
+}
+
+int Config::MinutesToNextSwitch(int minute) const {
+    if (switchBy != SwitchBy::Time) return -1;
+    bool differ = false;
+    int best = -1;
+    for (const auto& t : timeSlots) {
+        if (t.start != timeSlots[0].start) differ = true;
+        const int wait = ((t.start - minute - 1) % kMinutesPerDay + kMinutesPerDay) % kMinutesPerDay + 1;
+        if (best < 0 || wait < best) best = wait;
+    }
+    return differ ? best : -1;
+}
+
+void Config::SwitchTo(SwitchBy mode) {
+    switchBy = mode;
+    if (mode == SwitchBy::Time && timeSlots.empty()) {
+        timeSlots = {TimeSlot{6 * 60, mainSlot()}, TimeSlot{18 * 60, mainSlot()}};
+    }
+    if (mode == SwitchBy::Appearance) {
+        if (!lightSlot) lightSlot = mainSlot();
+        if (!darkSlot) darkSlot = mainSlot();
+    }
+}
+
+Slot Config::GetSlot(SlotRef ref) const {
+    switch (ref.kind) {
+        case SlotRef::Time:
+            return ref.index >= 0 && ref.index < static_cast<int>(timeSlots.size()) ? timeSlots[ref.index].slot
+                                                                                    : mainSlot();
+        case SlotRef::Light: return lightSlot ? *lightSlot : mainSlot();
+        case SlotRef::Dark: return darkSlot ? *darkSlot : mainSlot();
+        default: return mainSlot();
+    }
+}
+
+void Config::SetSlot(SlotRef ref, const Slot& slot) {
+    switch (ref.kind) {
+        case SlotRef::Time:
+            if (ref.index >= 0 && ref.index < static_cast<int>(timeSlots.size())) timeSlots[ref.index].slot = slot;
+            break;
+        case SlotRef::Light: lightSlot = slot; break;
+        case SlotRef::Dark: darkSlot = slot; break;
+        default: setMainSlot(slot); break;
+    }
+}
+
+std::vector<std::string> Config::AllImages() const {
+    std::vector<std::string> all;
+    const auto add = [&](const std::string& path) {
+        if (!path.empty() && std::find(all.begin(), all.end(), path) == all.end()) all.push_back(path);
+    };
+    add(image);
+    for (const auto& t : timeSlots) add(t.slot.image);
+    if (lightSlot) add(lightSlot->image);
+    if (darkSlot) add(darkSlot->image);
+    return all;
+}
 
 int ParseHexColor(std::string_view s) {
     if (s.size() != 7 || s[0] != '#') return -1;
@@ -227,17 +443,25 @@ Config ParseConfig(std::string_view json) {
         const auto* n = std::get_if<double>(&v);
         const auto* b = std::get_if<bool>(&v);
         if (key == "version" && n) c.version = static_cast<int>(*n);
-        if (key == "image") c.image = s ? *s : d.image;
-        if (key == "fit" && s) {
-            if (*s == "integer") c.fit = Fit::Integer;
-            if (*s == "fit") c.fit = Fit::Fit;
-            if (*s == "fill") c.fit = Fit::Fill;
-            if (*s == "free") c.fit = Fit::Free;
+        // 画像と並べ方は、切り替える先の1つ（Slot）と同じ読み方をする
+        Slot main = c.mainSlot();
+        if (ReadSlotKey(main, key, v)) c.setMainSlot(main);
+        if (key == "switchBy" && s) {
+            if (*s == "none") c.switchBy = SwitchBy::None;
+            if (*s == "time") c.switchBy = SwitchBy::Time;
+            if (*s == "appearance") c.switchBy = SwitchBy::Appearance;
         }
-        if (key == "position" && n) c.position = std::clamp(*n, 0.0, 1.0);
-        if (key == "freeX" && n) c.freeX = std::clamp(*n, 0.0, 1.0);
-        if (key == "freeY" && n) c.freeY = std::clamp(*n, 0.0, 1.0);
-        if (key == "freeSize" && n) c.freeSize = std::clamp(*n, kFreeSizeMin, kFreeSizeMax);
+        // 読めない1つは飛ばす
+        if (key == "timeSlots") {
+            if (const auto* raw = std::get_if<Raw>(&v); raw && raw->open == '[') {
+                Reader(raw->text).Array([&](const Value& item) {
+                    int start = 0;
+                    if (auto slot = ReadSlot(item, &start)) c.timeSlots.push_back(TimeSlot{start, *slot});
+                });
+            }
+        }
+        if (key == "lightSlot") c.lightSlot = ReadSlot(v);
+        if (key == "darkSlot") c.darkSlot = ReadSlot(v);
         if (key == "background" && s) {
             if (*s == "auto") c.customBackground = false;
             if (*s == "custom") c.customBackground = true;
@@ -265,6 +489,11 @@ std::string FormatConfig(const Config& c) {
         std::snprintf(color, sizeof(color), "#%06X", c.backgroundColor & 0xFFFFFF);
         out += std::string("  \"backgroundColor\" : \"") + color + "\",\n";
     }
+    if (c.darkSlot) {
+        out += "  \"darkSlot\" : ";
+        WriteSlot(out, *c.darkSlot, "    ", nullptr);
+        out += ",\n";
+    }
     out += "  \"fit\" : \"";
     out += FitName(c.fit);
     out += "\",\n";
@@ -277,9 +506,24 @@ std::string FormatConfig(const Config& c) {
         out += ",\n";
     }
     out += std::string("  \"launchAtLogin\" : ") + (c.launchAtLogin ? "true" : "false") + ",\n";
+    if (c.lightSlot) {
+        out += "  \"lightSlot\" : ";
+        WriteSlot(out, *c.lightSlot, "    ", nullptr);
+        out += ",\n";
+    }
     out += std::string("  \"pauseOnLowPower\" : ") + (c.pauseOnLowPower ? "true" : "false") + ",\n";
     out += "  \"position\" : " + number(c.position) + ",\n";
     out += std::string("  \"speed\" : ") + speed + ",\n";
+    out += std::string("  \"switchBy\" : \"") + SwitchByName(c.switchBy) + "\",\n";
+    // Mac 版（JSONEncoder）と同じく、空の配列は改行を2つ挟む
+    out += "  \"timeSlots\" : [\n";
+    for (size_t i = 0; i < c.timeSlots.size(); ++i) {
+        out += "    ";
+        WriteSlot(out, c.timeSlots[i].slot, "      ", &c.timeSlots[i].start);
+        out += i + 1 < c.timeSlots.size() ? ",\n" : "\n";
+    }
+    if (c.timeSlots.empty()) out += "\n";
+    out += "  ],\n";
     out += "  \"version\" : " + std::to_string(c.version) + "\n}";
     return out;
 }

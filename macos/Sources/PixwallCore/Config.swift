@@ -11,7 +11,7 @@ public enum BackgroundMode: String, Codable {
 /// 設定。`config.json` にこの形で書く。Windows 版とそろえる
 public struct Config: Codable, Equatable {
     public var version = 1
-    /// 動かす画像のパス。今はすべての画面に同じ画像を出す
+    /// 動かす画像のパス。すべての画面に同じ画像を出す。切り替えるときは timeSlots・lightSlot・darkSlot を見る（Switching.swift）
     public var image: String?
     public var fit: Fit = .integer
     /// 画面に合わせる・埋めるときの位置（0 で上・左、0.5 で中央、1 で下・右）
@@ -20,6 +20,13 @@ public struct Config: Codable, Equatable {
     public var freeX: Double = 0.5
     public var freeY: Double = 0.5
     public var freeSize: Double = 1
+    /// 出す画像を何で切り替えるか
+    public var switchBy: SwitchBy = .none
+    /// 時刻で切り替えるときの、時刻ごとの画像と並べ方（書いた順。始まる時刻の順でなくてよい）
+    public var timeSlots: [TimeSlot] = []
+    /// ダーク・ライトで切り替えるときの画像と並べ方。nil なら image と並べ方を使う
+    public var lightSlot: Slot?
+    public var darkSlot: Slot?
     public var background: BackgroundMode = .auto
     /// 自分で選んだ余白の色（"#RRGGBB"）。まだ選んでいなければ nil。auto にしても覚えておく
     public var backgroundColor: String?
@@ -37,16 +44,14 @@ public struct Config: Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = Config()
         version = (try? c.decodeIfPresent(Int.self, forKey: .version)) ?? d.version
-        image = (try? c.decodeIfPresent(String.self, forKey: .image)) ?? d.image
-        fit = (try? c.decodeIfPresent(Fit.self, forKey: .fit)) ?? d.fit
-        func unit(_ key: CodingKeys, _ fallback: Double) -> Double {
-            min(max((try? c.decodeIfPresent(Double.self, forKey: key)) ?? fallback, 0), 1)
-        }
-        position = unit(.position, d.position)
-        freeX = unit(.freeX, d.freeX)
-        freeY = unit(.freeY, d.freeY)
-        let sizes = Placement.freeSizeRange
-        freeSize = min(max((try? c.decodeIfPresent(Double.self, forKey: .freeSize)) ?? d.freeSize, sizes.lowerBound), sizes.upperBound)
+        // 画像と並べ方は、切り替える先の1つ（Slot）と同じ読み方をする
+        mainSlot = (try? Slot(from: decoder)) ?? d.mainSlot
+        switchBy = (try? c.decodeIfPresent(SwitchBy.self, forKey: .switchBy)) ?? d.switchBy
+        // 読めない1つは飛ばす
+        timeSlots = ((try? c.decodeIfPresent([Lenient<TimeSlot>].self, forKey: .timeSlots)) ?? nil)?
+            .compactMap(\.value) ?? d.timeSlots
+        lightSlot = (try? c.decodeIfPresent(Slot.self, forKey: .lightSlot)) ?? nil
+        darkSlot = (try? c.decodeIfPresent(Slot.self, forKey: .darkSlot)) ?? nil
         background = (try? c.decodeIfPresent(BackgroundMode.self, forKey: .background)) ?? d.background
         backgroundColor = ((try? c.decodeIfPresent(String.self, forKey: .backgroundColor)) ?? nil)
             .flatMap(rgb(hex:)).map(hex(rgb:))
@@ -82,6 +87,15 @@ public struct Config: Codable, Equatable {
     public func save(to url: URL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try json().write(to: url, options: .atomic)
+    }
+}
+
+/// 読めなければ nil にする（配列の中の1つが壊れていても、残りを読む）
+private struct Lenient<T: Decodable>: Decodable {
+    var value: T?
+
+    init(from decoder: Decoder) throws {
+        value = try? T(from: decoder)
     }
 }
 

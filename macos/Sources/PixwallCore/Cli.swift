@@ -8,6 +8,7 @@ public enum ConfigKey: String, CaseIterable {
     case freeX
     case freeY
     case freeSize
+    case switchBy
     case background
     case backgroundColor
     case speed
@@ -69,6 +70,7 @@ public let cliUsage = """
       position         0 to 1 (0 top/left, 0.5 center, 1 bottom/right; fit and fill)
       freeX, freeY     0 to 1 (0 left/top edge, 1 right/bottom edge; free)
       freeSize         0.1 to 3 (1 is the size that fits the screen; free)
+      switchBy         none | time | appearance (the times and images are set in the settings)
       background       auto | custom
       backgroundColor  #RRGGBB (used when background is custom)
       speed            0.25 to 4
@@ -137,6 +139,7 @@ extension Config {
         case .freeX: return number(freeX)
         case .freeY: return number(freeY)
         case .freeSize: return number(freeSize)
+        case .switchBy: return switchBy.rawValue
         case .background: return background.rawValue
         case .backgroundColor: return backgroundColor ?? ""
         case .speed: return number(speed)
@@ -169,6 +172,9 @@ extension Config {
         case .freeX: freeX = try double(0...1)
         case .freeY: freeY = try double(0...1)
         case .freeSize: freeSize = try double(Placement.freeSizeRange)
+        case .switchBy:
+            guard let v = SwitchBy(rawValue: text) else { throw CliError("switchBy must be none, time or appearance") }
+            switchTo(v)
         case .background:
             guard let v = BackgroundMode(rawValue: text) else { throw CliError("background must be auto or custom") }
             background = v

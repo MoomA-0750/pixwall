@@ -3,7 +3,13 @@ import PixwallCore
 
 /// 常駐側。壁紙の窓を動かす。設定画面は別のプロセス（SettingsApp）で開く
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// config.json のとおりの設定
+    private var saved: Config
+    /// 今出すもの（時刻・ダークモードで選んだ画像と並べ方）を image と並べ方に入れた設定。描くのはこちら
     private var config: Config
+    /// 次に時刻で切り替えるときに目を覚ますタイマー
+    private var switchTimer: DispatchSourceTimer?
+    private var appearanceObservation: NSKeyValueObservation?
     private var image: AnimatedImage?
     private var loadedPath: String?
     private var windows: [WallpaperWindow] = []
@@ -31,7 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var poweringOff = false
 
     init(imagePath: String?) {
-        config = Config.load(from: Resident.configURL)
+        saved = Config.load(from: Resident.configURL)
+        config = saved
         self.imagePath = imagePath
         super.init()
     }
@@ -39,7 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         pause.lowPower = ProcessInfo.processInfo.isLowPowerModeEnabled
         observe()
-        var first = config
+        var first = saved
         if let imagePath {
             first.image = imagePath
             try? first.save(to: Resident.configURL)
@@ -63,10 +70,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - 設定
 
     /// 設定は書かない（書くのは設定画面のプロセスと、起動の引数で画像を渡されたとき）。
+    /// 今の時刻・ダークモードで出すものを選び、次に時刻で切り替えるときのタイマーを掛け直す。
     /// 画像が同じなら窓は作り直さず、並べ方・位置・余白の色・速さだけを変え、OS の壁紙は少し待ってから描き直す
     private func apply(_ new: Config) {
+        saved = new
+        scheduleSwitch()
         let old = config
-        config = new
+        config = new.resolved(minute: minuteOfDay(), dark: isDark)
         pause.pauseOnLowPower = config.pauseOnLowPower
         Resident.updateLoginItem(config.launchAtLogin)
         if config.image != loadedPath {
@@ -83,6 +93,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         rebuild()
+    }
+
+    // MARK: - 時刻・ダークモードで切り替える
+
+    private var isDark: Bool {
+        NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+    }
+
+    /// 時刻・ダークモードが変わったら、出すものを選び直す（同じものなら何も変わらない）
+    private func reselect() {
+        apply(saved)
+    }
+
+    /// 次に切り替わる時刻（の 0 秒）に1回だけ目を覚ます。壁時計で数えるので、スリープの間も進む
+    private func scheduleSwitch() {
+        switchTimer?.cancel()
+        switchTimer = nil
+        let now = Date()
+        guard let wait = saved.minutesToNextSwitch(after: minuteOfDay(now)) else { return }
+        let target = (minuteOfDay(now) + wait) % minutesPerDay
+        guard let at = Calendar.current.nextDate(after: now, matching: DateComponents(hour: target / 60, minute: target % 60, second: 0),
+                                                 matchingPolicy: .nextTime) else { return }
+        let t = DispatchSource.makeTimerSource(queue: .main)
+        t.schedule(wallDeadline: .now() + at.timeIntervalSince(now), leeway: .seconds(1))
+        t.setEventHandler { [weak self] in self?.reselect() }
+        switchTimer = t
+        t.resume()
     }
 
     private func scheduleOsWallpaper() {
@@ -250,6 +287,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         ws.addObserver(forName: NSWorkspace.sessionDidBecomeActiveNotification, object: nil, queue: .main) {
             [weak self] _ in self?.pause.locked = false
+        }
+
+        // 時刻で切り替えるとき、時計・時間帯を変えた・スリープから戻ったら選び直す
+        for name in [Notification.Name.NSSystemClockDidChange, .NSSystemTimeZoneDidChange] {
+            nc.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in self?.reselect() }
+        }
+        ws.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.reselect()
+        }
+        // ダークモード・ライトモードの切り替え（自動で切り替わるときも）
+        appearanceObservation = NSApp.observe(\.effectiveAppearance) { [weak self] _, _ in
+            DispatchQueue.main.async { self?.reselect() } // apple-ui-allow: KVO の通知の中で窓を作り直さないよう、次の回に回す
         }
 
         Resident.observe(.reloadConfig) { [weak self] _ in self?.apply(Config.load(from: Resident.configURL)) }

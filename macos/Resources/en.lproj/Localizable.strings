@@ -13,6 +13,22 @@
 "書き出しました: %@" = "Exported: %@";
 "書き出せませんでした: %@" = "Couldn't export: %@";
 
+"画像の切り替え" = "Switch Images";
+"時刻や外観ごとに、画像と並べ方を選べます" = "Choose an image and scaling for each time or appearance";
+"切り替えない" = "Don't Switch";
+"時刻で" = "By Time";
+"ダーク・ライトで" = "By Light or Dark";
+"時刻を足す" = "Add Time";
+"削除" = "Remove";
+"から" = "From";
+"今" = "Now";
+"編集する外観" = "Appearance to Edit";
+"ライト" = "Light";
+"ダーク" = "Dark";
+"画像（%@ から）" = "Image (from %@)";
+"画像（ライト）" = "Image (Light)";
+"画像（ダーク）" = "Image (Dark)";
+
 "表示" = "Display";
 "並べ方" = "Scaling";
 "整数倍で最大" = "Largest Whole Multiple";

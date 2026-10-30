@@ -79,7 +79,10 @@ enum Ctl {
         return 0
     }
 
-    private static func export(_ config: Config, to path: String, frame: Int) -> Int32 {
+    private static func export(_ saved: Config, to path: String, frame: Int) -> Int32 {
+        // 今、壁紙に出しているもの（時刻・ダークモードで選んだもの）を書き出す
+        let config = saved.resolved(minute: minuteOfDay(),
+                                    dark: UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark")
         guard let imagePath = config.image else {
             fail("no image is chosen")
             return 1

@@ -44,7 +44,42 @@
                     <Button x:Uid="RefreshButton" Grid.Column="1" Content="表示を更新" Click="Refresh_Click" />
                 </Grid>
 
-                <TextBlock x:Uid="ImageHeading" Text="画像" Style="{StaticResource Heading}" />
+                <!-- 出す画像を何で切り替えるか。時刻のときは時刻の一覧、ダーク・ライトのときはどちらを編集するかを出す -->
+                <Grid Style="{StaticResource Card}" Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Uid="SwitchLabel" Text="画像の切り替え" />
+                        <TextBlock x:Uid="SwitchHint" x:Name="SwitchHintText" Text="時刻や外観ごとに、画像と並べ方を選べます" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <!-- 並び順は MainWindow.xaml.cs の Switches とそろえる -->
+                    <ComboBox x:Uid="SwitchControl" x:Name="SwitchBox" AutomationProperties.Name="画像の切り替え" Grid.Column="1" MinWidth="180"
+                              VerticalAlignment="Center" SelectionChanged="Switch_Changed">
+                        <ComboBoxItem x:Uid="SwitchNone" Content="切り替えない" />
+                        <ComboBoxItem x:Uid="SwitchTime" Content="時刻で" />
+                        <ComboBoxItem x:Uid="SwitchAppearance" Content="ダーク・ライトで" />
+                    </ComboBox>
+                </Grid>
+                <!-- 時刻ごとの行（MainWindow.xaml.cs の ShowTimeCards で作る）。行を選ぶと、下の「画像」「表示」でその時刻の画像と並べ方を編集する -->
+                <StackPanel x:Name="TimeCards" Spacing="4" />
+                <Button x:Uid="AddTimeButton" x:Name="AddTimeButton" Content="時刻を足す" Click="AddTime_Click" />
+                <Grid x:Name="AppearanceCard" Style="{StaticResource Card}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Uid="EditAppearance" Text="編集する外観" VerticalAlignment="Center" />
+                    <RadioButtons x:Uid="EditAppearanceControl" x:Name="AppearanceButtons" AutomationProperties.Name="編集する外観" Grid.Column="1"
+                                  MaxColumns="2" SelectionChanged="Appearance_Changed">
+                        <RadioButton x:Uid="Light" Content="ライト" />
+                        <RadioButton x:Uid="Dark" Content="ダーク" />
+                    </RadioButtons>
+                </Grid>
+
+                <TextBlock x:Uid="ImageHeading" x:Name="ImageHeadingText" Text="画像" Style="{StaticResource Heading}" />
                 <Grid Style="{StaticResource Card}" RowSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -67,8 +102,9 @@
                     <Image x:Name="Preview" Grid.Row="2" Grid.ColumnSpan="2" MaxHeight="160" Stretch="Uniform"
                            HorizontalAlignment="Center" Visibility="Collapsed" />
                 </Grid>
-                <!-- pixwall が動いていないときにも、同じ見た目を静止画で壁紙にできるように -->
-                <Grid Style="{StaticResource Card}" RowSpacing="8">
+                <!-- pixwall が動いていないときにも、同じ見た目を静止画で壁紙にできるように。
+                     書き出すのは常駐側が今出している画像なので、今出しているものを編集しているときだけ出す -->
+                <Grid x:Name="ExportCard" Style="{StaticResource Card}" RowSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />

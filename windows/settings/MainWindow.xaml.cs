@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Threading.Tasks;
@@ -24,6 +25,12 @@ public sealed partial class MainWindow : Window
     private bool loading;
     /// 並べ方の選択肢の並び（MainWindow.xaml の FitBox と同じ順）
     private static readonly string[] Fits = ["integer", "fit", "fill", "free"];
+    /// 切り替え方の選択肢の並び（MainWindow.xaml の SwitchBox と同じ順）
+    private static readonly string[] Switches = ["none", "time", "appearance"];
+    /// どの画像と並べ方を編集しているか（切り替えないときは Main）
+    private SlotRef editing;
+    /// 編集している画像と並べ方
+    private Slot slot => config.GetSlot(editing);
     /// 書き出す絵（何枚目か、0 から）
     private int frame;
 
@@ -34,6 +41,7 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
         config = Config.Load();
+        editing = InitialEditing(config);
         // 中身に合う大きさ（96dpi の大きさを、画面の倍率に合わせる）
         var scale = GetDpiScale();
         AppWindow.Resize(new SizeInt32((int)(560 * scale), (int)(1100 * scale)));
@@ -83,22 +91,45 @@ public sealed partial class MainWindow : Window
         Show();
     }
 
+    /// 開いたとき・切り替え方を変えたときは、今出しているものを編集する
+    private static SlotRef InitialEditing(Config c) => c.SwitchBy switch
+    {
+        "time" when c.ActiveTimeIndex(Config.NowMinute) is >= 0 and var i => new SlotRef(SlotKind.Time, i),
+        "appearance" => new SlotRef(Config.SystemIsDark ? SlotKind.Dark : SlotKind.Light),
+        _ => new SlotRef(SlotKind.Main),
+    };
+
+    /// 常駐側が今出している画像と並べ方
+    private Slot ActiveSlot => config.ActiveSlot(Config.NowMinute, Config.SystemIsDark);
+
+    private void ApplySlot(Slot next) => Apply(config.WithSlot(editing, next));
+
     private double GetDpiScale() => Native.ForWindow(WindowNative.GetWindowHandle(this)) / 96.0;
 
     private void Show()
     {
         loading = true;
-        ImageName.Text = config.Image is null ? Strings.Get("NoImage") : Path.GetFileName(config.Image);
-        FitBox.SelectedIndex = Array.IndexOf(Fits, config.Fit);
+        // 時刻を消した・pixwallctl で変えたなどで、編集していたものが無くなったら今出しているものに移る
+        if (editing.Kind == SlotKind.Time && editing.Index >= config.TimeSlots.Items.Length ||
+            editing.Kind != SlotKind.Main && config.SwitchBy == "none" ||
+            editing.Kind == SlotKind.Time && config.SwitchBy != "time" ||
+            editing.Kind is SlotKind.Light or SlotKind.Dark && config.SwitchBy != "appearance")
+        {
+            editing = InitialEditing(config);
+        }
+        ShowSwitch();
+        var s = slot;
+        ImageName.Text = s.Image is null ? Strings.Get("NoImage") : Path.GetFileName(s.Image);
+        FitBox.SelectedIndex = Array.IndexOf(Fits, s.Fit);
         SpeedSlider.Value = Math.Round(Math.Log2(config.Speed));
         SpeedLabel.Text = SpeedText(config.Speed);
-        PositionSlider.Value = Math.Round(config.Position * 100);
-        PositionLabel.Text = PositionText(config.Position);
-        FreeSizeSlider.Value = Math.Round(config.FreeSize * 100);
-        FreeXSlider.Value = Math.Round(config.FreeX * 100);
-        FreeYSlider.Value = Math.Round(config.FreeY * 100);
-        ShowFreeLabels(config);
-        ShowFitCards(config.Fit);
+        PositionSlider.Value = Math.Round(s.Position * 100);
+        PositionLabel.Text = PositionText(s.Position);
+        FreeSizeSlider.Value = Math.Round(s.FreeSize * 100);
+        FreeXSlider.Value = Math.Round(s.FreeX * 100);
+        FreeYSlider.Value = Math.Round(s.FreeY * 100);
+        ShowFreeLabels(s);
+        ShowFitCards(s.Fit);
         BackgroundBox.SelectedIndex = config.Background == "custom" ? 1 : 0;
         ShowBackgroundColor();
         LowPowerSwitch.IsOn = config.PauseOnLowPower;
@@ -120,7 +151,129 @@ public sealed partial class MainWindow : Window
         FrameSlider.Visibility = count > 1 ? Visibility.Visible : Visibility.Collapsed;
         FrameLabel.Text = count > 1 ? Strings.Format("FrameOf", count, 1) : "";
         ExportButton.IsEnabled = count > 0;
-        _ = ShowPreview(config.Image);
+        ExportCard.Visibility = slot.Image is not null && slot.Image == ActiveSlot.Image ? Visibility.Visible : Visibility.Collapsed;
+        _ = ShowPreview(slot.Image);
+    }
+
+    /// 切り替え方と、時刻の一覧・ライトとダークのどちらを編集するかを出す。「画像」の見出しに、編集しているものを書く
+    private void ShowSwitch()
+    {
+        SwitchBox.SelectedIndex = Array.IndexOf(Switches, config.SwitchBy);
+        var time = config.SwitchBy == "time";
+        TimeCards.Visibility = time ? Visibility.Visible : Visibility.Collapsed;
+        AddTimeButton.Visibility = TimeCards.Visibility;
+        AppearanceCard.Visibility = config.SwitchBy == "appearance" ? Visibility.Visible : Visibility.Collapsed;
+        AppearanceButtons.SelectedIndex = editing.Kind == SlotKind.Dark ? 1 : 0;
+        ImageHeadingText.Text = editing.Kind switch
+        {
+            SlotKind.Time => Strings.Format("ImageFrom", Config.FormatClock(config.TimeSlots.Items[editing.Index].Start)),
+            SlotKind.Light => Strings.Get("ImageLight"),
+            SlotKind.Dark => Strings.Get("ImageDark"),
+            _ => Strings.Get("ImageMain"),
+        };
+        TimeCards.Children.Clear();
+        if (!time) return;
+        var active = config.ActiveTimeIndex(Config.NowMinute);
+        var items = config.TimeSlots.Items;
+        for (var i = 0; i < items.Length; i++) TimeCards.Children.Add(TimeCard(i, items[i], i == active));
+    }
+
+    /// 時刻の一覧の1行。選ぶ丸（画像の名前）・始まる時刻・今出しているか・消すボタン
+    private Grid TimeCard(int i, TimeSlot t, bool active)
+    {
+        // スタイルは XAML の部品から写す（リソースを引いて型を変えると、AOT では落ちることがある）
+        var card = new Grid { Style = AppearanceCard.Style };
+        card.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (var k = 0; k < 3; k++) card.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var choose = new RadioButton
+        {
+            GroupName = "TimeSlots",
+            Content = t.Slot.Image is null ? Strings.Get("NoImage") : Path.GetFileName(t.Slot.Image),
+            IsChecked = editing == new SlotRef(SlotKind.Time, i),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        choose.Checked += (_, _) =>
+        {
+            if (loading) return;
+            editing = new SlotRef(SlotKind.Time, i);
+            Show();
+        };
+        card.Children.Add(choose);
+        var picker = new TimePicker
+        {
+            ClockIdentifier = "24HourClock",
+            MinuteIncrement = 1,
+            SelectedTime = TimeSpan.FromMinutes(t.Start),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(picker, Strings.Get("StartTime"));
+        picker.SelectedTimeChanged += (_, e) =>
+        {
+            if (loading || e.NewTime is not { } time) return;
+            var start = (int)time.TotalMinutes % (24 * 60);
+            Apply(config with { TimeSlots = new(config.TimeSlots.Items.SetItem(i, config.TimeSlots.Items[i] with { Start = start })) });
+            editing = new SlotRef(SlotKind.Time, i);
+            // 選んでいる最中の部品を消さないよう、知らせが終わってから並べ直す
+            DispatcherQueue.TryEnqueue(Show);
+        };
+        Grid.SetColumn(picker, 1);
+        card.Children.Add(picker);
+        if (active)
+        {
+            var now = new TextBlock
+            {
+                Text = Strings.Get("Now"),
+                Style = SwitchHintText.Style,
+                Foreground = SwitchHintText.Foreground,
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Grid.SetColumn(now, 2);
+            card.Children.Add(now);
+        }
+        if (config.TimeSlots.Items.Length > 1)
+        {
+            var remove = new Button
+            {
+                Content = new FontIcon { Glyph = "\uE738", FontSize = 14 },
+                VerticalAlignment = VerticalAlignment.Center,
+            };
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(remove, Strings.Get("RemoveTime"));
+            ToolTipService.SetToolTip(remove, Strings.Get("RemoveTime"));
+            remove.Click += (_, _) =>
+            {
+                Apply(config with { TimeSlots = new(config.TimeSlots.Items.RemoveAt(i)) });
+                editing = new SlotRef(SlotKind.Time, Math.Min(i, config.TimeSlots.Items.Length - 1));
+                Show();
+            };
+            Grid.SetColumn(remove, 3);
+            card.Children.Add(remove);
+        }
+        return card;
+    }
+
+    private void Switch_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (loading || SwitchBox.SelectedIndex < 0 || config is null) return;
+        Apply(config.SwitchTo(Switches[SwitchBox.SelectedIndex]));
+        editing = InitialEditing(config);
+        Show();
+    }
+
+    /// 時刻を1つ足す。今編集しているものを写し、一番遅い時刻の1時間後から始める
+    private void AddTime_Click(object sender, RoutedEventArgs e)
+    {
+        var items = config.TimeSlots.Items;
+        var start = ((items.IsEmpty ? 0 : items.Max(t => t.Start)) + 60) % (24 * 60);
+        Apply(config with { TimeSlots = new(items.Add(new TimeSlot(start, slot))) });
+        editing = new SlotRef(SlotKind.Time, config.TimeSlots.Items.Length - 1);
+        Show();
+    }
+
+    private void Appearance_Changed(object sender, SelectionChangedEventArgs e)
+    {
+        if (loading || AppearanceButtons.SelectedIndex < 0 || config is null) return;
+        editing = new SlotRef(AppearanceButtons.SelectedIndex == 1 ? SlotKind.Dark : SlotKind.Light);
+        Show();
     }
 
     private void Apply(Config next)
@@ -140,7 +293,7 @@ public sealed partial class MainWindow : Window
         FreeCards.Visibility = fit == "free" ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void ShowFreeLabels(Config c)
+    private void ShowFreeLabels(Slot c)
     {
         FreeSizeLabel.Text = $"{c.FreeSize * 100:0}%";
         FreeXLabel.Text = PositionText(c.FreeX);
@@ -155,8 +308,8 @@ public sealed partial class MainWindow : Window
         Preview.Visibility = Visibility.Collapsed;
         if (path is null) return false;
         var source = path;
-        // 動かしている画像なら、常駐側に描いてもらう（GIF の重ね方と余白の色を当てた、壁紙と同じ絵になる）
-        if (path == config.Image)
+        // 今出している画像なら、常駐側に描いてもらう（GIF の重ね方と余白の色を当てた、壁紙と同じ絵になる）
+        if (path == ActiveSlot.Image)
         {
             var temp = Path.Combine(Path.GetTempPath(), "pixwall-preview.png");
             if (Resident.RenderPreview(frame, (int)(160 * GetDpiScale()), temp)) source = temp;
@@ -211,12 +364,13 @@ public sealed partial class MainWindow : Window
         {
             LoadError.Text = Strings.Format("CouldNotRead", file.Path);
             LoadError.Visibility = Visibility.Visible;
-            _ = ShowPreview(config.Image);
+            _ = ShowPreview(slot.Image);
             return;
         }
         LoadError.Visibility = Visibility.Collapsed;
         ImageName.Text = file.Name;
-        Apply(config with { Image = file.Path });
+        ApplySlot(slot with { Image = file.Path });
+        Show();
         UpdateFrames();
     }
 
@@ -226,7 +380,7 @@ public sealed partial class MainWindow : Window
         if (loading || FrameLabel is null || config is null) return;
         frame = (int)Math.Round(e.NewValue);
         FrameLabel.Text = Strings.Format("FrameOf", FrameSlider.Maximum + 1, frame + 1);
-        _ = ShowPreview(config.Image, frame);
+        _ = ShowPreview(slot.Image, frame);
     }
 
     /// 画面ごとに、その画面の大きさで書き出す。描くのは常駐側（壁紙と同じ並べ方・余白の色）
@@ -237,7 +391,7 @@ public sealed partial class MainWindow : Window
             var picker = new FileSavePicker { SuggestedStartLocation = PickerLocationId.PicturesLibrary };
             InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(this));
             var screen = DisplayArea.Primary.OuterBounds;
-            picker.SuggestedFileName = $"{Path.GetFileNameWithoutExtension(config.Image)}-{screen.Width}x{screen.Height}";
+            picker.SuggestedFileName = $"{Path.GetFileNameWithoutExtension(slot.Image)}-{screen.Width}x{screen.Height}";
             picker.FileTypeChoices.Add("PNG", new List<string> { ".png" });
             var file = await picker.PickSaveFileAsync();
             if (file is null) return;
@@ -256,21 +410,22 @@ public sealed partial class MainWindow : Window
     {
         if (FitBox.SelectedIndex < 0) return;
         ShowFitCards(Fits[FitBox.SelectedIndex]);
-        Apply(config with { Fit = Fits[FitBox.SelectedIndex] });
+        if (loading || config is null) return;
+        ApplySlot(slot with { Fit = Fits[FitBox.SelectedIndex] });
     }
 
     /// 自由に置くときの3本のつまみ。設定には 100 分の 1 に丸めて書く
     private void Free_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
         if (FreeYLabel is null) return;
-        var next = config with
+        var next = slot with
         {
             FreeSize = Math.Round(FreeSizeSlider.Value) / 100,
             FreeX = Math.Round(FreeXSlider.Value) / 100,
             FreeY = Math.Round(FreeYSlider.Value) / 100,
         };
         ShowFreeLabels(next);
-        Apply(next);
+        ApplySlot(next);
     }
 
     private void Position_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)
@@ -278,7 +433,7 @@ public sealed partial class MainWindow : Window
         if (PositionLabel is null) return;
         var position = Math.Round(e.NewValue) / 100;
         PositionLabel.Text = PositionText(position);
-        Apply(config with { Position = position });
+        ApplySlot(slot with { Position = position });
     }
 
     /// 自分で選ぶときだけ色のボタンを出し、今の色を見せる
@@ -324,7 +479,7 @@ public sealed partial class MainWindow : Window
     {
         var mine = ++previewRequests;
         await Task.Delay(300);
-        if (mine == previewRequests) _ = ShowPreview(config.Image, frame);
+        if (mine == previewRequests) _ = ShowPreview(slot.Image, frame);
     }
 
     private void Speed_Changed(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e)

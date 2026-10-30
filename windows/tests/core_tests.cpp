@@ -332,6 +332,139 @@ void TestCli() {
 
 }  // namespace
 
+void TestSwitching() {
+    CHECK(ParseClock("06:00") == 360);
+    CHECK(ParseClock("6:05") == 365);
+    CHECK(ParseClock("23:59") == 1439);
+    CHECK(ParseClock("24:00") == -1);
+    CHECK(ParseClock("6:5") == -1);
+    CHECK(ParseClock("a:00") == -1);
+    CHECK(FormatClock(365) == "06:05");
+
+    const auto slot = [](const char* image, Fit fit = Fit::Integer) { return Slot{image, Placement(fit)}; };
+    Config c;
+    c.image = "/main.gif";
+    CHECK(c.ActiveSlot(600, true).image == "/main.gif");
+    CHECK(c.MinutesToNextSwitch(600) == -1);
+
+    // 時刻で。始まる時刻の順に書かなくてよい
+    c.switchBy = SwitchBy::Time;
+    c.timeSlots = {TimeSlot{18 * 60, slot("/night.gif", Fit::Fill)}, TimeSlot{6 * 60, slot("/day.gif")}};
+    CHECK(c.ActiveSlot(6 * 60, false).image == "/day.gif");
+    CHECK(c.ActiveSlot(17 * 60 + 59, false).image == "/day.gif");
+    CHECK(c.ActiveSlot(18 * 60, false) == slot("/night.gif", Fit::Fill));
+    CHECK(c.ActiveSlot(3 * 60, false).image == "/night.gif");
+    CHECK(c.MinutesToNextSwitch(5 * 60) == 60);
+    CHECK(c.MinutesToNextSwitch(6 * 60) == 12 * 60);
+    CHECK(c.MinutesToNextSwitch(20 * 60) == 10 * 60);
+    const Config r = c.Resolved(19 * 60, false);
+    CHECK(r.image == "/night.gif" && r.fit == Fit::Fill && r.timeSlots == c.timeSlots);
+    // 時刻が1つだけなら切り替えない
+    Config one = c;
+    one.timeSlots.resize(1);
+    CHECK(one.MinutesToNextSwitch(0) == -1);
+
+    // ダーク・ライトで
+    Config a;
+    a.image = "/main.gif";
+    a.switchBy = SwitchBy::Appearance;
+    a.darkSlot = slot("/dark.gif", Fit::Free);
+    CHECK(a.ActiveSlot(0, true) == slot("/dark.gif", Fit::Free));
+    CHECK(a.ActiveSlot(0, false).image == "/main.gif");
+
+    // 初めて切り替えるときは今の画像と並べ方から
+    Config s;
+    s.image = "/main.gif";
+    s.fit = Fit::Fill;
+    s.SwitchTo(SwitchBy::Time);
+    CHECK(s.timeSlots.size() == 2 && s.timeSlots[0].start == 360 && s.timeSlots[1].start == 1080);
+    CHECK(s.timeSlots[0].slot == s.mainSlot());
+    s.timeSlots[0].slot.image = "/day.gif";
+    s.SwitchTo(SwitchBy::None);
+    s.SwitchTo(SwitchBy::Time);
+    CHECK(s.timeSlots[0].slot.image == "/day.gif");
+    s.SwitchTo(SwitchBy::Appearance);
+    CHECK(s.lightSlot == s.mainSlot() && s.darkSlot == s.mainSlot());
+    CHECK((s.AllImages() == std::vector<std::string>{"/main.gif", "/day.gif"}));
+    CHECK(s.GetSlot(SlotRef{SlotRef::Time, 5}).image == "/main.gif");
+    s.SetSlot(SlotRef{SlotRef::Time, 5}, slot("/x.gif"));
+    s.SetSlot(SlotRef{SlotRef::Dark}, slot("/d.gif"));
+    CHECK(s.darkSlot->image == "/d.gif" && s.AllImages().size() == 3);
+
+    // Mac 版が書いた形をそのまま読み、同じ形に書く
+    const std::string mac = R"({
+  "background" : "auto",
+  "darkSlot" : {
+    "fit" : "fill",
+    "freeSize" : 1,
+    "freeX" : 0.5,
+    "freeY" : 0.5,
+    "image" : "/Users/a/night.gif",
+    "position" : 0.5
+  },
+  "fit" : "fill",
+  "freeSize" : 1,
+  "freeX" : 0.5,
+  "freeY" : 0.5,
+  "image" : "/Users/a/main.gif",
+  "launchAtLogin" : true,
+  "pauseOnLowPower" : true,
+  "position" : 0.5,
+  "speed" : 1,
+  "switchBy" : "time",
+  "timeSlots" : [
+    {
+      "fit" : "fill",
+      "freeSize" : 1,
+      "freeX" : 0.5,
+      "freeY" : 0.5,
+      "image" : "/Users/a/main.gif",
+      "position" : 0.5,
+      "start" : "06:00"
+    },
+    {
+      "fit" : "free",
+      "freeSize" : 0.4,
+      "freeX" : 0,
+      "freeY" : 0,
+      "image" : "/Users/a/dot.gif",
+      "position" : 0.5,
+      "start" : "18:30"
+    }
+  ],
+  "version" : 1
+})";
+    const Config m = ParseConfig(mac);
+    CHECK(m.switchBy == SwitchBy::Time);
+    CHECK(m.timeSlots.size() == 2 && m.timeSlots[1].start == 18 * 60 + 30);
+    CHECK(m.timeSlots[1].slot.placement.fit == Fit::Free && m.timeSlots[1].slot.placement.freeSize == 0.4);
+    CHECK(m.darkSlot && m.darkSlot->image == "/Users/a/night.gif" && !m.lightSlot);
+    CHECK(FormatConfig(m) == mac);
+    CHECK(ParseConfig(FormatConfig(s)) == s);
+    // 空の配列は Mac 版と同じ書き方
+    CHECK(FormatConfig(Config{}).find("\"switchBy\" : \"none\",\n  \"timeSlots\" : [\n\n  ],\n") != std::string::npos);
+
+    // 読めない1つは飛ばし、範囲の外は収める
+    const Config broken = ParseConfig(R"({"switchBy": "time", "timeSlots": [
+      {"start": "7:00", "image": "/a.gif", "fit": "fill", "freeSize": 9, "position": -1},
+      "broken",
+      {"start": "25:00", "image": "/b.gif"}
+    ], "darkSlot": {"fit": "nope"}, "lightSlot": 3})");
+    CHECK(broken.timeSlots.size() == 2);
+    CHECK(broken.timeSlots[0].start == 420 && broken.timeSlots[0].slot.placement.freeSize == 3);
+    CHECK(broken.timeSlots[0].slot.placement.position == 0 && broken.timeSlots[1].start == 0);
+    CHECK(broken.darkSlot == Slot{} && !broken.lightSlot);
+    CHECK(ParseConfig(R"({"switchBy": "weather"})").switchBy == SwitchBy::None);
+
+    // コマンドライン
+    Config cli;
+    cli.image = "/main.gif";
+    std::string error;
+    CHECK(SetConfigValue(cli, "switchBy", "appearance", error) && ConfigValue(cli, "switchBy") == "appearance");
+    CHECK(cli.darkSlot && cli.darkSlot->image == "/main.gif");
+    CHECK(!SetConfigValue(cli, "switchBy", "weather", error));
+}
+
 int main() {
     TestLayout();
     TestTiming();
@@ -340,6 +473,7 @@ int main() {
     TestConfig();
     TestStill();
     TestCli();
+    TestSwitching();
     if (failures == 0) std::printf("すべて通った\n");
     return failures == 0 ? 0 : 1;
 }

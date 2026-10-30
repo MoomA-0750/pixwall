@@ -25,6 +25,7 @@ const char* const kCliUsage =
     "  position         0 to 1 (0 top/left, 0.5 center, 1 bottom/right; fit and fill)\n"
     "  freeX, freeY     0 to 1 (0 left/top edge, 1 right/bottom edge; free)\n"
     "  freeSize         0.1 to 3 (1 is the size that fits the screen; free)\n"
+    "  switchBy         none | time | appearance (the times and images are set in the settings)\n"
     "  background       auto | custom\n"
     "  backgroundColor  #RRGGBB (used when background is custom)\n"
     "  speed            0.25 to 4\n"
@@ -33,7 +34,7 @@ const char* const kCliUsage =
 
 namespace {
 
-const char* const kKeys[] = {"image", "fit", "position", "freeX", "freeY", "freeSize", "background", "backgroundColor",
+const char* const kKeys[] = {"image", "fit", "position", "freeX", "freeY", "freeSize", "switchBy", "background", "backgroundColor",
                              "speed", "pauseOnLowPower", "launchAtLogin"};
 
 // 0.5 は "0.5"、1 は "1"（config.json と同じ）
@@ -158,6 +159,13 @@ std::string ConfigValue(const Config& c, const std::string& key) {
     if (key == "freeX") return Number(c.freeX);
     if (key == "freeY") return Number(c.freeY);
     if (key == "freeSize") return Number(c.freeSize);
+    if (key == "switchBy") {
+        switch (c.switchBy) {
+            case SwitchBy::Time: return "time";
+            case SwitchBy::Appearance: return "appearance";
+            default: return "none";
+        }
+    }
     if (key == "background") return c.customBackground ? "custom" : "auto";
     if (key == "backgroundColor") {
         if (c.backgroundColor < 0) return "";
@@ -208,6 +216,16 @@ bool SetConfigValue(Config& c, const std::string& key, const std::string& v, std
     if (key == "freeX") return number(0, 1, c.freeX);
     if (key == "freeY") return number(0, 1, c.freeY);
     if (key == "freeSize") return number(kFreeSizeMin, kFreeSizeMax, c.freeSize);
+    if (key == "switchBy") {
+        if (v == "none") c.SwitchTo(SwitchBy::None);
+        else if (v == "time") c.SwitchTo(SwitchBy::Time);
+        else if (v == "appearance") c.SwitchTo(SwitchBy::Appearance);
+        else {
+            error = "switchBy must be none, time or appearance";
+            return false;
+        }
+        return true;
+    }
     if (key == "background") {
         if (v != "auto" && v != "custom") {
             error = "background must be auto or custom";

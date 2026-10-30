@@ -63,4 +63,18 @@ bool SaveConfig(const std::wstring& path, const Config& config) {
     return false;
 }
 
+int LocalMinute() {
+    SYSTEMTIME t;
+    GetLocalTime(&t);
+    return t.wHour * 60 + t.wMinute;
+}
+
+bool SystemIsDark() {
+    DWORD light = 1;
+    DWORD size = sizeof(light);
+    RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                 L"SystemUsesLightTheme", RRF_RT_REG_DWORD, nullptr, &light, &size);
+    return light == 0;
+}
+
 }  // namespace pixwall

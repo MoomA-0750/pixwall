@@ -19,4 +19,9 @@ Config LoadConfig(const std::wstring& path);
 // 別のファイルに書いてから入れ替える。入れ替えられなければ false
 bool SaveConfig(const std::wstring& path, const Config& config);
 
+// 今の時刻（この PC の時間帯）を 0 時からの分にする
+int LocalMinute();
+// Windows のモード（タスクバー・スタートの色。「設定 > 個人用設定 > 色」の「Windows モード」）がダークか
+bool SystemIsDark();
+
 }  // namespace pixwall

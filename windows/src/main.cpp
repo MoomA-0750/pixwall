@@ -40,6 +40,8 @@ constexpr UINT kRebuildDelayMs = 200;
 // 位置のつまみを動かしている間は窓だけを動かし、PNG を描いて OS に入れる重い処理は止まってから1回だけ行う
 constexpr UINT_PTR kWallpaperTimer = 2;
 constexpr UINT kWallpaperDelayMs = 500;
+// 時刻で切り替えるときに、次の時刻に1回だけ鳴らす
+constexpr UINT_PTR kSwitchTimer = 3;
 // アイコンの後ろに入れる窓が見つからないとき（Explorer が立ち上がる途中など）に探し直す間隔と回数
 constexpr UINT kRetryDelayMs = 1000;
 // 前面の窓の位置を見る間隔。最大化・元に戻すは出来事が来ないことがあるので（Win+↑ など）、これで気づく。
@@ -66,7 +68,8 @@ constexpr UINT kCoverageChanged = WM_APP + 2;
 struct App {
     ComPtr<IWICImagingFactory> wic;
     Gpu gpu;
-    Config config;
+    Config saved;   // config.json のとおりの設定
+    Config config;  // 今出すもの（時刻・ダークモードで選んだ画像と並べ方）を image と並べ方に入れた設定。描くのはこちら
     LoadedImage image;
     Color cornerColor;  // 画像の1枚目の左上の1ドット（自動の余白の色）
     Color background;   // 今使っている余白の色
@@ -374,6 +377,7 @@ void ScheduleRebuild(HWND hwnd) {
 }
 
 void ApplyConfig(const Config& next);
+void Reselect();
 
 // WM_COPYDATA の UTF-16 の中身を、改行で分ける
 std::vector<std::wstring> Lines(const COPYDATASTRUCT* data) {
@@ -455,8 +459,14 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_SETTINGCHANGE:
             if (wp == SPI_SETWORKAREA) ScheduleRebuild(hwnd);
+            // ダーク・ライトの切り替え
+            if (lp && wcscmp(reinterpret_cast<const wchar_t*>(lp), L"ImmersiveColorSet") == 0) Reselect();
+            return 0;
+        case WM_TIMECHANGE:
+            Reselect();
             return 0;
         case WM_TIMER:
+            if (wp == kSwitchTimer) Reselect();
             if (wp == kWallpaperTimer) ApplyOsWallpaper();
             if (wp == kRebuildTimer) {
                 KillTimer(hwnd, kRebuildTimer);
@@ -465,6 +475,8 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_POWERBROADCAST:
             if (wp == PBT_POWERSETTINGCHANGE) OnPowerSetting(reinterpret_cast<POWERBROADCAST_SETTING*>(lp));
+            // スリープの間はタイマーが進まないことがあるので、戻ったら選び直す
+            if (wp == PBT_APMRESUMEAUTOMATIC) Reselect();
             return TRUE;
         case WM_WTSSESSION_CHANGE:
             switch (wp) {
@@ -531,9 +543,27 @@ void UpdateLaunchAtLogin(bool on) {
                     static_cast<DWORD>((command.size() + 1) * sizeof(wchar_t)));
 }
 
-// 設定を当てる。画像が変わったとき（と、まだ読めていないとき）だけ読み直す。
+// 次に切り替わる時刻（の 0 秒）に1回だけ鳴らす。切り替えないなら止める
+void ScheduleSwitch() {
+    KillTimer(app.messageWindow, kSwitchTimer);
+    const int wait = app.saved.MinutesToNextSwitch(LocalMinute());
+    if (wait < 0) return;
+    SYSTEMTIME t;
+    GetLocalTime(&t);
+    const UINT ms = static_cast<UINT>(wait) * 60'000 - (t.wSecond * 1000 + t.wMilliseconds);
+    SetTimer(app.messageWindow, kSwitchTimer, std::max<UINT>(ms, USER_TIMER_MINIMUM), nullptr);
+}
+
+// 時刻・ダークモードが変わったら、出すものを選び直す（同じものなら何も変わらない）
+void Reselect() { ApplyConfig(app.saved); }
+
+// 設定を当てる。今の時刻・ダークモードで出すものを選び、次に時刻で切り替えるときのタイマーを掛け直す。
+// 画像が変わったとき（と、まだ読めていないとき）だけ読み直す。
 // 画像が同じなら窓は作り直さず、並べ方・位置・余白の色だけを変え、OS の壁紙は少し待ってから描き直す
-void ApplyConfig(const Config& next) {
+void ApplyConfig(const Config& saved) {
+    app.saved = saved;
+    ScheduleSwitch();
+    const Config next = saved.Resolved(LocalMinute(), SystemIsDark());
     const Config old = app.config;
     const bool reload = next.image != old.image || app.image.frames.empty();
     const Color oldBackground = app.background;

@@ -60,4 +60,22 @@
   <data name="Exported" xml:space="preserve"><value>Exported: {0}</value></data>
   <data name="ExportFailedNotRunning" xml:space="preserve"><value>Couldn't export (pixwall isn't running, or that location can't be written)</value></data>
   <data name="ExportFailed" xml:space="preserve"><value>Couldn't export: {0}</value></data>
+  <data name="SwitchLabel.Text" xml:space="preserve"><value>Switch Images</value></data>
+  <data name="SwitchHint.Text" xml:space="preserve"><value>Choose an image and scaling for each time or appearance</value></data>
+  <data name="SwitchControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Switch Images</value></data>
+  <data name="SwitchNone.Content" xml:space="preserve"><value>Don't Switch</value></data>
+  <data name="SwitchTime.Content" xml:space="preserve"><value>By Time</value></data>
+  <data name="SwitchAppearance.Content" xml:space="preserve"><value>By Light or Dark</value></data>
+  <data name="AddTimeButton.Content" xml:space="preserve"><value>Add Time</value></data>
+  <data name="EditAppearance.Text" xml:space="preserve"><value>Appearance to Edit</value></data>
+  <data name="EditAppearanceControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Appearance to Edit</value></data>
+  <data name="Light.Content" xml:space="preserve"><value>Light</value></data>
+  <data name="Dark.Content" xml:space="preserve"><value>Dark</value></data>
+  <data name="ImageMain" xml:space="preserve"><value>Image</value></data>
+  <data name="ImageFrom" xml:space="preserve"><value>Image (from {0})</value></data>
+  <data name="ImageLight" xml:space="preserve"><value>Image (Light)</value></data>
+  <data name="ImageDark" xml:space="preserve"><value>Image (Dark)</value></data>
+  <data name="Now" xml:space="preserve"><value>Now</value></data>
+  <data name="RemoveTime" xml:space="preserve"><value>Remove</value></data>
+  <data name="StartTime" xml:space="preserve"><value>Start time</value></data>
 </root>

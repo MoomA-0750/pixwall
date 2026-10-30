@@ -86,7 +86,9 @@ int Set(const CliCommand& command, const std::wstring& configPath, const Config&
 
 uint8_t Byte(float v) { return static_cast<uint8_t>(std::clamp(v, 0.0f, 1.0f) * 255 + 0.5f); }
 
-int Export(const CliCommand& command, const Config& config) {
+// 今、壁紙に出しているもの（時刻・ダークモードで選んだもの）を書き出す
+int Export(const CliCommand& command, const Config& saved) {
+    const Config config = saved.Resolved(LocalMinute(), SystemIsDark());
     if (config.image.empty()) {
         Fail("no image is chosen");
         return 1;

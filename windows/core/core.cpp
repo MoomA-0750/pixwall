@@ -31,12 +31,10 @@ PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHei
     } else {
         Scaled(imageWidth, imageHeight, std::min(sx, sy), width, height);
     }
-    if (fit != Fit::Fit) position = 0.5;
+    if (fit == Fit::Integer) position = 0.5;
     position = std::clamp(position, 0.0, 1.0);
-    // 余白×位置を切り捨てる（0.5 のとき、余白を半分にして切り捨てるのと同じ）
-    const auto place = [&](int slack) {
-        return slack <= 0 ? slack / 2 : static_cast<int>(std::floor(slack * position));
-    };
+    // 余白×位置を 0 の側へ切り捨てる（0.5 のとき、余白を半分にして切り捨てるのと同じ。はみ出す負の余白でも）
+    const auto place = [&](int slack) { return static_cast<int>(std::trunc(slack * position)); };
     return {place(screenWidth - width), place(screenHeight - height), width, height};
 }
 
@@ -78,6 +76,45 @@ std::vector<uint8_t> RenderStill(const uint8_t* frame, int imageWidth, int image
 double FrameDelay(double written, double speed) {
     const double delay = written <= 0.01 ? 0.1 : written;
     return delay / std::clamp(speed, 0.25, 4.0);
+}
+
+namespace {
+
+// rect から cover を引いた残りを、重ならない長方形（最大4つ）で out に足す
+void Subtract(const PixelRect& cover, const PixelRect& rect, std::vector<PixelRect>& out) {
+    const int x0 = std::max(rect.x, cover.x);
+    const int y0 = std::max(rect.y, cover.y);
+    const int x1 = std::min(rect.x + rect.width, cover.x + cover.width);
+    const int y1 = std::min(rect.y + rect.height, cover.y + cover.height);
+    if (x0 >= x1 || y0 >= y1) {
+        out.push_back(rect);
+        return;
+    }
+    // 上下の帯は幅いっぱい、左右の帯は重なった高さだけ
+    if (y0 > rect.y) out.push_back({rect.x, rect.y, rect.width, y0 - rect.y});
+    if (y1 < rect.y + rect.height) out.push_back({rect.x, y1, rect.width, rect.y + rect.height - y1});
+    if (x0 > rect.x) out.push_back({rect.x, y0, x0 - rect.x, y1 - y0});
+    if (x1 < rect.x + rect.width) out.push_back({x1, y0, rect.x + rect.width - x1, y1 - y0});
+}
+
+long long Area(const PixelRect& r) { return static_cast<long long>(r.width) * r.height; }
+
+}  // namespace
+
+double UncoveredFraction(const PixelRect& target, const std::vector<PixelRect>& rects) {
+    const long long total = Area(target);
+    if (target.width <= 0 || target.height <= 0) return 0;
+    std::vector<PixelRect> rest{target};
+    for (const PixelRect& cover : rects) {
+        if (cover.width <= 0 || cover.height <= 0) continue;
+        std::vector<PixelRect> next;
+        for (const PixelRect& r : rest) Subtract(cover, r, next);
+        rest = std::move(next);
+        if (rest.empty()) return 0;
+    }
+    long long left = 0;
+    for (const PixelRect& r : rest) left += Area(r);
+    return static_cast<double>(left) / static_cast<double>(total);
 }
 
 GifCompositor::GifCompositor(int width, int height)

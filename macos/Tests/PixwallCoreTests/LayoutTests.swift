@@ -35,6 +35,19 @@ final class LayoutTests: XCTestCase {
         XCTAssertEqual(integer, PixelRect(x: 544, y: 4, width: 1792, height: 1792))
     }
 
+    // 画面を埋めるときは、はみ出す向きに動く。0 で左・上の端、1 で右・下の端がそろう
+    func testFillCanBeMovedInsideTheOverflow() {
+        XCTAssertEqual(layout(imageWidth: 320, imageHeight: 180, screenWidth: 2880, screenHeight: 1800, fit: .fill, position: 0),
+                       PixelRect(x: 0, y: 0, width: 3200, height: 1800))
+        XCTAssertEqual(layout(imageWidth: 320, imageHeight: 180, screenWidth: 2880, screenHeight: 1800, fit: .fill, position: 1),
+                       PixelRect(x: -320, y: 0, width: 3200, height: 1800))
+        XCTAssertEqual(layout(imageWidth: 100, imageHeight: 200, screenWidth: 1000, screenHeight: 1000, fit: .fill, position: 0.25),
+                       PixelRect(x: 0, y: -250, width: 1000, height: 2000))
+        // 中央は前と同じ（はみ出しが奇数でも）
+        XCTAssertEqual(layout(imageWidth: 3, imageHeight: 1, screenWidth: 4, screenHeight: 3, fit: .fill),
+                       PixelRect(x: -2, y: 0, width: 9, height: 3))
+    }
+
     // 拡大率が変わってもドットの大きさは物理ピクセルで決まる
     func testSameDotSizeForSamePixels() {
         let a = layout(imageWidth: 64, imageHeight: 36, screenWidth: 1920, screenHeight: 1080, fit: .integer)

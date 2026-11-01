@@ -11,6 +11,11 @@ public partial class App : Application
 
     public App()
     {
+        // 試すときに、Windows の表示言語を変えずに別の言語で開く（例 PIXWALL_LANGUAGE=en-US）
+        if (System.Environment.GetEnvironmentVariable("PIXWALL_LANGUAGE") is { Length: > 0 } language)
+        {
+            Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = language;
+        }
         InitializeComponent();
     }
 
@@ -19,7 +24,7 @@ public partial class App : Application
         single = new Mutex(true, @"Local\pixwall-settings", out var first);
         if (!first)
         {
-            Native.BringToFront("pixwall の設定");
+            Native.BringToFront(Strings.Get("WindowTitle"));
             Exit();
             return;
         }

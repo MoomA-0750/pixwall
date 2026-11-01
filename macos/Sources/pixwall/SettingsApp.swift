@@ -82,9 +82,9 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
         let main = NSMenu()
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "設定を閉じる", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        appMenu.addItem(withTitle: String(localized: "設定を閉じる"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         appMenu.addItem(.separator())
-        let quit = appMenu.addItem(withTitle: "pixwall を終了", action: #selector(quit), keyEquivalent: "q")
+        let quit = appMenu.addItem(withTitle: String(localized: "pixwall を終了"), action: #selector(quit), keyEquivalent: "q")
         quit.target = self
         appItem.submenu = appMenu
         main.addItem(appItem)

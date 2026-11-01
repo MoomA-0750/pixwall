@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 設定画面の文字（日本語）。「x:Uid の名前.プロパティ」と、コードから引く名前（{0} などは string.Format で埋める） -->
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AppTitleBar.Title" xml:space="preserve"><value>pixwall の設定</value></data>
+  <data name="RefreshLabel.Text" xml:space="preserve"><value>壁紙が画面に合っていないとき</value></data>
+  <data name="RefreshButton.Content" xml:space="preserve"><value>表示を更新</value></data>
+  <data name="ImageHeading.Text" xml:space="preserve"><value>画像</value></data>
+  <data name="AllDisplays.Text" xml:space="preserve"><value>すべての画面</value></data>
+  <data name="ChooseButton.Content" xml:space="preserve"><value>選ぶ…</value></data>
+  <data name="StillLabel.Text" xml:space="preserve"><value>静止画</value></data>
+  <data name="ExportButton.Content" xml:space="preserve"><value>静止画を書き出す…</value></data>
+  <data name="FrameSliderControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>書き出す絵</value></data>
+  <data name="DisplayHeading.Text" xml:space="preserve"><value>表示</value></data>
+  <data name="Fit.Text" xml:space="preserve"><value>並べ方</value></data>
+  <data name="FitControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>並べ方</value></data>
+  <data name="FitInteger.Content" xml:space="preserve"><value>整数倍で最大</value></data>
+  <data name="FitFit.Content" xml:space="preserve"><value>画面に合わせる</value></data>
+  <data name="FitFill.Content" xml:space="preserve"><value>画面を埋める</value></data>
+  <data name="Position.Text" xml:space="preserve"><value>位置</value></data>
+  <data name="PositionHint.Text" xml:space="preserve"><value>0 で上・左、100 で下・右</value></data>
+  <data name="PositionControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>位置</value></data>
+  <data name="Background.Text" xml:space="preserve"><value>余白の色</value></data>
+  <data name="BackgroundHint.Text" xml:space="preserve"><value>自動では画像の左上の色</value></data>
+  <data name="ColorButtonControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>色を選ぶ</value></data>
+  <data name="BackgroundControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>余白の色</value></data>
+  <data name="BackgroundAuto.Content" xml:space="preserve"><value>自動</value></data>
+  <data name="BackgroundCustom.Content" xml:space="preserve"><value>自分で選ぶ</value></data>
+  <data name="Speed.Text" xml:space="preserve"><value>速さ</value></data>
+  <data name="SpeedControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>速さ</value></data>
+  <data name="PauseHeading.Text" xml:space="preserve"><value>止める</value></data>
+  <data name="LowPower.Text" xml:space="preserve"><value>省エネモードのときは止める</value></data>
+  <data name="LowPowerControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>省エネモードのときは止める</value></data>
+  <data name="Pause.Text" xml:space="preserve"><value>一時停止</value></data>
+  <data name="PauseControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>一時停止</value></data>
+  <data name="StartupHeading.Text" xml:space="preserve"><value>起動</value></data>
+  <data name="Login.Text" xml:space="preserve"><value>ログイン時に起動</value></data>
+  <data name="LoginControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>ログイン時に起動</value></data>
+  <data name="QuitLabel.Text" xml:space="preserve"><value>壁紙を止めて、OS の壁紙に戻す</value></data>
+  <data name="QuitButton.Content" xml:space="preserve"><value>pixwall を終了</value></data>
+  <data name="WindowTitle" xml:space="preserve"><value>pixwall の設定</value></data>
+  <data name="NoImage" xml:space="preserve"><value>選んでいない</value></data>
+  <data name="FrameOf" xml:space="preserve"><value>書き出す絵: {0} 枚のうち {1} 枚目</value></data>
+  <data name="SpeedTimes" xml:space="preserve"><value>{0}倍</value></data>
+  <data name="Center" xml:space="preserve"><value>中央</value></data>
+  <data name="CouldNotRead" xml:space="preserve"><value>読めませんでした: {0}</value></data>
+  <data name="Exported" xml:space="preserve"><value>書き出しました: {0}</value></data>
+  <data name="ExportFailedNotRunning" xml:space="preserve"><value>書き出せませんでした（pixwall が動いていないか、そこには保存できません）</value></data>
+  <data name="ExportFailed" xml:space="preserve"><value>書き出せませんでした: {0}</value></data>
+</root>

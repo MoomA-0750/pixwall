@@ -7,9 +7,10 @@ import QuartzCore
 final class WallpaperWindow: NSWindow {
     private let targetScreen: NSScreen
     private let image: AnimatedImage
-    private let fit: Fit
-    private let position: Double
-    private let speed: Double
+    private var fit: Fit
+    private var position: Double
+    private var speed: Double
+    private let rootLayer = CALayer()
     private let imageLayer = CALayer()
     private var frameLayers: [CALayer] = []
     private var frameIndex = 0
@@ -25,7 +26,7 @@ final class WallpaperWindow: NSWindow {
     /// 窓に覆われたかを見る範囲。メニューバーと Dock のまわりは、隠れていなくても見ない
     var coverageTarget: CGRect { (screen ?? targetScreen).visibleFrame }
 
-    init(screen: NSScreen, image: AnimatedImage, fit: Fit, position: Double, speed: Double) {
+    init(screen: NSScreen, image: AnimatedImage, fit: Fit, position: Double, background: CGColor, speed: Double) {
         targetScreen = screen
         self.image = image
         self.fit = fit
@@ -39,10 +40,12 @@ final class WallpaperWindow: NSWindow {
         isOpaque = true
         hasShadow = false
         isReleasedWhenClosed = false
-        backgroundColor = NSColor(cgColor: image.cornerColor) ?? .black
+        backgroundColor = NSColor(cgColor: background) ?? .black
 
-        let root = CALayer()
-        root.backgroundColor = image.cornerColor
+        let root = rootLayer
+        root.backgroundColor = background
+        // 余白の色を変えたときに、ふわっと変わる既定の動きを切る
+        root.actions = ["backgroundColor": NSNull()]
         imageLayer.actions = ["bounds": NSNull(), "position": NSNull()]
         frameLayers = image.frames.enumerated().map { i, frame in
             let layer = CALayer()
@@ -106,6 +109,16 @@ final class WallpaperWindow: NSWindow {
         }
         contentView?.layer?.frame = CGRect(origin: .zero, size: size)
         contentView?.layer?.contentsScale = scale
+    }
+
+    /// 並べ方・位置・余白の色・速さだけを変える。フレームの layer は作り直さない（位置のつまみを動かしている間も軽いように）
+    func update(fit: Fit, position: Double, background: CGColor, speed: Double) {
+        self.fit = fit
+        self.position = position
+        self.speed = speed
+        backgroundColor = NSColor(cgColor: background) ?? .black
+        rootLayer.backgroundColor = background
+        relayout()
     }
 
     func start() {

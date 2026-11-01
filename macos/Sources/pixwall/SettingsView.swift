@@ -57,9 +57,9 @@ final class SettingsModel: ObservableObject {
         panel.directoryURL = FileManager.default.urls(for: .picturesDirectory, in: .userDomainMask).first
         guard panel.runModal() == .OK, let url = panel.url else { return }
         exportResult = StillImage.export(image, imagePath: path, frame: frame, fit: config.fit,
-                                         position: config.position, to: url)
-            ? "書き出しました: \(url.path)"
-            : "書き出せませんでした: \(url.path)"
+                                         position: config.position, background: config.fillColor(for: image), to: url)
+            ? String(localized: "書き出しました: \(url.path)")
+            : String(localized: "書き出せませんでした: \(url.path)")
     }
 }
 
@@ -92,6 +92,8 @@ struct SettingsView: View {
                         .interpolation(.none)
                         .resizable()
                         .aspectRatio(contentMode: .fit)
+                        // 透明なところには、壁紙と同じく余白の色が見える
+                        .background(Color(cgColor: model.config.fillColor(for: image)))
                         .frame(maxWidth: .infinity, maxHeight: 160)
                     // pixwall が動いていないときにも、同じ見た目を静止画で壁紙にできるように
                     LabeledContent("静止画") {
@@ -104,7 +106,7 @@ struct SettingsView: View {
                                     .frame(width: 160)
                                 Text("\(model.frame + 1) / \(image.frames.count) 枚目")
                                     .monospacedDigit()
-                                    .frame(width: 80, alignment: .trailing)
+                                    .frame(width: 100, alignment: .trailing)
                             }
                         }
                     }
@@ -122,11 +124,11 @@ struct SettingsView: View {
                     Text("画面に合わせる").tag(Fit.fit)
                     Text("画面を埋める").tag(Fit.fill)
                 }
-                // 画面に合わせるときだけ。余白が上下にできる画面では上下、左右にできる画面では左右に動く
-                if model.config.fit == .fit {
+                // 画面に合わせる・埋めるときだけ。余白（埋めるときははみ出し）が上下にできる画面では上下、左右にできる画面では左右に動く
+                if model.config.fit != .integer {
                     LabeledContent {
                         HStack {
-                            Slider(value: $model.config.position, in: 0...1, step: 0.05)
+                            Slider(value: positionPercent, in: 0...100)
                                 .frame(width: 160)
                             Text(positionLabel)
                                 .monospacedDigit()
@@ -136,6 +138,17 @@ struct SettingsView: View {
                         Text("位置")
                         Text("0 で上・左、100 で下・右")
                     }
+                }
+                // 余白と、画像の透明なところの色
+                Picker(selection: backgroundMode) {
+                    Text("自動").tag(BackgroundMode.auto)
+                    Text("自分で選ぶ").tag(BackgroundMode.custom)
+                } label: {
+                    Text("余白の色")
+                    Text("自動では画像の左上の色")
+                }
+                if model.config.background == .custom {
+                    ColorPicker("色", selection: customColor, supportsOpacity: false)
                 }
                 LabeledContent("速さ") {
                     HStack {
@@ -172,11 +185,44 @@ struct SettingsView: View {
     }
 
     private var imageName: String {
-        model.config.image.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "選んでいない"
+        model.config.image.map { URL(fileURLWithPath: $0).lastPathComponent } ?? String(localized: "選んでいない")
     }
 
     private var frameValue: Binding<Double> {
         Binding(get: { Double(model.frame) }, set: { model.frame = Int($0.rounded()) })
+    }
+
+    /// 初めて自分で選ぶときは、今の自動の色（画像の左上の色）から始める
+    private var backgroundMode: Binding<BackgroundMode> {
+        Binding(
+            get: { model.config.background },
+            set: { mode in
+                var c = model.config
+                c.background = mode
+                if mode == .custom, c.backgroundColor == nil {
+                    c.backgroundColor = model.image.flatMap { hex(cgColor: $0.cornerColor) } ?? "#000000"
+                }
+                model.config = c
+            }
+        )
+    }
+
+    private var customColor: Binding<CGColor> {
+        Binding(
+            get: {
+                let c = model.config.customBackground ?? RGB(r: 0, g: 0, b: 0)
+                return CGColor(srgbRed: CGFloat(c.r) / 255, green: CGFloat(c.g) / 255, blue: CGFloat(c.b) / 255,
+                               alpha: 1)
+            },
+            set: { if let h = hex(cgColor: $0) { model.config.backgroundColor = h } }
+        )
+    }
+
+    /// sRGB の "#RRGGBB" にする
+    private func hex(cgColor: CGColor) -> String? {
+        guard let c = NSColor(cgColor: cgColor)?.usingColorSpace(.sRGB) else { return nil }
+        return PixwallCore.hex(rgb: RGB(r: Int((c.redComponent * 255).rounded()), g: Int((c.greenComponent * 255).rounded()),
+                                        b: Int((c.blueComponent * 255).rounded())))
     }
 
     /// 速さは 0.25・0.5・1・2・4 倍の5段。つまみは 2 の何乗かで動かす
@@ -187,13 +233,21 @@ struct SettingsView: View {
         )
     }
 
+    /// 位置は 1 刻み（Slider の step にすると目盛りが 101 本並ぶので、値のほうを丸める）。
+    /// つかんでいる間も壁紙がついてくる（常駐側は窓を置き直すだけで、OS の壁紙は止まってから描く）。
+    /// 設定には 0〜1 で、端数の出ないよう 100 分の 1 に丸めて書く
+    private var positionPercent: Binding<Double> {
+        Binding(get: { (model.config.position * 100).rounded() }, set: { model.config.position = $0.rounded() / 100 })
+    }
+
     private var positionLabel: String {
         let p = model.config.position
-        return abs(p - 0.5) < 0.001 ? "中央" : String(format: "%.0f", p * 100)
+        return abs(p - 0.5) < 0.001 ? String(localized: "中央") : String(format: "%.0f", p * 100)
     }
 
     private var speedLabel: String {
         let s = model.config.speed
-        return s < 1 ? String(format: "%.2g倍", s) : String(format: "%.0f倍", s)
+        let number = s < 1 ? String(format: "%.2g", s) : String(format: "%.0f", s)
+        return String(localized: "\(number)倍")
     }
 }

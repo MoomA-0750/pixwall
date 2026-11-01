@@ -202,7 +202,23 @@ const char* FitName(Fit fit) {
 
 }  // namespace
 
+int ParseHexColor(std::string_view s) {
+    if (s.size() != 7 || s[0] != '#') return -1;
+    int v = 0;
+    for (char ch : s.substr(1)) {
+        int d = -1;
+        if (ch >= '0' && ch <= '9') d = ch - '0';
+        if (ch >= 'a' && ch <= 'f') d = ch - 'a' + 10;
+        if (ch >= 'A' && ch <= 'F') d = ch - 'A' + 10;
+        if (d < 0) return -1;
+        v = v * 16 + d;
+    }
+    return v;
+}
+
 Config ParseConfig(std::string_view json) {
+    // 先頭の BOM は飛ばす（Windows PowerShell 5 の Set-Content -Encoding UTF8 などが付ける）
+    if (json.substr(0, 3) == "\xEF\xBB\xBF") json.remove_prefix(3);
     Config c;
     const Config d;
     const bool ok = Reader(json).Object([&](const std::string& key, const Value& v) {
@@ -217,6 +233,11 @@ Config ParseConfig(std::string_view json) {
             if (*s == "fill") c.fit = Fit::Fill;
         }
         if (key == "position" && n) c.position = std::clamp(*n, 0.0, 1.0);
+        if (key == "background" && s) {
+            if (*s == "auto") c.customBackground = false;
+            if (*s == "custom") c.customBackground = true;
+        }
+        if (key == "backgroundColor" && s) c.backgroundColor = ParseHexColor(*s);
         if (key == "speed" && n) c.speed = std::clamp(*n, 0.25, 4.0);
         if (key == "pauseOnLowPower" && b) c.pauseOnLowPower = *b;
         if (key == "launchAtLogin" && b) c.launchAtLogin = *b;
@@ -230,6 +251,12 @@ std::string FormatConfig(const Config& c) {
     char position[32];
     std::snprintf(position, sizeof(position), "%g", c.position);
     std::string out = "{\n";
+    out += std::string("  \"background\" : \"") + (c.customBackground ? "custom" : "auto") + "\",\n";
+    if (c.backgroundColor >= 0) {
+        char color[16];
+        std::snprintf(color, sizeof(color), "#%06X", c.backgroundColor & 0xFFFFFF);
+        out += std::string("  \"backgroundColor\" : \"") + color + "\",\n";
+    }
     out += "  \"fit\" : \"";
     out += FitName(c.fit);
     out += "\",\n";

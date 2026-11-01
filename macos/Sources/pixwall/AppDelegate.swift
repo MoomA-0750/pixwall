@@ -14,7 +14,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
     private var rebuildWork: DispatchWorkItem?
+    /// 並べ方・位置を変えてから OS の壁紙を描き直すまで待つ。位置のつまみを動かしている間は窓だけを動かし、
+    /// PNG を描いて OS に入れる重い処理は止まってから1回だけ行う
+    private var osWallpaperWork: DispatchWorkItem?
     private var coverageTimer: DispatchSourceTimer?
+    /// どこかでマウスのボタンを離したことを知る（NSEvent のグローバルモニター）
+    private var mouseUpMonitor: Any?
+    private var mouseUpChecks: [DispatchWorkItem] = []
     /// Dock に出るアプリの pid。アプリが起動・終了したときに数え直す
     private var regularApps: Set<pid_t>?
 
@@ -56,16 +62,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - 設定
 
-    /// 設定は書かない（書くのは設定画面のプロセスと、起動の引数で画像を渡されたとき）
+    /// 設定は書かない（書くのは設定画面のプロセスと、起動の引数で画像を渡されたとき）。
+    /// 画像が同じなら窓は作り直さず、並べ方・位置・余白の色・速さだけを変え、OS の壁紙は少し待ってから描き直す
     private func apply(_ new: Config) {
+        let old = config
         config = new
         pause.pauseOnLowPower = config.pauseOnLowPower
         Resident.updateLoginItem(config.launchAtLogin)
         if config.image != loadedPath {
             loadedPath = config.image
             image = config.image.flatMap { AnimatedImage(url: URL(fileURLWithPath: $0)) }
+        } else if let image, !windows.isEmpty {
+            let background = config.fillColor(for: image)
+            windows.forEach {
+                $0.update(fit: config.fit, position: config.position, background: background, speed: config.speed)
+            }
+            if config.fit != old.fit || config.position != old.position || config.customBackground != old.customBackground {
+                scheduleOsWallpaper()
+            }
+            return
         }
         rebuild()
+    }
+
+    private func scheduleOsWallpaper() {
+        osWallpaperWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.applyOsWallpaper() }
+        osWallpaperWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+    }
+
+    /// OS の壁紙にも1枚目を入れる（Mission Control・メニューバーの色・操作スペースの切り替えで見える）
+    private func applyOsWallpaper() {
+        osWallpaperWork?.cancel()
+        osWallpaperWork = nil
+        guard let image, let path = config.image else { return }
+        osWallpaper.apply(image, imagePath: path, fit: config.fit, position: config.position,
+                          background: config.fillColor(for: image))
     }
 
     /// 設定画面のプロセスを起動する。もう開いていれば、前に出てもらう
@@ -94,22 +127,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// 画面を数え直して、画面ごとに窓を作り直す。フレームは読み直さない
     private func rebuild() {
+        osWallpaperWork?.cancel()
+        osWallpaperWork = nil
         windows.forEach { $0.stop() }
         windows = []
-        guard let image, let path = config.image else {
+        guard let image, config.image != nil else {
             // 画像をまだ選んでいない・読めない。OS の壁紙も入れ替えていたら戻す
             osWallpaper.restore()
             return
         }
         windows = NSScreen.screens.map { screen in
             let w = WallpaperWindow(screen: screen, image: image, fit: config.fit, position: config.position,
-                                    speed: config.speed)
+                                    background: config.fillColor(for: image), speed: config.speed)
             w.sharedPause = pause
             return w
         }
         windows.forEach { $0.start() }
-        // OS の壁紙にも1枚目を入れる（Mission Control・メニューバーの色・操作スペースの切り替えで見える）
-        osWallpaper.apply(image, imagePath: path, fit: config.fit, position: config.position)
+        applyOsWallpaper()
         updateCoverageWatch()
         checkCoverage()
     }
@@ -117,7 +151,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - ほかの窓に覆われているか
 
     /// 最大化した窓の後ろでは、メニューバーと Dock のまわりに壁紙が見えていても OS は「見えている」と扱う。
-    /// そこで、ほかの窓の位置を時々読んで、覆われた画面では止める。
+    /// そこで、ほかの窓の位置を読んで、覆われた画面では止める。
+    /// 窓を広げた・縮めたことは通知が来ないので、マウスのボタンを離したとき（緑のボタン・メニューの「Fill」・
+    /// タイトルバーのダブルクリック・ふちのドラッグ）に見直し、キーで広げたときのために 3 秒ごとにも見る。
+    /// 窓の一覧を読むのは 1 回 0.9ms ほどかかるので（M1）、短い間隔で見続けることはしない。
     /// 動かす必要があるときだけ見張る（ほかの理由で止めている間は見ない）
     private func updateCoverageWatch() {
         let need = !windows.isEmpty && (image?.frames.count ?? 0) > 1 && !pause.shouldPause
@@ -129,10 +166,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             t.setEventHandler { [weak self] in self?.checkCoverage() }
             coverageTimer = t
             t.resume()
+            // マウスのボタンだけなので、アクセシビリティや入力監視の許可は要らない
+            mouseUpMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp) { [weak self] _ in
+                self?.checkCoverageAfterMouseUp()
+            }
         } else if !need, let t = coverageTimer {
             t.cancel()
             coverageTimer = nil
+            if let m = mouseUpMonitor { NSEvent.removeMonitor(m) }
+            mouseUpMonitor = nil
+            mouseUpChecks.forEach { $0.cancel() }
+            mouseUpChecks = []
             windows.forEach { $0.covered = false }
+        }
+    }
+
+    /// 離した直後は、窓が広がる・縮む動きの途中のことがある。少し後と、動き終わるころの2回見る
+    /// （M1 で、元に戻すのは離して 0.1 秒、広げるのは 0.37 秒ほどで終わった）
+    private func checkCoverageAfterMouseUp() {
+        mouseUpChecks.forEach { $0.cancel() }
+        mouseUpChecks = [0.1, 0.45].map { delay in
+            let work = DispatchWorkItem { [weak self] in self?.checkCoverage() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+            return work
         }
     }
 
@@ -177,7 +233,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ws.addObserver(forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main) {
             [weak self] _ in
             guard let self, let image = self.image, let path = self.config.image, !self.windows.isEmpty else { return }
-            self.osWallpaper.apply(image, imagePath: path, fit: self.config.fit, position: self.config.position)
+            self.osWallpaper.apply(image, imagePath: path, fit: self.config.fit, position: self.config.position,
+                                   background: self.config.fillColor(for: image))
         }
         ws.addObserver(forName: NSWorkspace.willPowerOffNotification, object: nil, queue: .main) { [weak self] _ in
             self?.poweringOff = true

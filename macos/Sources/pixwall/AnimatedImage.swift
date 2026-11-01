@@ -68,3 +68,11 @@ final class AnimatedImage {
                        blue: CGFloat(pixel[2]) / 255 / a, alpha: 1)
     }
 }
+
+extension Config {
+    /// 余白（と画像の透明なところ）の色。自分で選んだ色があればそれ、無ければ画像の1枚目の左上の1ドット
+    func fillColor(for image: AnimatedImage) -> CGColor {
+        guard let c = customBackground else { return image.cornerColor }
+        return CGColor(srgbRed: CGFloat(c.r) / 255, green: CGFloat(c.g) / 255, blue: CGFloat(c.b) / 255, alpha: 1)
+    }
+}

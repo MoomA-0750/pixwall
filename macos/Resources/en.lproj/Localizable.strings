@@ -1,0 +1,39 @@
+/* 設定画面の英語。キーはコードに書いた日本語の文。言葉は Windows 版（windows/settings/Strings/en-US/Resources.resw）とそろえる */
+
+"表示を更新" = "Refresh Display";
+"画像" = "Image";
+"すべての画面" = "All Displays";
+"選ぶ…" = "Choose…";
+"選んでいない" = "None";
+"読めませんでした: %@" = "Couldn't read: %@";
+"静止画" = "Still Image";
+"静止画を書き出す…" = "Export Still Image…";
+"書き出す絵" = "Frame to Export";
+"%lld / %lld 枚目" = "Frame %1$lld of %2$lld";
+"書き出しました: %@" = "Exported: %@";
+"書き出せませんでした: %@" = "Couldn't export: %@";
+
+"表示" = "Display";
+"並べ方" = "Scaling";
+"整数倍で最大" = "Largest Whole Multiple";
+"画面に合わせる" = "Fit to Screen";
+"画面を埋める" = "Fill Screen";
+"位置" = "Position";
+"0 で上・左、100 で下・右" = "0 is top or left, 100 is bottom or right";
+"中央" = "Center";
+"余白の色" = "Margin Color";
+"自動では画像の左上の色" = "Automatic uses the image's top-left pixel";
+"自動" = "Automatic";
+"自分で選ぶ" = "Custom";
+"色" = "Color";
+"速さ" = "Speed";
+"%@倍" = "%@×";
+
+"止める" = "Pause";
+"低電力モードのときは止める" = "Pause in Low Power Mode";
+"一時停止" = "Paused";
+"ログイン時に起動" = "Open at Login";
+"システム設定の「ログイン項目」でオフになっています" = "Turned off in System Settings > Login Items";
+"開く…" = "Open…";
+"pixwall を終了" = "Quit pixwall";
+"設定を閉じる" = "Close Settings";

@@ -22,7 +22,8 @@ struct PixelRect {
 // 画像を画面のどこにどの大きさで置くかを、物理ピクセルで決める。
 // 画面の中央に置く。Fill では画面より大きくなり、x・y が負になる。
 // Integer で整数倍に収まらない大きな画像は Fit と同じ。
-// Fit のときだけ、余白の中のどこに置くかを position で決める（0 で上・左、0.5 で中央、1 で下・右）
+// Fit と Fill では、余白（Fill でははみ出し）の中のどこに置くかを position で決める（0 で上・左、0.5 で中央、1 で下・右）。
+// Fill の 0 は、画像の上・左の端を画面の端にそろえる（はみ出すのは下・右）
 PixelRect Layout(int imageWidth, int imageHeight, int screenWidth, int screenHeight, Fit fit,
                  double position = 0.5);
 
@@ -36,6 +37,14 @@ std::vector<uint8_t> RenderStill(const uint8_t* frame, int imageWidth, int image
 // GIF に書かれた待ち時間（秒）を、実際に待つ時間にする。
 // 10ms 以下はブラウザと同じく 100ms。速さの倍率は 0.25〜4 に収める
 double FrameDelay(double written, double speed = 1);
+
+// target のうち、rects のどれにも覆われていない部分の面積の割合（0〜1）。Mac 版の uncoveredFraction と同じ
+double UncoveredFraction(const PixelRect& target, const std::vector<PixelRect>& rects);
+
+// ほかの窓に覆われていて止めてよいか。並べた窓の間のすき間くらい（見える部分が 5% 以下）なら覆われたことにする
+inline bool IsCovered(const PixelRect& target, const std::vector<PixelRect>& rects, double tolerance = 0.05) {
+    return UncoveredFraction(target, rects) <= tolerance;
+}
 
 // 動かすか止めるかを決める材料
 struct PauseReasons {

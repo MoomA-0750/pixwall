@@ -56,3 +56,7 @@ p=$(pgrep -fl MacOS/pixwall | grep -v -- --settings | cut -d' ' -f1); a=$(ps -o 
 - ほかのアプリの窓を Window > Fill か、タイトルバーのダブルクリックで画面いっぱいにする: 3 秒ほどでほとんど増えなくなる（止まる）
 - その窓を元の大きさに戻すか、デスクトップをクリックする: また増える
 - その窓を全画面（別の操作スペース）にする: 増えない
+
+## 言語を変えて開く
+
+- 設定画面は Mac の言語の並びで日本語か英語になる。並びを変えずに試すときは `/Applications/pixwall.app/Contents/MacOS/pixwall --settings -AppleLanguages "(en)"`（日本語は `"(ja)"`）

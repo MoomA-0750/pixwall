@@ -65,7 +65,6 @@ WallWindow::WallWindow(Gpu& gpu, const LoadedImage& image, const RECT& monitor, 
     MapWindowPoints(HWND_DESKTOP, desktop.parent, reinterpret_cast<POINT*>(&rc), 2);
     width_ = rc.right - rc.left;
     height_ = rc.bottom - rc.top;
-    dest_ = Layout(image.width, image.height, width_, height_, fit, position);
 
     // 絵は DirectComposition で渡すので、GDI の面は持たない（WS_EX_NOREDIRECTIONBITMAP）。
     // 24H2 の Progman も同じく面を持たないので、ふつうの子の窓に GDI や HwndRenderTarget で描いても画面に出ない
@@ -73,7 +72,7 @@ WallWindow::WallWindow(Gpu& gpu, const LoadedImage& image, const RECT& monitor, 
                             WS_CHILD | WS_CLIPSIBLINGS, rc.left, rc.top, width_, height_, desktop.parent, nullptr,
                             inst, nullptr);
     if (!hwnd_) return;
-    if (!CreateComposition(background)) return;
+    if (!CreateComposition(background, fit, position)) return;
     SetWindowPos(hwnd_, desktop.insertAfter, 0, 0, 0, 0,
                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
     ok_ = true;
@@ -98,7 +97,7 @@ ComPtr<IDCompositionSurface> WallWindow::MakeSurface(UINT w, UINT h, DXGI_ALPHA_
     return surface;
 }
 
-bool WallWindow::CreateComposition(Color background) {
+bool WallWindow::CreateComposition(Color background, Fit fit, double position) {
     if (!gpu_.dcomp || image_.frames.empty()) return false;
     const UINT w = static_cast<UINT>(image_.width);
     const UINT h = static_cast<UINT>(image_.height);
@@ -110,20 +109,12 @@ bool WallWindow::CreateComposition(Color background) {
         frames_.push_back(surface);
     }
 
-    // 余白は 1×1 の面を画面いっぱいに広げる
-    const uint8_t bgra[4] = {ToByte(background.b), ToByte(background.g), ToByte(background.r), 255};
-    backgroundSurface_ = MakeSurface(1, 1, DXGI_ALPHA_MODE_IGNORE, bgra);
-    if (!backgroundSurface_) return false;
-
     auto& dc = *gpu_.dcomp.Get();
     if (FAILED(dc.CreateTargetForHwnd(hwnd_, TRUE, &target_)) || FAILED(dc.CreateVisual(&root_)) ||
         FAILED(dc.CreateVisual(&backgroundVisual_)) || FAILED(dc.CreateVisual(&imageVisual_))) {
         return false;
     }
-    backgroundVisual_->SetContent(backgroundSurface_.Get());
     backgroundVisual_->SetTransform(ScaleThenMove(static_cast<float>(width_), static_cast<float>(height_), 0, 0));
-    imageVisual_->SetTransform(ScaleThenMove(static_cast<float>(dest_.width) / w, static_cast<float>(dest_.height) / h,
-                                             static_cast<float>(dest_.x), static_cast<float>(dest_.y)));
     // ドットをぼかさない。端もにじませない
     for (auto* v : {backgroundVisual_.Get(), imageVisual_.Get()}) {
         v->SetBitmapInterpolationMode(DCOMPOSITION_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR);
@@ -132,7 +123,22 @@ bool WallWindow::CreateComposition(Color background) {
     root_->AddVisual(backgroundVisual_.Get(), FALSE, nullptr);
     root_->AddVisual(imageVisual_.Get(), TRUE, backgroundVisual_.Get());
     target_->SetRoot(root_.Get());
-    return Render(0);
+    imageVisual_->SetContent(frames_[0].Get());
+    return SetLayout(background, fit, position);
+}
+
+bool WallWindow::SetLayout(Color background, Fit fit, double position) {
+    // 余白は 1×1 の面を画面いっぱいに広げる
+    const uint8_t bgra[4] = {ToByte(background.b), ToByte(background.g), ToByte(background.r), 255};
+    auto surface = MakeSurface(1, 1, DXGI_ALPHA_MODE_IGNORE, bgra);
+    if (!surface) return false;
+    backgroundSurface_ = surface;
+    backgroundVisual_->SetContent(backgroundSurface_.Get());
+    const PixelRect dest = Layout(image_.width, image_.height, width_, height_, fit, position);
+    imageVisual_->SetTransform(ScaleThenMove(static_cast<float>(dest.width) / image_.width,
+                                             static_cast<float>(dest.height) / image_.height,
+                                             static_cast<float>(dest.x), static_cast<float>(dest.y)));
+    return SUCCEEDED(gpu_.dcomp->Commit()) && gpu_.d3d->GetDeviceRemovedReason() == S_OK;
 }
 
 bool WallWindow::Render(size_t frame) {

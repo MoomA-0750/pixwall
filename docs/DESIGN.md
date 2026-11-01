@@ -39,7 +39,8 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 ### 止める
 
-- 隠れているか: 前面の窓がその画面を全部覆っているかを `SetWinEventHook(EVENT_SYSTEM_FOREGROUND / EVENT_OBJECT_LOCATIONCHANGE)` で見張って判断する。`SHQueryUserNotificationState` の全画面判定も合わせる
+- 隠れているか: すべての画面の作業領域（`rcWork`、タスクバーを除く）が、ほかの窓で覆われているか（見える部分が 5% 以下か、`core` の `IsCovered`）で決める。窓とタイマーは全画面で1つなので、どれか1つの画面でも見えていれば動かす。数えるのは、見えていて最小化しておらず cloaked でない（`DWMWA_CLOAKED`）トップレベルの窓のうち、`WS_EX_TRANSPARENT`・ツールの窓（`WS_EX_TOOLWINDOW` で `WS_EX_APPWINDOW` でない）・不透明度 0 の重ね絵・`Progman`/`WorkerW` を除いたもの。枠は `DWMWA_EXTENDED_FRAME_BOUNDS`
+  - 見張りは別のスレッドで、動かす必要があるときだけ。`SetWinEventHook`（out-of-context）で前面の切り替え・ドラッグの終わり・最小化・窓の表示/非表示/破棄・cloak を受けたら 50ms 後に数え直す。`EVENT_OBJECT_LOCATIONCHANGE` は受けない（カーソルが動くたびにも来て、捨てるだけでも重い）。最大化・元に戻すは出来事が来ないので、0.25 秒ごとに前面の窓（`GetForegroundWindow`）の位置だけを見て、替わった・動いたら数え直す。すべての窓の数え直しは to-fu で 1 回 220 万サイクルかかるので、一定の間隔ではしない。変わったら `WM_APP + 2` で主のスレッドに知らせる
 - 画面の消灯: `RegisterPowerSettingNotification(GUID_CONSOLE_DISPLAY_STATE)`
 - ロック・ユーザー切り替え: `WTSRegisterSessionNotification`
 - 省エネモード・バッテリー: `GUID_POWER_SAVING_STATUS`、`GUID_ACDC_POWER_SOURCE`
@@ -55,7 +56,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 - `IDesktopWallpaper` で、画面（`GetMonitorDevicePathAt`）ごとに `GetMonitorRECT` の大きさの PNG を `%LOCALAPPDATA%\pixwall\desktop` に描いて `SetWallpaper`、置き方は `SetPosition(DWPOS_CENTER)`（拡大しない）。同じ名前だと Explorer が前の絵を使い回すことがあるので、名前に時刻を入れる
 - 入れる前の壁紙のパスと置き方は `desktop\original.txt`（画面の ID<TAB>パス）に書く。自分の PNG が入っている画面は覚え直さない（落ちて戻せなかったとき）
-- 窓を作り直すたび（`Rebuild`）に入れる。画像・並べ方・余白の色・画面の大きさの印が前と同じで、自分の PNG が入ったままなら何もしない
+- 窓を作り直すたび（`Rebuild`）と、並べ方・位置を変えて少し待ったあとに入れる。画像・並べ方・余白の色・画面の大きさの印が前と同じで、自分の PNG が入ったままなら何もしない
 - 戻すのは `WM_DESTROY`（`taskkill`・「pixwall を終了」）と、画像が無くなったとき。今の壁紙が自分の PNG の画面だけ戻す。置き方は、自分の中央のままなら戻す
 - 戻せなかった画面（つないでいない）は `original.txt` に残す。PNG は、どれかの画面（つないでいない画面も含む）の壁紙になっている間は消さない。置き方は全画面で1つなので、中央（自分の置き方）は前に覚えた値を優先する
 
@@ -63,7 +64,8 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 - 設定画面は `config.json` を書いてから、常駐側の隠れた窓（クラス名 `pixwall-message`）へ `WM_COPYDATA` で頼む。`dwData` が頼みごと: 1 読み直す、2 表示を更新、3 一時停止（`lpData` の1バイト）、4 終わる、5 一時停止しているか（2 している・1 していない を返す）。値は `main.cpp` の `Request` と `settings/Resident.cs` でそろえる。`WM_COPYDATA` は相手が返事を待つ送り方なので、その処理の中ではほかのプロセスの COM（`IDesktopWallpaper`）を呼べない（`RPC_E_CANTCALLOUT_ININPUTSYNCCALL`）。OS の壁紙に触る 1・2・4 は、返事をしてから自分宛てに `WM_APP + 1` で送り直して行う
 - 一時停止は設定に書かない（Mac と同じく、起動し直すと動く）。設定画面は開いたときに 5 で今の状態を聞く
-- 読み直しでは、画像のパスが変わったときだけ画像を読み直す。窓は画像を参照しているので、先に窓を消してから画像を替える
+- 余白の色は `app.cornerColor`（画像の左上の1ドット）と設定から `BackgroundFor` で決める。設定画面は、初めて「自分で選ぶ」にしたときの色を、頼みごと 9（自動の色を `0x1RRGGBB` で返す）で常駐側に聞く。設定画面のプレビューは常駐側が描くので、色を変えたら 300ms 待ってから描き直してもらう（常駐側が読み直すのは返事をしてからなので）
+- 読み直しでは、画像のパスが変わったときだけ画像を読み直す。窓は画像を参照しているので、先に窓を消してから画像を替える。画像が同じなら窓は作り直さず、`WallWindow::SetLayout` で絵の visual の変換と余白の 1×1 の面だけを替える（位置のつまみを 1 目盛り動かすたびに全フレームの面を作り直していたので、重かった）。OS の壁紙は、並べ方・位置が変わってから 500ms 待ち（`kWallpaperTimer`）、続けて変わればまた待って、止まってから1回だけ描き直す
 - 設定画面で「読み直して」と頼んだときに常駐側がいなければ、`..\pixwall.exe` を起動する（起動すると `config.json` を読む）
 - 常駐側の2回目の起動は、名前付きミューテックスで既にいると分かったら、設定画面を開いて自分は終わる。設定画面も名前付きミューテックスで1つだけにし、2つ目は開いている方を前に出して終わる
 - 画像をまだ選んでいない・読めないときは、常駐側は窓を出さずに待ち（OS の壁紙のまま）、設定画面を開く
@@ -102,7 +104,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - 入れる前の `desktopImageURL(for:)` と `desktopImageOptions(for:)` を `desktop/original.json` に覚える（`config.json` は設定画面のプロセスも書くので別にする）
 - **写真・ダイナミック・空撮などの壁紙は `desktopImageURL` では読めない**（`/System/Library/CoreServices/DefaultDesktop.heic` と返り、それを入れ直すと別の絵になる）。また、入れるのは今の操作スペースだけで、ほかの操作スペースの壁紙を替える方法が無い。そこで、入れるたびに macOS の壁紙の設定ファイル（`~/Library/Application Support/com.apple.wallpaper/Store/Index.plist`、WallpaperAgent が読む）を `desktop/wallpaper-store.plist` に控える。控えは項目ごと（`Spaces` の下の操作スペースごとと、`SystemDefault`・`Displays`・`AllSpacesAndDisplays` の上の段の項目ごと）で、自分の PNG（`/pixwall/desktop/` の文字）を含まない項目だけを写す。戻すときは、自分の PNG を含む項目だけを控えの値にし、控えが無い項目は中の `Desktop` の `Content` だけを本人の壁紙（一番目の操作スペースの控え）に差し替える。項目は消さない（消すと WallpaperAgent が設定ファイル全部を初期の状態に作り直す）。項目がそろわない・自分の PNG が残るときは書かない。書いたら `killall WallpaperAgent`（launchd がすぐ起こし直し、そのときに読む）。組み替えは `PixwallCore.WallpaperStore`。公開されていないファイルなので、無ければ `original.json` で今の操作スペースだけ戻す
 - PNG は、設定ファイルとその控えが名前を挙げている間は消さない（ほかの操作スペースの壁紙になったままのことがある）
-- 窓を作り直すたびと、操作スペースが切り替わったとき（`activeSpaceDidChangeNotification`）に入れる。画像・並べ方・画面の大きさの印が前と同じで、自分の PNG が入ったままなら何もしない
+- 窓を作り直すたびと、並べ方・位置を変えて少し待ったあと（0.5 秒。続けて変わればまた待つ）と、操作スペースが切り替わったとき（`activeSpaceDidChangeNotification`）に入れる。画像・並べ方・画面の大きさの印が前と同じで、自分の PNG が入ったままなら何もしない
 - 戻すのは `applicationWillTerminate`（⌘Q・「pixwall を終了」）と、画像が無くなったとき。`NSWorkspace.willPowerOffNotification`（ログアウト・再起動）のあとは戻さない。`pkill`（SIGTERM）では `applicationWillTerminate` が呼ばれないので戻らず、次に起動して終えたときに戻る
 - 設定画面の「静止画を書き出す」も同じ描き方（`StillImage.export`）を使い、保存先だけ `NSSavePanel` で選ぶ。OS の壁紙は変えない。プレビューは ImageIO が重ね方を当てたフレームをそのまま出す
 
@@ -117,7 +119,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 ### 止める
 
 - 隠れているか: `NSWindow.occlusionState` の `.visible`（`didChangeOcclusionStateNotification`）。全画面（別の操作スペース）はこれで分かる
-- 最大化した窓の後ろ: `occlusionState` は、メニューバーと Dock のまわりが見えていると `.visible` のままになる。そこで `CGWindowListCopyWindowInfo` でほかの窓の位置を読み（位置と大きさだけなら画面収録の許可は要らない）、画面の `visibleFrame` を覆っているかを `PixwallCore.isCovered` で決める。数えるのは、Dock に出るアプリ（`activationPolicy == .regular`）の layer 0 の窓だけ。3 秒ごとと、`NSWorkspace` のアプリ・操作スペースの切り替えの通知で見る。ほかの理由で止めている間は見ない
+- 最大化した窓の後ろ: `occlusionState` は、メニューバーと Dock のまわりが見えていると `.visible` のままになる。そこで `CGWindowListCopyWindowInfo` でほかの窓の位置を読み（位置と大きさだけなら画面収録の許可は要らない）、画面の `visibleFrame` を覆っているかを `PixwallCore.isCovered` で決める。数えるのは、Dock に出るアプリ（`activationPolicy == .regular`）の layer 0 の窓だけ。`NSWorkspace` のアプリ・操作スペースの切り替えの通知と、どこかでマウスのボタンを離したとき（`NSEvent.addGlobalMonitorForEvents(matching: .leftMouseUp)`。マウスだけなら許可は要らない）の 0.1 秒後と 0.45 秒後、キーで広げたときのために 3 秒ごとに見る。窓の一覧を読むのは M1 で 1 回 0.9ms、窓1つだけでも 0.4ms かかるので、短い間隔で見続けることはしない。ほかの理由で止めている間は見ない
 - 画面の消灯: `NSWorkspace.screensDidSleepNotification` / `screensDidWakeNotification`
 - ロック: `com.apple.screenIsLocked` / `com.apple.screenIsUnlocked`（分散通知）
 - 低電力モード: `ProcessInfo.isLowPowerModeEnabled`、`NSProcessInfoPowerStateDidChange`
@@ -128,7 +130,7 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 - 別のプロセス（`SettingsApp`）。常駐側がもう一度起動されたら（`applicationShouldHandleReopen`）、`NSWorkspace.openApplication`（`createsNewApplicationInstance`、引数 `--settings`）で起動する。もう開いていれば、`showSettings` を送って前に出てもらう。SwiftUI は一度窓を出すと、窓を捨ててもメモリ（18MB ほど）が細切れに残り OS に返らないため、常駐側では SwiftUI を動かさない
 - 中身は SwiftUI（`SettingsView`、`Form` の grouped）。入れ物は AppKit の `NSWindow` + `NSHostingController` にした（SwiftUI の `Window` シーンにすると App のライフサイクルを SwiftUI に渡すことになり、`main.swift` で決めている起動の流れを扱いにくいため）。設定画面のプロセスは `.regular` で Dock に出て、窓を閉じたら終わる
 - やり取りは `DistributedNotificationCenter`（`dev.mooma.pixwall.<名前>`、`Resident.swift`）。設定画面 → 常駐側: `reloadConfig`・`refresh`・`setPaused`（userInfo の `paused`）・`quit`。常駐側 → 設定画面: `showSettings`。今一時停止しているかは、起動の引数 `--paused` で渡す
-- 設定を変えると、設定画面が `config.json` に書いてから `reloadConfig` を送る。常駐側は読み直し、画像が変わったときだけ画像を読み直して、窓を作り直す。読めない画像は設定画面が先に読んで確かめ、書かない
+- 設定を変えると、設定画面が `config.json` に書いてから `reloadConfig` を送る。常駐側は読み直し、画像が変わったときだけ画像を読み直して、窓を作り直す。画像が同じなら窓は作り直さず、`WallpaperWindow.update` で layer を置き直すだけにする（Windows と同じ理由）。読めない画像は設定画面が先に読んで確かめ、書かない
 - 「pixwall を終了」と ⌘Q は、`quit` を送ってから設定画面も終わる
 - メニューバーのアイコンは `MenuBarExtra`（設定で出したときだけ）
 - ログイン時の起動は `SMAppService.mainApp`（常駐側の起動時と、設定画面で変えたとき）。設定の `launchAtLogin` がオンで `notRegistered` なら `register()`、オフで入っていれば `unregister()`。システム設定で切られると `requiresApproval` になるので、そのときは入れ直さず、設定画面にシステム設定を開くボタンを出す
@@ -137,3 +139,9 @@ WinUI 3 は読み込むだけで数十MBになるため、常駐側には入れ�
 
 - 描く順番・フレームの待ち時間・止める条件の判断は、OS に触らない部分に分けて単体テストする（Windows は C++ のテスト、Mac は XCTest）
 - 後ろに出ているか・アイコンが出ていないか・リソースの目安は、実機で確かめる手順を `docs/` に書く
+
+## 画面の文字の言語
+
+- Mac: SwiftUI の `Text`・`Button` などに書いた日本語の文がそのままキーになる。`Resources/en.lproj/Localizable.strings` に英語を置き、`build-app.sh` が `Contents/Resources` に写す。`Info.plist` は `CFBundleDevelopmentRegion` を `en`、`CFBundleLocalizations` を `en`・`ja` にする（どちらでもない言語では英語）。`ja.lproj` は中身の無い表で、日本語を選んでもらうためだけに置く。`String` で組み立てる文字（書き出しの結果・メニュー・「中央」など）は `String(localized:)` で引く
+- Windows の設定画面: XAML の部品に `x:Uid` を付け、`Strings/en-US/Resources.resw`・`Strings/ja-JP/Resources.resw` から引く（MRT Core。`PixwallSettings.pri` に入る）。コードの文字は `Strings.Get`・`Strings.Format`（`ResourceLoader`）。csproj の `DefaultLanguage` を `en-US` にして、どちらでもない言語では英語。同じ `x:Uid` を型の違う部品に付けると、無い・違う意味のプロパティ（`ComboBox.Text` など）にも当ててしまうので、`AutomationProperties.Name` だけの部品は `〜Control` の名前にする。試すときは環境変数 `PIXWALL_LANGUAGE` で `ApplicationLanguages.PrimaryLanguageOverride` を入れる（MSIX に包まないので、次に開いたときには残らない）
+- Windows の常駐側: 出す文字は設定画面が見つからないときのメッセージだけなので、`GetUserDefaultUILanguage` が日本語かで選ぶ

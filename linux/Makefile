@@ -46,9 +46,9 @@ $(BUILD)/core_tests: ../windows/tests/core_tests.cpp $(CORE)
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) -o $@ ../windows/tests/core_tests.cpp $(CORE)
 
-$(BUILD)/linux_tests: tests/linux_tests.cpp $(COMMON) $(CORE)
+$(BUILD)/linux_tests: tests/linux_tests.cpp src/wall/hyprland.cpp $(COMMON) $(CORE)
 	@mkdir -p $(BUILD)
-	$(CXX) $(CXXFLAGS) -o $@ tests/linux_tests.cpp $(COMMON) $(CORE) $(GIO)
+	$(CXX) $(CXXFLAGS) -Isrc/wall -o $@ tests/linux_tests.cpp src/wall/hyprland.cpp $(COMMON) $(CORE) $(GIO)
 
 $(BUILD)/layout_dump: tests/layout_dump.cpp $(CORE)
 	@mkdir -p $(BUILD)

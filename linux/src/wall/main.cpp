@@ -14,6 +14,7 @@
 #include <cstring>
 #include <ctime>
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,7 @@
 #include "config.h"
 #include "config_file.h"
 #include "fractional-scale-v1-client-protocol.h"
+#include "hyprland.h"
 #include "image_loader.h"
 #include "renderer.h"
 #include "viewporter-client-protocol.h"
@@ -49,14 +51,17 @@ struct Surface {
     int scale120 = 0;  // 合成器が望む拡大率 × 120（fractional-scale）。0 なら画面の整数の拡大率を使う
     int outputScale = 1;
     bool configured = false;
+    std::string outputName;        // eDP-1 など（Hyprland に隠れているかを訊くため）
     wl_callback* frame = nullptr;  // 前に描いた絵が出るのを待っている
     bool dirty = false;            // 待っている間に絵が変わった
+    bool shownOnce = false;        // 一度でも絵を出したか（出すまでは合成器が面を出さない）
 };
 
 struct Output {
     App* app = nullptr;
     uint32_t name = 0;
     wl_output* output = nullptr;
+    std::string outputName;
     int scale = 1;
     std::unique_ptr<Surface> surface;
 };
@@ -93,6 +98,8 @@ struct App {
     GDBusProxy* power = nullptr;
     GFileMonitor* zoneMonitor = nullptr;
     guint busOwner = 0;
+    HyprlandWatcher hyprland;
+    std::set<std::string> covered;  // ほかの窓で隠れている画面の名前（Hyprland のとき）
 };
 
 App* gApp = nullptr;
@@ -144,8 +151,15 @@ void OnFrameDone(void* data, wl_callback* callback, uint32_t) {
 
 const wl_callback_listener kFrameListener = {OnFrameDone};
 
+bool Covered(const Surface* s) { return s->app->covered.count(s->outputName) > 0; }
+
 void DrawSurface(Surface* s) {
     if (!s->configured || s->egl == EGL_NO_SURFACE) return;
+    if (Covered(s) && s->shownOnce) {
+        // 隠れている画面には描かない（一度は描いて面を出しておく）。見えるようになったら描く
+        s->dirty = true;
+        return;
+    }
     if (s->frame) {
         // 前の絵がまだ出ていない（隠れている・合成が追いついていない）。出たら描く
         s->dirty = true;
@@ -165,6 +179,7 @@ void DrawSurface(Surface* s) {
     }
     s->frame = wl_surface_frame(s->surface);
     wl_callback_add_listener(s->frame, &kFrameListener, s);
+    s->shownOnce = true;
     App* app = s->app;
     app->renderer.Draw(s->egl, w, h, app->index, app->config.placement(), Background(app));
     if (!gPendingDispatch) gPendingDispatch = g_idle_add(OnDispatchPending, app);
@@ -192,7 +207,7 @@ gboolean OnFrameTimer(gpointer data) {
         Surface* s = o->surface.get();
         if (!s || !s->configured) continue;
         any = true;
-        if (!s->frame) shown = true;
+        if (!s->frame && !Covered(s)) shown = true;
         DrawSurface(s);
     }
     wl_display_flush(app->display);
@@ -268,6 +283,7 @@ void CreateSurface(Output* o) {
     auto s = std::make_unique<Surface>();
     s->app = app;
     s->outputScale = o->scale;
+    s->outputName = o->outputName;
     s->surface = wl_compositor_create_surface(app->compositor);
     // クリックやドラッグは素通しする（入力を受ける場所を空にする）
     wl_region* empty = wl_compositor_create_region(app->compositor);
@@ -329,7 +345,11 @@ void OnOutputScale(void* data, wl_output*, int32_t factor) {
         DrawSurface(o->surface.get());
     }
 }
-void OnOutputName(void*, wl_output*, const char*) {}
+void OnOutputName(void* data, wl_output*, const char* name) {
+    auto* o = static_cast<Output*>(data);
+    o->outputName = name ? name : "";
+    if (o->surface) o->surface->outputName = o->outputName;
+}
 void OnOutputDescription(void*, wl_output*, const char*) {}
 
 const wl_output_listener kOutputListener = {OnOutputGeometry, OnOutputMode, OnOutputDone,
@@ -657,6 +677,19 @@ int main(int argc, char** argv) {
     g_unix_signal_add(SIGINT, OnSignal, &app);
 
     UpdatePower(&app);
+    // Hyprland なら、隠れている画面を訊いて止める
+    app.hyprland.Start([&app](const std::set<std::string>& covered) {
+        if (g_getenv("PIXWALL_DEBUG")) {
+            std::string names;
+            for (const auto& n : covered) names += " " + n;
+            std::fprintf(stderr, "pixwall: covered:%s\n", names.c_str());
+        }
+        if (covered == app.covered) return;
+        app.covered = covered;
+        app.stalled = false;
+        DrawAll(&app);
+        ScheduleFrame(&app);
+    });
     SyncAutostart(app.saved);
     Apply(&app, app.saved.Resolved(LocalMinute(), app.dark));
     ScheduleSwitch(&app);

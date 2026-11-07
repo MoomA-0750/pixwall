@@ -50,12 +50,28 @@ pkill -f '[g]nome-shell --headless'  # 止める
 
 ## Hyprland で試す
 
-まだ試していない（この PC に Hyprland が無い。Fedora 44 の公式のリポジトリには無く、COPR の `solopasha/hyprland` などから入れる）。layer-shell を持つ合成器なら同じ仕組みで動くので、公式のリポジトリにある Sway を入れ子で動かして試す手もある。
+cramgent（Omarchy を入れた M1 MacBook Air、Arch Linux ARM）で試す。要るもの（gcc・make・wayland・egl・gtk4・libadwaita・gdk-pixbuf）は入っている。ssh から試すときは、画面の Hyprland に向ける:
 
 ```sh
-# Hyprland のセッションで
-linux/build/pixwall ../samples/dot-64x64-30f.gif
-linux/build/pixwallctl status        # running
+# この PC から送ってビルドする
+git ls-files linux windows/core windows/tests samples | tar -cf - -T - | ssh cramgent 'mkdir -p ~/pixwall-cli && tar -xf - -C ~/pixwall-cli'
+ssh cramgent
+export XDG_RUNTIME_DIR=/run/user/1000 WAYLAND_DISPLAY=wayland-1 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+export HYPRLAND_INSTANCE_SIGNATURE=$(ls /run/user/1000/hypr/ | head -1)
+export XDG_CONFIG_HOME=~/pixwall-cli/config   # 試すときは本物の設定・自動起動に触れない
+cd ~/pixwall-cli/linux && make && make test
+nohup ./build/pixwall ../samples/dot-64x64-30f.gif > ~/pixwall-cli/wall.log 2>&1 &
+./build/pixwallctl status        # running
+grim ~/pixwall-cli/shot.png      # 画面を撮る
+./build/pixwallctl quit
 ```
 
-見ること: すべての画面の端から端まで（バーの下も）出る、クリックがデスクトップに素通しされる、ドットがぼけない（拡大率 1.25 などでも）、全画面の窓（`fullscreen`）にすると CPU 時間が増えない（`ps -o time= -p $(pgrep -x pixwall)` を数秒おきに見る）、画面をつなぐ・外すと面が増える・消える、`pixwallctl quit` で終わる。
+cramgent の Hyprland（0.56）は設定が Lua なので、`hyprctl dispatch` の書き方が違う: 作業スペースは `hyprctl dispatch "hl.dsp.focus({workspace = 7})"`、全画面は `hyprctl dispatch "hl.dsp.window.fullscreen()"`（もう一度で戻る）。昔の書き方（`dispatch workspace 7`）はエラーになり、何も変わらない。`PIXWALL_DEBUG=1` を付けて起動すると、隠れていると判断した画面を出す。
+
+確かめたこと（2026-11-08、Hyprland 0.56.2、2560×1600・拡大率 1.6）:
+
+- 64×64 の GIF が 25 倍で中央に出て、バーの下まで描く。ドットのふちは1画素で色が切り替わる（ぼけない）
+- CPU（10 秒の CPU 時間）: 窓の無い作業スペースで 0.06 秒（約 0.6%）、2つ並べた窓・1つの窓・全画面の窓のある作業スペースでは 0。メモリ（PSS）約 22MB
+- 設定画面は、OS がダークなので libadwaita のダークで出る
+
+ほかに見ること: すべての画面の端から端まで（バーの下も）出る、クリックがデスクトップに素通しされる、ドットがぼけない（拡大率 1.25 などでも）、全画面の窓（`fullscreen`）にすると CPU 時間が増えない（`ps -o time= -p $(pgrep -x pixwall)` を数秒おきに見る）、画面をつなぐ・外すと面が増える・消える、`pixwallctl quit` で終わる。

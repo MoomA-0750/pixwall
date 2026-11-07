@@ -8,9 +8,11 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
+#include <set>
 #include <string>
 
 #include "config_file.h"
+#include "hyprland.h"
 #include "image_loader.h"
 
 using namespace pixwall;
@@ -141,9 +143,44 @@ void TestConfigFile() {
     g_free(cwd);
 }
 
+// Hyprland の JSON（2026-11-08 に cramgent の Omarchy で hyprctl -j が返した形）から、隠れている画面を決める
+void TestHyprland() {
+    const std::string monitors = R"([{"id": 0, "name": "eDP-1", "width": 2560, "height": 1600, "x": 0, "y": 0,
+        "activeWorkspace": {"id": 1, "name": "1"}, "specialWorkspace": {"id": 0, "name": ""},
+        "reserved": [0, 26, 0, 0], "scale": 1.6, "transform": 0, "dpmsStatus": true},
+      {"id": 1, "name": "HDMI-A-1", "width": 1920, "height": 1080, "x": 1600, "y": 0,
+        "activeWorkspace": {"id": 4, "name": "4"}, "specialWorkspace": {"id": 0, "name": ""},
+        "reserved": [0, 0, 0, 0], "scale": 1, "transform": 0, "dpmsStatus": true}])";
+    const auto clients = [](const std::string& list) { return "[" + list + "]"; };
+    // Omarchy の既定の隙間で2つ並べた窓（隙間とふちは 5% 以下）
+    const std::string two = R"({"workspace": {"id": 1}, "at": [12, 38], "size": [781, 950], "mapped": true, "hidden": false, "fullscreen": 0},
+        {"workspace": {"id": 1}, "at": [807, 38], "size": [781, 950], "mapped": true, "hidden": false, "fullscreen": 0})";
+    Check(CoveredMonitors(monitors, clients(two)) == std::set<std::string>{"eDP-1"}, "two tiled windows cover eDP-1");
+    // 窓が1つで半分だけ
+    const std::string half =
+        R"({"workspace": {"id": 1}, "at": [12, 38], "size": [781, 950], "mapped": true, "hidden": false, "fullscreen": 0})";
+    Check(CoveredMonitors(monitors, clients(half)).empty(), "half a screen is not covered");
+    // 全画面の窓は大きさによらず隠れている。ほかの作業スペースの窓は数えない
+    const std::string full = R"({"workspace": {"id": 4}, "at": [1700, 100], "size": [100, 100], "mapped": true, "hidden": false, "fullscreen": 2},
+        {"workspace": {"id": 9}, "at": [0, 0], "size": [1600, 1000], "mapped": true, "hidden": false, "fullscreen": 0})";
+    Check(CoveredMonitors(monitors, clients(full)) == std::set<std::string>{"HDMI-A-1"}, "fullscreen covers HDMI-A-1");
+    // 隠した窓は数えない
+    const std::string hidden =
+        R"({"workspace": {"id": 1}, "at": [0, 0], "size": [1600, 1000], "mapped": true, "hidden": true, "fullscreen": 0})";
+    Check(CoveredMonitors(monitors, clients(hidden)).empty(), "a hidden window does not cover");
+    // 画面が消えている
+    std::string off = monitors;
+    const std::string on = "\"dpmsStatus\": true";
+    off.replace(off.find(on), on.size(), "\"dpmsStatus\": false");
+    Check(CoveredMonitors(off, "[]") == std::set<std::string>{"eDP-1"}, "a screen that is off is covered");
+    // 壊れた JSON では止めない
+    Check(CoveredMonitors("[{", clients(two)).empty(), "broken JSON covers nothing");
+}
+
 }  // namespace
 
 int main() {
+    TestHyprland();
     TestGif();
     TestPng();
     TestConfigFile();

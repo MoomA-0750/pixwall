@@ -43,5 +43,5 @@ if [[ "${XDG_CURRENT_DESKTOP:-}" == *GNOME* ]]; then
     echo "       (GNOME on Wayland loads a new extension only at login)."
 else
     echo "Hyprland and others: run $BIN/pixwall. It starts at login by itself with uwsm (Omarchy and others);"
-    echo "       otherwise start it from your Hyprland config (exec-once = $BIN/pixwall, or hl.exec_cmd in a Lua config)."
+    echo "       otherwise start it from your Hyprland config (exec-once = $BIN/pixwall, or launch_on_start in an Omarchy Lua config)."
 fi

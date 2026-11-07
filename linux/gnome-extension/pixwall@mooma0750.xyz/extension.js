@@ -54,8 +54,9 @@ function run(argv) {
     });
 }
 
-function nowMinute() {
-    const now = GLib.DateTime.new_now_local();
+// unix（秒）を渡すとその時刻の、渡さなければ今の、0 時からの分
+function nowMinute(unix = null) {
+    const now = unix === null ? GLib.DateTime.new_now_local() : GLib.DateTime.new_from_unix_local(unix);
     return now.get_hour() * 60 + now.get_minute();
 }
 
@@ -93,8 +94,11 @@ class Wall {
         // 毎分の時計（パネルの時計と同じもの。新しく起きる回数を増やさない）。時間帯の変更も来る
         this._clock = new GnomeDesktop.WallClock();
         this._connect(this._clock, 'notify::clock', () => {
-            if (this._switchAt && GLib.DateTime.new_now_utc().to_unix() >= this._switchAt)
-                this._reload();
+            // 時計の知らせは分の変わり目ちょうどか、わずかに早く来ることがあるので、2 秒の幅をみて、
+            // 切り替わる時刻として選び直す（今の時刻で読むと、まだ前の分のことがある）
+            const now = GLib.DateTime.new_now_utc().to_unix();
+            if (this._switchAt && now >= this._switchAt - 2)
+                this._reload(Math.max(now, this._switchAt));
         });
         this._connect(this._clock, 'notify::timezone', () => this._reload());
         // 覆われているか見直すきっかけ
@@ -168,12 +172,12 @@ class Wall {
 
     // ---- 設定と画像 ----
 
-    async _reload() {
+    async _reload(at = null) {
         const generation = ++this._generation;
         const dark = this._interfaceSettings.get_string('color-scheme') === 'prefer-dark';
         let resolved = null;
         try {
-            const out = await run([this._ctl, '--resolve', String(nowMinute()), dark ? '1' : '0']);
+            const out = await run([this._ctl, '--resolve', String(nowMinute(at)), dark ? '1' : '0']);
             resolved = out && parseResolved(new TextDecoder().decode(out));
         } catch (e) {
             console.warn(`pixwall: cannot run ${this._ctl}: ${e.message}`);
@@ -182,8 +186,8 @@ class Wall {
             return;
         this._config = resolved.config;
         this._next = resolved.next;
-        this._switchAt = this._next > 0
-            ? Math.floor(GLib.DateTime.new_now_utc().to_unix() / 60) * 60 + this._next * 60 : 0;
+        const base = at ?? GLib.DateTime.new_now_utc().to_unix();
+        this._switchAt = this._next > 0 ? Math.floor(base / 60) * 60 + this._next * 60 : 0;
         const path = this._config.image ?? null;
         if (path !== this._imagePath)
             await this._loadImage(path, generation);

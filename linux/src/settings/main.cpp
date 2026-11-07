@@ -597,7 +597,7 @@ void Build(GtkApplication* app) {
 
     // 画像の切り替え
     ui.switchGroup = Group(page, T(S::SwitchLabel), T(S::SwitchHint));
-    ui.switchCombo = Combo(ui.switchGroup, T(S::SwitchLabel), {T(S::SwitchNone), T(S::SwitchTime), T(S::SwitchAppearance)});
+    ui.switchCombo = Combo(ui.switchGroup, T(S::SwitchBy), {T(S::SwitchNone), T(S::SwitchTime), T(S::SwitchAppearance)});
     OnSelected(ui.switchCombo, [](guint i) {
         ui.saved.SwitchTo(static_cast<SwitchBy>(i));
         ui.editing = InitialEditing();

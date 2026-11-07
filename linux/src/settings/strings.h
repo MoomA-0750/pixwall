@@ -16,7 +16,7 @@ enum class S {
     Background, BackgroundHint, BackgroundAuto, BackgroundCustom, Speed, SpeedTimes, PauseHeading, LowPower, Pause,
     StartupHeading, Login, LoginHint, QuitLabel, QuitButton, CouldNotRead, Exported, ExportFailed, SwitchLabel,
     SwitchHint, SwitchNone, SwitchTime, SwitchAppearance, AddTime, EditAppearance, Light, Dark, Now, RemoveTime,
-    StartTime, Images, Cancel, Count
+    StartTime, Images, Cancel, SwitchBy, Count
 };
 
 inline bool Japanese() {
@@ -95,6 +95,7 @@ inline const char* T(S key) {
         {"始まる時刻", "Start time"},
         {"画像", "Images"},
         {"キャンセル", "Cancel"},
+        {"切り替え方", "Switch By"},
     };
     static_assert(sizeof(kText) / sizeof(kText[0]) == static_cast<size_t>(S::Count));
     return kText[static_cast<int>(key)][Japanese() ? 0 : 1];

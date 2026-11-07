@@ -424,4 +424,5 @@
 - 試験の事故: 画面の無い GNOME Shell を `dbus-run-session` の中で HOME を変えて動かしたところ、D-Bus が起こした dconf-service が本物の HOME のまま設定を書き、本物のデスクトップの `enabled-extensions`・`color-scheme`・`welcome-dialog-last-shown-version` を書き換えた。動いているシェルにはその変更が伝わっておらず、拡張機能の状態から元の4つを割り出して戻した。以後は `linux/tests/gnome-headless/start.sh` で、D-Bus を起こす前から場所を分ける
 - Hyprland は、全画面の窓の後ろの背景の面にも描き終えた知らせを返すことがある（Lua の設定の Hyprland 0.56 で、hyprctl の書き方を誤って最初の測り方が無効だったので、確かめきれてはいない）。frame callback を待つだけでは止められない前提で、Hyprland には隠れているかを訊く（`.socket2.sock` の知らせのあと 0.3 秒待って `j/monitors`・`j/clients`）。決まりは Mac・Windows と同じ「見える部分が 5% 以下なら隠れている」。Omarchy の既定の隙間で窓を並べると隠れている扱いになるので、壁紙が動くのは窓の無い作業スペースのときになる
 - 起動したときにもう隠れている画面には、一度も絵を出さないと Hyprland が面を出さない（`hyprctl layers` で a: 0 のまま）。隠れていても一度は描く
+- 時刻の切り替えが1分遅れた。タイマーは切り替わる時刻ちょうどに起きていたが、今の分を読む `time()` が粗い時計（`CLOCK_REALTIME_COARSE`）で数ミリ秒遅れ、まだ前の分を返していた。`clock_gettime(CLOCK_REALTIME)` で読む。cramgent で、足した時刻の 0.5 秒以内に替わることを確かめた
 

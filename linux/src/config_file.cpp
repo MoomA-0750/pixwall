@@ -40,7 +40,11 @@ bool SaveConfig(const std::string& path, const Config& config) {
 }
 
 int LocalMinute() {
-    const std::time_t now = std::time(nullptr);
+    // time() は粗い時計（CLOCK_REALTIME_COARSE）で数ミリ秒遅れることがあり、切り替わる時刻ちょうどに
+    // 起きたタイマーから読むと、まだ前の分を返す。精密な時計で読む
+    timespec ts{};
+    clock_gettime(CLOCK_REALTIME, &ts);
+    const std::time_t now = ts.tv_sec;
     std::tm t{};
     tzset();
     localtime_r(&now, &t);

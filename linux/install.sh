@@ -42,5 +42,6 @@ if [[ "${XDG_CURRENT_DESKTOP:-}" == *GNOME* ]]; then
     echo "GNOME: the extension is turned on. If the wallpaper doesn't move, log out and log in once"
     echo "       (GNOME on Wayland loads a new extension only at login)."
 else
-    echo "Hyprland and others: run $BIN/pixwall, or add 'exec-once = $BIN/pixwall' to hyprland.conf."
+    echo "Hyprland and others: run $BIN/pixwall. It starts at login by itself with uwsm (Omarchy and others);"
+    echo "       otherwise start it from your Hyprland config (exec-once = $BIN/pixwall, or hl.exec_cmd in a Lua config)."
 fi

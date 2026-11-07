@@ -128,7 +128,7 @@
 - 【仮】動かしている間も、OS の壁紙（GNOME の壁紙）は変えない（拡張機能の面が上に重なる）。そのため概観（アクティビティ）の中の壁紙は GNOME の壁紙のまま。Hyprland には OS の壁紙が無い（hyprpaper などを使っていれば、pixwall の面がその上に出る）
 - 【仮】設定画面 `pixwall-settings` は GTK4・libadwaita で、壁紙を動かすプロセスとは別。中身は Windows の設定画面と同じ（表示を更新・画像の切り替え・画像と見本・静止画の書き出し・並べ方・余白の色・速さ・省電力モードで止める・一時停止・ログイン時に起動・終了）。静止画の書き出しは設定画面が自分で描くので、pixwall が動いていなくても書き出せる。時刻の行は、左の丸で編集する時刻を選び、時と分の欄で始まる時刻を変える。最後の1つの時刻は消せない。pixwall が動いていないと上に「pixwall が動いていません」と「開始」を出す（GNOME は拡張機能を有効にし、ほかは `pixwall` を起動する。入れたばかりの拡張機能は GNOME にログインし直すまで動かないので、そのことを出す）。GNOME では「ログイン時に起動」を出さない。設定画面は1つだけ開く。設定画面とメニュー・メッセージは、`LANGUAGE`・`LANG` の並びのうち日本語と英語の先にあるほう
 - 【仮】アプリの一覧の「pixwall」は `pixwall` を起動する。動いていれば設定画面が開き、動いていなければ始める。画像をまだ選んでいない・読めないときは設定画面も出す。起動の引数で画像を渡すと、それを動かして設定にも書く: `pixwall <画像のパス>`
-- 【仮】「ログイン時に起動」（Hyprland など）は、常駐側が起動したときと設定を読み直したときに `~/.config/autostart/pixwall.desktop`（XDG の自動起動。GNOME では動かない印付き）を置く・消す。Hyprland はそのままでは XDG の自動起動を読まないので、uwsm などを使っていなければ `hyprland.conf` に `exec-once = pixwall` を書く
+- 【仮】「ログイン時に起動」（Hyprland など）は、常駐側が起動したときと設定を読み直したときに `~/.config/autostart/pixwall.desktop`（XDG の自動起動。GNOME では動かない印付き）を置く・消す。uwsm で始める Hyprland（Omarchy など）はこれで始まる。使っていなければ、Hyprland の設定から `pixwall` を起動する（`exec-once = pixwall`、Lua の設定なら `hl.exec_cmd`）
 - 【仮】「pixwall を終了」・`pixwallctl quit` は、GNOME では拡張機能を止め（GNOME の壁紙が見えるようになる）、Hyprland などでは常駐側を終える
 - 【仮】設定は `$XDG_CONFIG_HOME/pixwall/config.json`（ふつうは `~/.config/pixwall/config.json`）。形は Mac・Windows と同じ。常駐側への頼みごと（読み直す・表示を更新・一時停止・終了）は、セッションの D-Bus の `xyz.mooma0750.pixwall` で受ける（GNOME の拡張機能と Hyprland の常駐側で同じ形）
 - 【仮】`pixwallctl` も Mac・Windows と同じ書き方（`linux/build/pixwallctl`、入れると `~/.local/bin/pixwallctl`）

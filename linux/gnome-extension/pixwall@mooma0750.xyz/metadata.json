@@ -1,0 +1,7 @@
+{
+  "uuid": "pixwall@mooma0750.xyz",
+  "name": "pixwall",
+  "description": "Animated GIF wallpapers with sharp pixels. Settings: open pixwall from the app grid, or use pixwallctl.",
+  "shell-version": ["48", "49", "50"],
+  "url": "https://github.com/MoomA-0750/pixwall"
+}

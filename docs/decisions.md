@@ -411,3 +411,15 @@
 - Android の壁紙は、見えていない間はタイマーを掛けない（端末が眠っている間に起こさないため）。見えるようになったとき（`onVisibilityChanged`）に必ず選び直すので、見えている画面はいつも今の時刻のものになる。ダークモードは壁紙のプロセスの `ComponentCallbacks` で知る
 - Android の設定画面は、今までの欄（画像・並べ方・位置・大きさ）に「編集しているものを上の階層に入れた設定」を渡し、変えたら編集しているものへ戻す形にした。欄ごとに作り直さずに済む
 - Android は Pixel 3 が USB でつながっておらず、画面ではまだ確かめていない（テストとビルド、M3 Expressive の検査まで）
+
+## 2026-11-08 Linux 版（GNOME・Hyprland）を足す
+
+- GNOME（Mutter）は wlr-layer-shell を持たず、ほかのアプリの窓を背景の層に置かせない。窓を背景のように見せる手（Hanabi のように描く窓を拡張機能で背景へ移す）は、隠れた窓に描く合図が来ない・窓の一覧に出るなどの細工が要る。GIF ならシェルの中で絵を差し替えるだけで足りるので、拡張機能がシェルの中で描くことにした（別のプロセスも要らない）
+- ただしシェルの中で重い計算をすると、デスクトップ全体が固まる。GIF を読む・設定を読んで今出すものを選ぶのは `pixwallctl` の使い方に出さない頼みごと（`--frames`・`--resolve`）に任せ、拡張機能は並べる計算と絵の差し替えだけをする。並べる計算（lib.js）は C++ の core と同じ決まりで、テストでばらばらな値を突き合わせる
+- gdk-pixbuf の GIF の重ね方は、Pillow・こちらの読み方と合わない（disposal の扱いが違うフレームがある）。GIF はこちらで読み、重ね方は Windows と共通の `GifCompositor` を使う。期待値は Pillow で作った
+- Hyprland などの常駐側は C++ で、Windows の core（設定・並べ方・切り替え・pixwallctl の引数）をそのまま使う。描くのは EGL と OpenGL ES 2（GPU に置いて最近傍で広げる）。`eglSwapInterval(0)` にしないと、隠れた面の `eglSwapBuffers` が合成器を待って止まる。代わりに frame callback を自分で待ち、来ない画面には描かない。どの画面にも来なければタイマーを止める（隠れている間は止まる）
+- 時刻の切り替えは `timerfd` の `CLOCK_REALTIME`（`TFD_TIMER_CANCEL_ON_SET`）で次の時刻に1回だけ起きる。GLib のタイマーは単調な時計なので、スリープの間は進まない。GNOME の拡張機能は、パネルの時計が使う毎分の知らせに相乗りする
+- 外観は xdg-desktop-portal の `color-scheme` を見る（GNOME でも Hyprland でも同じ口）
+- 設定画面は GTK4・libadwaita を C++ で書いた（core の Config をそのまま使い、設定の形がずれないようにするため）
+- 試験の事故: 画面の無い GNOME Shell を `dbus-run-session` の中で HOME を変えて動かしたところ、D-Bus が起こした dconf-service が本物の HOME のまま設定を書き、本物のデスクトップの `enabled-extensions`・`color-scheme`・`welcome-dialog-last-shown-version` を書き換えた。動いているシェルにはその変更が伝わっておらず、拡張機能の状態から元の4つを割り出して戻した。以後は `linux/tests/gnome-headless/start.sh` で、D-Bus を起こす前から場所を分ける
+

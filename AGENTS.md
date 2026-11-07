@@ -12,8 +12,8 @@
 
 ## 作り方の決まり
 
-- 画面はそれぞれの OS のネイティブ UI で描く（Windows は WinUI 3、Mac は SwiftUI / AppKit、Android は Jetpack Compose の Material 3 Expressive）。Web の画面や独自の描画の UI にしない
+- 画面はそれぞれの OS のネイティブ UI で描く（Windows は WinUI 3、Mac は SwiftUI / AppKit、Android は Jetpack Compose の Material 3 Expressive、Linux は GTK4・libadwaita）。Web の画面や独自の描画の UI にしない
 - Android の画面は android-m3-expressive スキルに従う。書くたびに `scripts/check_m3e.sh` がフックで走る
 - Windows の常駐側（`windows/` の C++）に WinUI 3・.NET・WebView を入れない
-- Windows 版は to-fu、Mac 版は MacBook Air M1 でビルドして試す。Android 版はこの Linux の PC でビルドし、USB でつないだ Pixel 3（Android 12）で試す（`docs/android-trial.md`）
+- Windows 版は to-fu、Mac 版は MacBook Air M1 でビルドして試す。Android 版はこの Linux の PC でビルドし、USB でつないだ Pixel 3（Android 12）で試す（`docs/android-trial.md`）。Linux 版もこの PC でビルドする。GNOME の拡張機能は本物のデスクトップでは試さず、`linux/tests/gnome-headless/start.sh` の画面の無いシェルで試す（`docs/linux-trial.md`）
 - Mac の画面（SwiftUI / AppKit）は CC の `apple-native-ui` スキルの書き方に従う（Liquid Glass と今の SwiftUI）。`.claude/settings.json` のフックが、書いた `.swift` を `scripts/check_apple_ui.sh` で検査して外れを差し戻す。正しい理由で使う行は同じ行に `// apple-ui-allow: 理由`

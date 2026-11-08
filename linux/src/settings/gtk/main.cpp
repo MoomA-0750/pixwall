@@ -21,7 +21,7 @@
 #include "image_loader.h"
 #include "omarchy.h"
 #include "still.h"
-#include "strings.h"
+#include "settings/strings.h"
 
 using namespace pixwall;
 

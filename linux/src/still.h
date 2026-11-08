@@ -17,7 +17,8 @@ struct ScreenSize {
 // 不透明な BGRA（width * height * 4 バイト）を PNG に書く。別のファイルに書いてから入れ替える
 bool WritePng(const std::string& path, const std::vector<uint8_t>& bgra, int width, int height);
 
-// 画面ごとの物理ピクセルの大きさ（GDK で数える。拡大率を掛けた大きさ）。一番目が主の画面
+// 画面ごとの物理ピクセルの大きさ（拡大率を掛けた大きさ）。一番目が主の画面。GTK の側は monitors_gtk.cpp（GDK で数える）、
+// QML 版の設定画面は settings/qt/monitors.cpp（Qt で数える）
 std::vector<ScreenSize> MonitorSizes();
 
 // 「静止画を書き出す」。frame 枚目を、画面ごとにその画面の大きさで描く。主の画面は path に、

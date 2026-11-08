@@ -1,7 +1,7 @@
 #include "still.h"
 
 #include <gdk-pixbuf/gdk-pixbuf.h>
-#include <gtk/gtk.h>
+#include <glib.h>
 
 #include <cmath>
 #include <cstdio>
@@ -31,21 +31,6 @@ bool WritePng(const std::string& path, const std::vector<uint8_t>& bgra, int wid
         return false;
     }
     return true;
-}
-
-std::vector<ScreenSize> MonitorSizes() {
-    std::vector<ScreenSize> sizes;
-    if (!gtk_init_check()) return sizes;
-    GListModel* monitors = gdk_display_get_monitors(gdk_display_get_default());
-    for (guint i = 0; i < g_list_model_get_n_items(monitors); ++i) {
-        auto* monitor = static_cast<GdkMonitor*>(g_list_model_get_item(monitors, i));
-        GdkRectangle r;
-        gdk_monitor_get_geometry(monitor, &r);
-        const double scale = gdk_monitor_get_scale(monitor);
-        sizes.push_back({static_cast<int>(std::lround(r.width * scale)), static_cast<int>(std::lround(r.height * scale))});
-        g_object_unref(monitor);
-    }
-    return sizes;
 }
 
 namespace {

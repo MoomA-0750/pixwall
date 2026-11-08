@@ -462,3 +462,19 @@
 - 元の壁紙の覚え書きは消さずに残す。次に起動したときは、OS の壁紙が pixwall の PNG なので、落ちて戻せなかったときと同じく前の覚え書きを使う。オフにして終えれば元に戻る。新しい仕組みを足さずに、今の「落ちたとき」の道筋に乗せた
 - 画像を外したとき（出す画像が無いとき）は、オンでも戻す（残す絵が無いので）
 - Hyprland などには OS の壁紙が無いので、設定画面に出さない。Android は OS のライブ壁紙そのものなので関係ない
+
+## 2026-11-09 Linux の設定画面に QML 版を足す
+
+- 本人の頼み: Omarchy（Hyprland）で使っていて、GTK の設定画面がテーマに馴染まない。wave・Kanade と共通の「Linux アプリの QML 版の画面の決まり」に従った: 中身は共通、GTK 版と QML 版は別の実行ファイル（`pixwall-settings-gtk`・`pixwall-settings-qt`）、今の名前 `pixwall-settings` は選び役（シェル）に譲る、入れる対象を本体と qt に分ける、QML 版は C++ ＋ Qt Quick ＋ Material、Omarchy の colors.toml を QFileSystemWatcher で見張る
+- 1つの実行ファイルに GTK と Qt を両方リンクしない（使わない方まで読み込まれ、メモリが約2割増えると測った）。そのため、画面の大きさを GDK で数える `MonitorSizes` を `monitors_gtk.cpp` に分け、QML 版は `QScreen` で数える。QML 版がリンクするのは Qt と、中身が使う GLib・GIO・gdk-pixbuf だけ
+- 言葉の表（`strings.h`）は X マクロにして、名前でも引けるようにした。QML は `App.s.WindowTitle` のように名前で引く。表は1つのまま
+- QML 版の中身（`Backend`）は GTK 版の処理をそのまま写した（設定を書く・常駐側に読み直してもらう・見本・書き出し・時刻の一覧・Omarchy の組）。config.json と D-Bus の名前の見張りは、GTK 版と同じく GIO（GFileMonitor・g_bus_watch_name）で行う。Qt は Linux では GLib の待ち受けの上で回るので、GIO の知らせもそのまま届く。テーマの見張りだけは決まりどおり QFileSystemWatcher
+- 1つだけ開く仕組みは、QML 版でも GIO の GApplication を同じ名前（`xyz.mooma0750.pixwall.Settings`）で登録する形にした。GTK 版の GtkApplication と同じ名前なので、どちらの版が開いていても、もう一方を開こうとすると開いている方が前に出る（決まりに無いので自分で決めた）
+- 色の対応は omarchy-gtk-tint と同じ（窓の地 `background`、カード・見出しの帯・ポップオーバー `lighter_background`、入力欄 `dark_background`、線 `muted`、終了ボタン `red`、その上の文字は `background` と `foreground` のうち見やすい方）。ボタン・選ぶ欄・時と分の欄の地は自分で描いた。Material のボタンの形は丸みを `Material.roundedScale` で決めるが、入力欄の枠の丸みは 4 に決まっていて、決まりの「小さい部品は min(4, 丸み)」（Omarchy の既定の 0 で角張る）にできないため。Material の影は layer の効果で、平らな Omarchy に合わず、offscreen で撮ると消えるので使わない
+- ボタンの地は、カードの色に文字の色を 10% 重ねた色（libadwaita のボタンと同じ考え）。決まりの表に無いので自分で決めた
+- Omarchy が無いときの色は、Qt の Material 3 の既定に近い値を Theme に持たせた（QML の側を Theme だけ見る形に保つため）。明暗は Qt の `colorScheme`
+- `QT_QUICK_CONTROLS_MATERIAL_VARIANT` が無ければ `Dense`（机の上の画面に合う詰まった大きさ）にした
+- 日本語のとき、Qt は `LANG` しか見ず、`LANGUAGE=ja` でも中国・韓国の字形の CJK のフォントを選んで太く見えた。日本語で出すときは、フォントの候補の後ろに Noto Sans CJK JP などを足す
+- `.desktop` の `Exec` は今までどおり常駐側 `pixwall`（動いていれば設定画面を開く）。常駐側・GNOME の起動が開くのが選び役 `pixwall-settings` なので、選び役は1つのまま。決まりの「`.desktop` の Exec は選び役」とは形が違うが、pixwall は一覧から開くと常駐側が始まるアプリなので、こうした
+- 時刻の行の「削除」は、GTK 版のごみ箱の絵ではなく文字のボタンにした（Qt Quick にアイコンのテーマが無い環境でも出るように）
+

@@ -6,8 +6,10 @@
 
 ```sh
 cd linux
-make            # build/ に pixwall・pixwallctl・pixwall-settings
-make test       # core_tests（Windows と共通の core）・linux_tests（GIF を読む・設定のファイル）・拡張機能の計算
+make            # build/ に pixwall・pixwallctl・pixwall-settings（選び役）・pixwall-settings-gtk
+make test       # core_tests（Windows と共通の core）・linux_tests（GIF を読む・設定のファイル）・選び役・拡張機能の計算
+make qt         # QML 版の設定画面 pixwall-settings-qt（Qt 6 の開発用ファイルが要る。この PC には無いので cramgent で）
+make test-qt    # theme_tests（Omarchy の色を読む・見張る）・backend_tests（QML 版が書く config.json）
 ```
 
 - `linux_tests` は、`tests/fixtures/expected.txt`（Pillow で重ねた絵の印）と、こちらで読んだ GIF のフレームを突き合わせる。GIF を足したら `python3 -I tests/fixtures/make_expected.py`
@@ -19,7 +21,9 @@ make test       # core_tests（Windows と共通の core）・linux_tests（GIF 
 linux/install.sh
 ```
 
-`~/.local/bin` に3つ、アプリの一覧に「pixwall」、`~/.local/share/gnome-shell/extensions/pixwall@mooma0750.xyz` に拡張機能を入れる。GNOME（Wayland）は新しく入れた拡張機能をログインし直すまで読まないので、初めて入れたときは一度ログアウトする。
+`~/.local/bin` に4つ（常駐側・`pixwallctl`・選び役 `pixwall-settings`・GTK 版の設定画面）、アプリの一覧に「pixwall」、`~/.local/share/gnome-shell/extensions/pixwall@mooma0750.xyz` に拡張機能を入れる。GNOME（Wayland）は新しく入れた拡張機能をログインし直すまで読まないので、初めて入れたときは一度ログアウトする。
+
+QML 版の設定画面は `linux/install.sh --qt` で `~/.local/bin/pixwall-settings-qt` を足す（`--remove-qt` で外す）。入っていれば、GNOME の外（Hyprland・Omarchy・KDE など）では選び役がこちらを開く。`PIXWALL_UI=gtk` か `qt` を付けて開くと、その版になる。
 
 ## GNOME の拡張機能を、本物のデスクトップと分けて試す
 
@@ -117,3 +121,34 @@ hyprctl layers | grep -c "namespace: pixwall"               # 本物の分と合
 確かめたこと（2026-11-09）: 組ありの静止画・GIF を直接 → 描く、組なし → 0.6 秒以内に面が消え、CPU 0・PSS 22MB のまま。設定画面は組の名前を出し、組が無ければ見本・並べ方を出さない（`PIXWALL_SNAPSHOT` で撮った）。
 
 ほかに見ること: すべての画面の端から端まで（バーの下も）出る、クリックがデスクトップに素通しされる、ドットがぼけない（拡大率 1.25 などでも）、全画面の窓（`fullscreen`）にすると CPU 時間が増えない（`ps -o time= -p $(pgrep -x pixwall)` を数秒おきに見る）、画面をつなぐ・外すと面が増える・消える、`pixwallctl quit` で終わる。
+
+## QML 版の設定画面
+
+cramgent で組む（Qt 6.12 の qt6-base・qt6-declarative がある）。本人の画面・設定・動いている pixwall に触れないよう、窓は画面に出さず（`QT_QPA_PLATFORM=offscreen`）、設定と Omarchy のテーマは一時的な場所に置き、別の D-Bus で開く。`PIXWALL_SNAPSHOT=<png>` を付けると、開いて 1.5 秒で窓の絵を書いて閉じる（中身の高さで切る）:
+
+```sh
+# この PC から送って組む（build/ は送らない）
+rsync -a --delete --exclude build/ --exclude .git/ ~/Documents/git-cloned/pixwall-qml/ cramgent:build/pixwall-qml/
+ssh cramgent
+cd ~/build/pixwall-qml/linux && make qt && make test-qt
+T=$(mktemp -d); mkdir -p $T/config/pixwall $T/state/omarchy/current/theme
+cp /usr/share/omarchy/themes/catppuccin/colors.toml $T/state/omarchy/current/theme/   # 明るいテーマは flexoki-light
+echo '{"image": "'$HOME'/build/pixwall-qml/samples/dot-64x64-30f.gif"}' > $T/config/pixwall/config.json
+XDG_CONFIG_HOME=$T/config XDG_STATE_HOME=$T/state QT_QPA_PLATFORM=offscreen LANGUAGE=ja \
+  HYPRLAND_INSTANCE_SIGNATURE=$(ls /run/user/1000/hypr/ | head -1) PIXWALL_SNAPSHOT=/tmp/qml.png \
+  dbus-run-session -- build/pixwall-settings-qt
+```
+
+- 画面の大きさ（見本の形）を本物に合わせるときは、`QT_QPA_PLATFORM=offscreen:configfile=screens.json`（`{"screens": [{"name": "eDP-1", "x": 0, "y": 0, "width": 1600, "height": 1000, "dpr": 1.6}]}`）
+- 角の丸みは `hyprctl getoption decoration:rounding -j` を読むだけ。0 のときを見るには、`{"int": 0}` を出す偽の `hyprctl` を `PATH` の前に置く
+- GTK 版を並べて撮るときは、broadway（`gtk4-broadwayd :17` と `GDK_BACKEND=broadway BROADWAY_DISPLAY=:17`）で開き、`PIXWALL_SNAPSHOT_CONTENT=1` で中身を撮る。色は `omarchy-gtk-tint <colors.toml> <出力先>` で作った CSS を、一時的な `XDG_CONFIG_HOME/gtk-4.0/gtk.css` から読ませ、明暗は `ADW_DEBUG_COLOR_SCHEME=prefer-dark`
+- Material の部品の影（layer の効果）は、offscreen では描かれない（ソフトウェアで描くため）。QML 版はボタン・選ぶ欄・ポップオーバーの地を自分で描き、影を使わないので、offscreen でも本物でも同じに見える
+
+確かめたこと（2026-11-09、cramgent、Qt 6.12）:
+
+- catppuccin（暗い）・flexoki-light（明るい）・Omarchy なし（Material の既定）で、切り替えない・時刻・ダーク／ライト・Omarchy の壁紙（組あり・なし）、日本語と英語を撮り、GTK 版と並べた。文字の切れ・はみ出しは無い
+- 開いている間に `current/theme` を丸ごと入れ替える（Omarchy のテーマ切り替えと同じ）と、閉じずに色が替わる。`pixwallctl set fit fill` で書くと、開いたまま並べ方が替わる
+- 丸みは cramgent の Hyprland の 10 でカード・ボタンが丸く、入力欄は 4。偽の `hyprctl` で 0 にすると全部角張る
+- 同じ D-Bus で、QML 版を開いたまま QML 版・GTK 版を開くと、どちらもすぐ終わる（開いている方が前に出る）。GTK 版を開いたまま QML 版を開いても同じ
+- 確かめていないこと: 本物の Hyprland の窓として開くこと（本人の画面に窓を出さないため）、ファイル・色を選ぶダイアログ、選ぶ欄を開いた一覧の見た目、pixwall が動いているとき（「一時停止」が押せる）の見た目
+

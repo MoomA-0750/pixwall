@@ -443,4 +443,6 @@
 - 本人がこの PC の GNOME に入れたので、本物のデスクトップで確かめた。撮影は、GNOME Shell の `org.gnome.Shell.Screenshot` が GNOME 自身の撮影アプリ・ポータル以外からの呼び出しを断る（`AccessDenied: Screenshot is not allowed`）ので、xdg-desktop-portal の Screenshot を確かめの窓なしで呼ぶ（`linux/tests/portal_shot.py`）。初めての1回だけ GNOME が「許可しますか」を出し、本人が許可した（PermissionStore の `screenshot`）。ほかの窓を写さないよう、上の帯だけを切り出して見る
 - 上のバーの裏に pixwall の絵が出ないのは、blur-my-shell のバーのぼかしが「静的」（GNOME の壁紙の写しをぼかす）だったため。本人の環境の blur-my-shell を「動的」（後ろをそのままぼかす）にすると、バーの裏が pixwall の絵（余白の色・GIF）になった。pixwall 側は何も変えていない
 - 確かめたこと: 並べ方を変えるとすぐ変わる、ダーク・ライトで別の GIF にすぐ替わる、終了すると GNOME の壁紙に戻り、もう一度有効にすると戻る
+- 窓を最大化すると止まる: GNOME Shell の CPU 時間（10 秒あたり）が、動かす 5.7〜6.9 秒、一時停止 2.7〜2.9 秒、最大化した窓がある 2.7 秒で、止まっている
+- この PC は仮想マシンで、virtio-gpu に 3D が無い（`-virgl`）ので GNOME が CPU で描く。そのため pixwall が絵を替えるたびの描き直しが重く、64×64 の GIF を整数倍（1024×1024）で動かすと GNOME Shell の CPU が1コアの約 28% 増える（blur-my-shell のバーの動的なぼかしで、さらに約 9%）。拡張機能は絵の部分だけを描き直す作り（余白は固定の色の面、フレームは前もって GPU に置いてある）なので、拡張機能の側で大きく削れる所は無い。GPU のある機械（cramgent など）ではこうならない
 

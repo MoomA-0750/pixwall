@@ -47,7 +47,8 @@
     <string name="switch_none">切り替えない</string>
     <string name="switch_time">時刻で</string>
     <string name="switch_appearance">ダーク・ライト</string>
-    <string name="switch_detail">時刻ごと、またはライト・ダークごとに画像と並べ方を選べます。行を選ぶと、下でその画像と並べ方を変えられます。</string>
+    <string name="switch_detail_time">時刻ごとに画像と並べ方を選べます。行を選ぶと、下でその画像と並べ方を変えられます。</string>
+    <string name="switch_detail_appearance">ライトとダークで別の画像と並べ方を選べます。下でどちらを変えるかを選びます。</string>
     <string name="time_from">%1$s から</string>
     <string name="time_now">今出しています</string>
     <string name="time_change">変える</string>

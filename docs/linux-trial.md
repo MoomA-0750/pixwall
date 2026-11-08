@@ -63,7 +63,7 @@ ls --full-time "$XDG_DATA_HOME/pixwall/desktop"           # 解いても PNG は
 build/pixwallctl quit                                    # 元の壁紙に戻り、PNG と original.ini が消える
 ```
 
-本物の GNOME では、入れたあとにログインし直すと新しい拡張機能になる。blur-my-shell のバーのぼかしを「静的」に戻し、上のバーの裏が1枚目のぼかしになることを撮って見る
+本物の GNOME では、入れたあとにログインし直すと新しい拡張機能になる。blur-my-shell のバーのぼかしを「静的」に戻し、上のバーの裏が1枚目のぼかしになることを撮って見る（2026-11-09 に確かめた: ログインし直すと `picture-uri`・`picture-uri-dark` が `wallpaper-a.png`（1920x1080）、置き方が zoom になり、`original.ini` に元の f44-01-day/night が入る。静的なぼかしに戻すと、上のバーは赤い1枚目のぼかしの色になった）
 
 「終了しても壁紙を残す」（試験のシェルで）: `build/pixwallctl set keepWallpaperOnQuit true; build/pixwallctl quit` で `picture-uri` が pixwall の PNG のまま、`original.ini` も残る。拡張機能を有効にし直して `set keepWallpaperOnQuit false; quit` で元に戻る。設定画面の一番下に「終了しても壁紙を残す」が出て、終了の行の説明が変わる（2026-11-09 に確かめた）
 

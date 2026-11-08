@@ -48,7 +48,8 @@
     <string name="switch_none">Don\'t switch</string>
     <string name="switch_time">By time</string>
     <string name="switch_appearance">Light/Dark</string>
-    <string name="switch_detail">Choose an image and scaling for each time or for light and dark mode. Pick a row to edit it below.</string>
+    <string name="switch_detail_time">Choose an image and scaling for each time. Pick a row to edit its image and scaling below.</string>
+    <string name="switch_detail_appearance">Choose an image and scaling for light mode and for dark mode. Pick which one to edit below.</string>
     <string name="time_from">From %1$s</string>
     <string name="time_now">Showing now</string>
     <string name="time_change">Change</string>

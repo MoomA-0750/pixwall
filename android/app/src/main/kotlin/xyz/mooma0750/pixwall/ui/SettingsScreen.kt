@@ -227,7 +227,7 @@ private fun LazyListScope.switchSection(
         ConnectedToggles(modes, config.switchBy, onSwitch)
         if (config.switchBy != SwitchBy.NONE) {
             Text(
-                stringResource(R.string.switch_detail),
+                stringResource(if (config.switchBy == SwitchBy.TIME) R.string.switch_detail_time else R.string.switch_detail_appearance),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 4.dp, top = 8.dp),

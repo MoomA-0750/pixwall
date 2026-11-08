@@ -79,6 +79,9 @@ class Wall {
         this._generation = 0;
         this._monitors = [];
         this._signals = [];
+        this._stillTimer = 0;
+        this._stillRunning = false;
+        this._stillAgain = false;
 
         // シェルの背景（Meta.BackgroundGroup）の中の一番上に置く。窓の下で、Mutter は背景として扱う
         this._group = new Meta.BackgroundGroup();
@@ -175,9 +178,10 @@ class Wall {
     async _reload(at = null) {
         const generation = ++this._generation;
         const dark = this._interfaceSettings.get_string('color-scheme') === 'prefer-dark';
+        const minute = nowMinute(at);
         let resolved = null;
         try {
-            const out = await run([this._ctl, '--resolve', String(nowMinute(at)), dark ? '1' : '0']);
+            const out = await run([this._ctl, '--resolve', String(minute), dark ? '1' : '0']);
             resolved = out && parseResolved(new TextDecoder().decode(out));
         } catch (e) {
             console.warn(`pixwall: cannot run ${this._ctl}: ${e.message}`);
@@ -185,6 +189,7 @@ class Wall {
         if (generation !== this._generation || !resolved)
             return;
         this._config = resolved.config;
+        this._resolvedAt = {minute, dark};
         this._next = resolved.next;
         const base = at ?? GLib.DateTime.new_now_utc().to_unix();
         this._switchAt = this._next > 0 ? Math.floor(base / 60) * 60 + this._next * 60 : 0;
@@ -195,6 +200,7 @@ class Wall {
             return;
         this._layoutAll();
         this._schedule();
+        this._queueStill();
     }
 
     async _loadImage(path, generation) {
@@ -249,6 +255,9 @@ class Wall {
         }
         this._layoutAll();
         this._queueCoverCheck();
+        // 設定を読み終える前（起動したばかり）は、読み終えてから
+        if (this._config)
+            this._queueStill();
     }
 
     _background() {
@@ -276,6 +285,49 @@ class Wall {
                 Math.round(width * scale), Math.round(height * scale), this._config);
             m.picture.set_position(r.x / scale, r.y / scale);
             m.picture.set_size(r.width / scale, r.height / scale);
+        }
+    }
+
+    // ---- GNOME の壁紙 ----
+
+    // GNOME の壁紙にも今の画像の1枚目を入れる（概観・ロック画面・壁紙をぼかすパネルでも同じ絵に）。
+    // 描くのは pixwallctl。並べ方を続けて変えている間は待ち、変え終わって 0.5 秒してから1回だけ
+    _queueStill() {
+        if (this._stillTimer)
+            GLib.source_remove(this._stillTimer);
+        this._stillTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 500, () => {
+            this._stillTimer = 0;
+            this._writeStill();
+            return GLib.SOURCE_REMOVE;
+        });
+    }
+
+    async _writeStill() {
+        if (this._stillRunning) {
+            this._stillAgain = true;
+            return;
+        }
+        this._stillRunning = true;
+        const monitor = Main.layoutManager.primaryMonitor;
+        // 今出している設定を選んだときと同じ時刻・外観で選ぶ
+        const {minute, dark} = this._resolvedAt;
+        const argv = [this._ctl, '--gnome-wallpaper', String(minute), dark ? '1' : '0'];
+        if (this._image && monitor) {
+            const scale = monitor.geometry_scale ?? 1;
+            argv.push(String(Math.round(monitor.width * scale)), String(Math.round(monitor.height * scale)));
+        } else {
+            // 出す画像が無い: 元の壁紙に戻す
+            argv.splice(1, argv.length - 1, '--gnome-wallpaper-restore');
+        }
+        try {
+            await run(argv);
+        } catch (e) {
+            console.warn(`pixwall: cannot run ${this._ctl}: ${e.message}`);
+        }
+        this._stillRunning = false;
+        if (this._stillAgain && !this._destroyed) {
+            this._stillAgain = false;
+            this._writeStill();
         }
     }
 
@@ -347,7 +399,19 @@ class Wall {
     }
 
     destroy() {
+        this._destroyed = true;
         this._generation++;
+        if (this._stillTimer)
+            GLib.source_remove(this._stillTimer);
+        // 止めたら GNOME の壁紙を元に戻す。画面をロックしたとき（GNOME はロック中、拡張機能を止める）は戻さない
+        // （ロック画面にも同じ絵を出し、ロックを解いたら描き直さずに続ける）。ログアウトでは止まらないので戻さない
+        if (!Main.sessionMode.isLocked) {
+            try {
+                Gio.Subprocess.new([this._ctl, '--gnome-wallpaper-restore'], Gio.SubprocessFlags.NONE);
+            } catch (e) {
+                console.warn(`pixwall: cannot run ${this._ctl}: ${e.message}`);
+            }
+        }
         if (this._timer)
             GLib.source_remove(this._timer);
         if (this._coverCheck)

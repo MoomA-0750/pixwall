@@ -125,11 +125,11 @@
 - 【仮】GIF は全フレーム動かし（こちらで読む。重ね方は Windows・Mac と同じ core の `GifCompositor`）、PNG・WebP・JPEG などは gdk-pixbuf で1枚目を静止画として出す（APNG・アニメーション WebP は動かない）。並べ方・位置・大きさ・余白の色・速さ・待ち時間の決まり・画像の切り替え（時刻・ダーク／ライト）は Mac・Windows と同じ。拡大はニアレストネイバー（自動テスト: `linux_tests`（Pillow で重ねた絵と突き合わせる）・`gnome-extension/tests/run.js`（拡張機能の並べ方・覆われ方・待ち時間の計算を、C++ の core とばらばらな値 4000 通りで突き合わせる））
 - 【仮】ダーク・ライトは、xdg-desktop-portal の `org.freedesktop.appearance` の `color-scheme`（GNOME では「スタイル」のダーク）を見る。GNOME の拡張機能は `org.gnome.desktop.interface` の `color-scheme` を見る。変えるとすぐ替わる。時刻で切り替えるとき、常駐側は壁時計のタイマー（`timerfd` の `CLOCK_REALTIME`）で次の時刻に1回だけ起き、時計・時間帯を変えた・スリープから戻ったときにも選び直す。GNOME の拡張機能はパネルの時計と同じ毎分の知らせ（`GnomeDesktop.WallClock`）で切り替わる時刻を過ぎたかを見る（新しく起きる回数を増やさない）
 - 【仮】止めるとき: 一時停止、省電力モード（power-profiles-daemon の `power-saver`。設定で選べる。既定は止める）。GNOME は、すべての画面がほかの窓で隠れている（全画面の窓、または作業領域の 95% 以上を窓が覆う）・概観（アクティビティ）を出している・ロック中。Hyprland は、Hyprland の知らせ（`.socket2.sock`）で窓・作業スペースが変わったら 0.3 秒待って Hyprland に訊き（`j/monitors`・`j/clients`）、画面が消えている・今の作業スペースに全画面の窓がある・作業領域（バーを除いた所）の 95% 以上を窓が覆う画面には描かない。どの画面も描かなければタイマーを止める（Omarchy の既定の隙間で窓を並べると隠れていると扱うので、窓の無い作業スペースで動く）。ほかの合成器では、前に描いた絵を合成器が出し終えた知らせ（frame callback）が来ない画面には描かず、どの画面にも来ないとタイマーを止める（自動テスト: `linux_tests` の `TestHyprland`。確かめる手順: `docs/linux-trial.md`）
-- 【仮】動かしている間も、OS の壁紙（GNOME の壁紙）は変えない（拡張機能の面が上に重なる）。そのため概観（アクティビティ）の中の壁紙は GNOME の壁紙のまま。Hyprland には OS の壁紙が無い（hyprpaper などを使っていれば、pixwall の面がその上に出る）
+- 【仮】GNOME では、動かしている間は GNOME の壁紙（`org.gnome.desktop.background` の `picture-uri`・`picture-uri-dark` の両方）に今の画像の1枚目を入れる（Mac・Windows と同じ）。概観（アクティビティ）・ロック画面・壁紙をぼかすパネル（blur-my-shell の静的なぼかしなど）でも同じ絵になる。主の画面の物理ピクセルの大きさに pixwall と同じ並べ方・余白の色で描いた PNG（`~/.local/share/pixwall/desktop/wallpaper-a.png` か `-b.png`。替えるたびに名前を替える）を、置き方 `zoom` で入れる（ほかの画面は GNOME が同じ絵を広げる）。画像・並べ方・色・画面の大きさが変わったら、変え終わって 0.5 秒してから作り直す。描くのは `pixwallctl`（使い方に出さない `--gnome-wallpaper`・`--gnome-wallpaper-restore`）。入れる前の壁紙を `original.ini` に覚え、出す画像が無くなったとき・拡張機能を止めたとき（「pixwall を終了」・`pixwallctl quit`・拡張機能の一覧で切る）に戻す。画面をロックしたとき（GNOME はロック中、拡張機能を止める）とログアウトでは戻さない。戻すのは pixwall の PNG を指している値だけで、動かしている間に本人が替えた壁紙は残す。落ちて戻せなかったときは、次に入れるときも前の覚え書きを使う（自動テスト: `linux_tests` の `TestGnomeWallpaper`。確かめる手順: `docs/linux-trial.md`）。Hyprland には OS の壁紙が無い（hyprpaper などを使っていれば、pixwall の面がその上に出る）
 - 【仮】設定画面 `pixwall-settings` は GTK4・libadwaita で、壁紙を動かすプロセスとは別。中身は Windows の設定画面と同じ（表示を更新・画像の切り替え・画像と見本・静止画の書き出し・並べ方・余白の色・速さ・省電力モードで止める・一時停止・ログイン時に起動・終了）。静止画の書き出しは設定画面が自分で描くので、pixwall が動いていなくても書き出せる。時刻の行は、左の丸で編集する時刻を選び、時と分の欄で始まる時刻を変える。最後の1つの時刻は消せない。pixwall が動いていないと上に「pixwall が動いていません」と「開始」を出す（GNOME は拡張機能を有効にし、ほかは `pixwall` を起動する。入れたばかりの拡張機能は GNOME にログインし直すまで動かないので、そのことを出す）。GNOME では「ログイン時に起動」を出さない。設定画面は1つだけ開く。設定画面とメニュー・メッセージは、`LANGUAGE`・`LANG` の並びのうち日本語と英語の先にあるほう
 - 【仮】アプリの一覧の「pixwall」は `pixwall` を起動する。動いていれば設定画面が開き、動いていなければ始める。画像をまだ選んでいない・読めないときは設定画面も出す。起動の引数で画像を渡すと、それを動かして設定にも書く: `pixwall <画像のパス>`
 - 【仮】「ログイン時に起動」（Hyprland など）は、常駐側が起動したときと設定を読み直したときに `~/.config/autostart/pixwall.desktop`（XDG の自動起動。GNOME では動かない印付き）を置く・消す。uwsm で始める Hyprland（Omarchy など）はこれで始まる。使っていなければ、Hyprland の設定から `pixwall` を起動する（`exec-once = pixwall`、Omarchy の Lua の設定なら autostart.lua の `o.launch_on_start("pixwall")`）
-- 【仮】「pixwall を終了」・`pixwallctl quit` は、GNOME では拡張機能を止め（GNOME の壁紙が見えるようになる）、Hyprland などでは常駐側を終える
+- 【仮】「pixwall を終了」・`pixwallctl quit` は、GNOME では拡張機能を止め（GNOME の壁紙を元に戻す）、Hyprland などでは常駐側を終える
 - 【仮】設定は `$XDG_CONFIG_HOME/pixwall/config.json`（ふつうは `~/.config/pixwall/config.json`）。形は Mac・Windows と同じ。常駐側への頼みごと（読み直す・表示を更新・一時停止・終了）は、セッションの D-Bus の `xyz.mooma0750.pixwall` で受ける（GNOME の拡張機能と Hyprland の常駐側で同じ形）
 - 【仮】`pixwallctl` も Mac・Windows と同じ書き方（`linux/build/pixwallctl`、入れると `~/.local/bin/pixwallctl`）
 - 【仮】入れ方: `linux/install.sh` で自分のユーザーにだけ入れる（`~/.local/bin`・アプリの一覧・GNOME の拡張機能）。管理者の権限は要らない。この PC（Fedora 44、GNOME 50）でビルドして試す。GNOME の拡張機能は、画面の無い GNOME Shell（`linux/tests/gnome-headless/`）で、本物のデスクトップと分けて試す
@@ -141,7 +141,6 @@
 - 名前（pixwall は仮）
 - 通知領域・メニューバーのアイコンを既定で出さないままでよいか（出さないと、設定画面はもう一度起動して開くしかない）
 - 配布の形（Windows は MSIX か zip か、Mac は署名と公証をするか、Linux はパッケージ（RPM・Flatpak など）にするか）
-- Linux（GNOME）で、概観（アクティビティ）の中の壁紙も pixwall の絵にするか（GNOME の壁紙に1枚目を入れるか。今は入れない）
 - Mac の「操作スペース」ごとに別の画像を出すか（今はすべての操作スペースで同じ）
 - Wear OS の時計に GIF を届ける形（スマホの pixwall で選んで送るか）。今は時計の中にある GIF だけを選べる
 - Wear OS の文字盤の時刻が、明るい GIF の上で読みにくい（影を付けられない）のをどうするか（本人が後回しにした）

@@ -30,9 +30,9 @@ $(BUILD)/gen/%-client-protocol.h: protocols/%.xml
 	@mkdir -p $(BUILD)/gen
 	wayland-scanner client-header $< $@
 
-$(BUILD)/pixwallctl: src/ctl.cpp src/still.cpp $(COMMON) $(CORE) $(wildcard src/*.h ../windows/core/*.h)
+$(BUILD)/pixwallctl: src/ctl.cpp src/still.cpp src/gnome_wallpaper.cpp $(COMMON) $(CORE) $(wildcard src/*.h ../windows/core/*.h)
 	@mkdir -p $(BUILD)
-	$(CXX) $(CXXFLAGS) -o $@ src/ctl.cpp src/still.cpp $(COMMON) $(CORE) $(GTK) $(GIO)
+	$(CXX) $(CXXFLAGS) -o $@ src/ctl.cpp src/still.cpp src/gnome_wallpaper.cpp $(COMMON) $(CORE) $(GTK) $(GIO)
 
 $(BUILD)/pixwall: $(wildcard src/wall/*.cpp src/wall/*.h) $(COMMON) $(CORE) $(PROTO_O) $(PROTO_H)
 	@mkdir -p $(BUILD)
@@ -46,9 +46,9 @@ $(BUILD)/core_tests: ../windows/tests/core_tests.cpp $(CORE)
 	@mkdir -p $(BUILD)
 	$(CXX) $(CXXFLAGS) -o $@ ../windows/tests/core_tests.cpp $(CORE)
 
-$(BUILD)/linux_tests: tests/linux_tests.cpp src/wall/hyprland.cpp $(COMMON) $(CORE)
+$(BUILD)/linux_tests: tests/linux_tests.cpp src/wall/hyprland.cpp src/gnome_wallpaper.cpp $(COMMON) $(CORE)
 	@mkdir -p $(BUILD)
-	$(CXX) $(CXXFLAGS) -Isrc/wall -o $@ tests/linux_tests.cpp src/wall/hyprland.cpp $(COMMON) $(CORE) $(GIO)
+	$(CXX) $(CXXFLAGS) -Isrc/wall -o $@ tests/linux_tests.cpp src/wall/hyprland.cpp src/gnome_wallpaper.cpp $(COMMON) $(CORE) $(GIO)
 
 $(BUILD)/layout_dump: tests/layout_dump.cpp $(CORE)
 	@mkdir -p $(BUILD)

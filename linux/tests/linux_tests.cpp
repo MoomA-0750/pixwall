@@ -1,5 +1,6 @@
 // Linux の部分（GIF を読む・config.json の読み書き）のテスト。make test で動かす
 #include <gdk-pixbuf/gdk-pixbuf.h>
+#include <gio/gio.h>
 #include <glib/gstdio.h>
 #include <unistd.h>
 
@@ -13,6 +14,7 @@
 #include <string>
 
 #include "config_file.h"
+#include "gnome_wallpaper.h"
 #include "hyprland.h"
 #include "image_loader.h"
 #include "omarchy.h"
@@ -215,9 +217,75 @@ void TestHyprland() {
     Check(CoveredMonitors("[{", clients(two)).empty(), "broken JSON covers nothing");
 }
 
+// GNOME の壁紙に入れる・戻す（GSETTINGS_BACKEND=memory なので、本物の設定には触らない）
+void TestGnomeWallpaper() {
+    GSettingsSchemaSource* source = g_settings_schema_source_get_default();
+    GSettingsSchema* schema = source ? g_settings_schema_source_lookup(source, "org.gnome.desktop.background", TRUE) : nullptr;
+    if (!schema) {
+        std::fprintf(stderr, "skip: org.gnome.desktop.background is not installed\n");
+        return;
+    }
+    g_settings_schema_unref(schema);
+    gchar* root = g_dir_make_tmp("pixwall-gnome-XXXXXX", nullptr);
+    const std::string dir = std::string(root) + "/desktop";
+    g_free(root);
+    GSettings* s = g_settings_new("org.gnome.desktop.background");
+    const auto get = [&](const char* key) {
+        gchar* v = g_settings_get_string(s, key);
+        std::string out = v;
+        g_free(v);
+        return out;
+    };
+    const auto uriOf = [](const std::string& path) {
+        gchar* u = g_filename_to_uri(path.c_str(), nullptr, nullptr);
+        std::string out = u;
+        g_free(u);
+        return out;
+    };
+    g_settings_set_string(s, "picture-uri", "file:///orig.png");
+    g_settings_set_string(s, "picture-uri-dark", "file:///orig-dark.png");
+    g_settings_set_string(s, "picture-options", "scaled");
+    int renders = 0;
+    const auto render = [&](const std::string& png) {
+        ++renders;
+        return g_file_set_contents(png.c_str(), "png", 3, nullptr);
+    };
+    const std::string a = dir + "/wallpaper-a.png", b = dir + "/wallpaper-b.png";
+    Check(ApplyGnomeWallpaper(dir, "k1", render) && renders == 1, "the first still is drawn");
+    Check(get("picture-uri") == uriOf(a) && get("picture-uri-dark") == uriOf(a), "light and dark show the still");
+    Check(get("picture-options") == "zoom", "the still is not scaled");
+    Check(ApplyGnomeWallpaper(dir, "k1", render) && renders == 1, "the same key is not drawn again");
+    Check(ApplyGnomeWallpaper(dir, "k2", render) && renders == 2 && get("picture-uri") == uriOf(b), "a new key uses the other file");
+    Check(!g_file_test(a.c_str(), G_FILE_TEST_EXISTS) && g_file_test(b.c_str(), G_FILE_TEST_EXISTS), "the old file is removed");
+    Check(RestoreGnomeWallpaper(dir), "restore");
+    Check(get("picture-uri") == "file:///orig.png" && get("picture-uri-dark") == "file:///orig-dark.png" &&
+              get("picture-options") == "scaled", "the original wallpaper is back");
+    Check(!g_file_test(b.c_str(), G_FILE_TEST_EXISTS), "the still is removed");
+
+    // 落ちて戻せなかった: 次に入れるときも、前の覚え書き（元の壁紙）を使う
+    Check(ApplyGnomeWallpaper(dir, "k1", render), "apply again");
+    Check(ApplyGnomeWallpaper(dir, "k3", render), "apply after a crash");
+    RestoreGnomeWallpaper(dir);
+    Check(get("picture-uri") == "file:///orig.png", "the original survives a crash");
+
+    // 動かしている間に本人が明るいときの壁紙を替えた: それは残し、暗いときと置き方は戻す
+    ApplyGnomeWallpaper(dir, "k1", render);
+    g_settings_set_string(s, "picture-uri", "file:///mine.png");
+    RestoreGnomeWallpaper(dir);
+    Check(get("picture-uri") == "file:///mine.png" && get("picture-uri-dark") == "file:///orig-dark.png" &&
+              get("picture-options") == "scaled", "the wallpaper chosen while running is kept");
+    Check(RestoreGnomeWallpaper(dir), "restoring twice does nothing");
+    g_object_unref(s);
+    g_rmdir(dir.c_str());
+    g_rmdir(dir.substr(0, dir.size() - 8).c_str());
+}
+
 }  // namespace
 
 int main() {
+    // GSettings を使う前に、本物の設定（dconf）に書かないようにする
+    g_setenv("GSETTINGS_BACKEND", "memory", TRUE);
+    TestGnomeWallpaper();
     TestHyprland();
     TestGif();
     TestPng();

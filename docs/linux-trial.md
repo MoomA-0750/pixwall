@@ -48,6 +48,19 @@ pkill -f '[g]nome-shell --headless'  # 止める
 - 窓を最大化すると止まり（タイマーが無くなり `_index` が進まない）、元に戻す・最小化で動き出す
 - 設定画面: 時刻の行を選ぶと「画像（06:00 から）」に移る、時の「＋」で 07:00 になる、「時刻を足す」で今の時刻の行が増える。`pixwallctl quit` で拡張機能が止まり、GNOME の壁紙が見えて「pixwall が動いていません」が出る。「開始」で動き出す
 
+GNOME の壁紙に1枚目を入れる・戻す（2026-11-09、GNOME 50）:
+
+```sh
+gsettings get org.gnome.desktop.background picture-uri   # 画像を選ぶと …/pixwall/desktop/wallpaper-a.png（並べ方を変えると -b）
+px_eval 'Main.overview.show(); 1'; px_shot /tmp/ov.png   # 概観の背景も1枚目
+px_eval 'Main.screenShield.lock(false); 1'               # ロック: 拡張機能は止まるが、壁紙は戻さない（試験用の拡張機能も止まる）
+gdbus call --session --dest org.gnome.ScreenSaver --object-path /org/gnome/ScreenSaver --method org.gnome.ScreenSaver.SetActive false
+ls --full-time "$XDG_DATA_HOME/pixwall/desktop"           # 解いても PNG は描き直さない（時刻が同じ）
+build/pixwallctl quit                                    # 元の壁紙に戻り、PNG と original.ini が消える
+```
+
+本物の GNOME では、入れたあとにログインし直すと新しい拡張機能になる。blur-my-shell のバーのぼかしを「静的」に戻し、上のバーの裏が1枚目のぼかしになることを撮って見る
+
 ## 本物の GNOME の画面を撮る
 
 GNOME Shell の撮影の窓口は、ほかのプログラムからは断る。xdg-desktop-portal から撮る（初めての1回だけ「許可しますか」が出る）:

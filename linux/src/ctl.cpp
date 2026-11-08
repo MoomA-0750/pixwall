@@ -2,6 +2,7 @@
 // Mac・Windows 版と同じ決まり。終わりの値は、できた 0、できなかった 1、引数の誤り 2
 #include <cstdint>
 #include <cstdio>
+#include <glib/gstdio.h>
 #include <cstdlib>
 #include <string>
 #include <vector>
@@ -10,6 +11,7 @@
 #include "cli.h"
 #include "config.h"
 #include "config_file.h"
+#include "gnome_wallpaper.h"
 #include "omarchy.h"
 #include "image_loader.h"
 #include "still.h"
@@ -155,7 +157,41 @@ int Run(const std::vector<std::string>& args) {
 //   --resolve <分> <0|1>: 1行目に次に切り替わるまでの分（-1 は切り替えない）、続けて今出す設定の JSON
 //   --frames <パス>: 画像を読み、"PXWF"、幅・高さ・フレームの数・自動の余白の色（uint32）、待ち時間（double 秒 × 数）、
 //                    フレーム（premultiplied の BGRA）をそのまま書く。読めなければ何も書かず 1
+//   --gnome-wallpaper <分> <0|1> <幅> <高さ>: 今出す画像の1枚目を、主の画面の物理ピクセルの大きさで描いて GNOME の
+//                    壁紙に入れる（gnome_wallpaper.h）。画像が無い・読めなければ元の壁紙に戻す
+//   --gnome-wallpaper-restore: 元の壁紙に戻す
+int GnomeWallpaper(int minute, bool dark, int width, int height) {
+    const Config config = ResolveNow(LoadConfig(ConfigPath()), minute, dark);
+    LoadedImage image;
+    GStatBuf st;
+    if (config.image.empty() || width <= 0 || height <= 0 || g_stat(config.image.c_str(), &st) != 0 ||
+        !LoadImageFile(config.image, image) || image.frames.empty()) {
+        RestoreGnomeWallpaper(GnomeWallpaperDir());
+        return 1;
+    }
+    const int rgb = config.customBackground && config.backgroundColor >= 0 ? config.backgroundColor
+                                                                            : TopLeftColor(image);
+    const Placement p = config.placement();
+    char key[512];
+    std::snprintf(key, sizeof(key), "%lld:%lld:%d:%g:%g:%g:%g:%06X:%dx%d:", static_cast<long long>(st.st_size),
+                  static_cast<long long>(st.st_mtime), static_cast<int>(p.fit), p.position, p.freeX, p.freeY,
+                  p.freeSize, rgb & 0xFFFFFF, width, height);
+    const bool ok = ApplyGnomeWallpaper(GnomeWallpaperDir(), key + config.image, [&](const std::string& png) {
+        const auto still = RenderStill(image.frames[0].data(), image.width, image.height, width, height, p,
+                                       (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+        return WritePng(png, still, width, height);
+    });
+    return ok ? 0 : 1;
+}
+
 int Internal(const std::vector<std::string>& args) {
+    if (args[0] == "--gnome-wallpaper" && args.size() == 5) {
+        return GnomeWallpaper(std::atoi(args[1].c_str()), args[2] == "1", std::atoi(args[3].c_str()),
+                              std::atoi(args[4].c_str()));
+    }
+    if (args[0] == "--gnome-wallpaper-restore" && args.size() == 1) {
+        return RestoreGnomeWallpaper(GnomeWallpaperDir()) ? 0 : 1;
+    }
     if (args[0] == "--resolve" && args.size() == 3) {
         const Config saved = LoadConfig(ConfigPath());
         const int minute = std::atoi(args[1].c_str());

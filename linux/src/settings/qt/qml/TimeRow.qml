@@ -30,6 +30,7 @@ PrefRow {
         text: App.s.Now
         color: Theme.accent
         font.bold: true
+        Layout.rightMargin: 6
     }
     component Clock: SpinBox {
         id: clock

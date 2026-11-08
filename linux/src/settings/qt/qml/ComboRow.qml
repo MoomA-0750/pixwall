@@ -28,5 +28,7 @@ PrefRow {
     Row {
         id: extraBox
         spacing: 6
+        // 空のときは並びから外す（空でも並びの間の 6px を取り、選ぶ欄の右端がほかの行の部品よりずれるため）
+        visible: visibleChildren.length > 0
     }
 }

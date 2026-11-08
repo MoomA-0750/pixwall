@@ -24,6 +24,7 @@
 #include "fractional-scale-v1-client-protocol.h"
 #include "hyprland.h"
 #include "image_loader.h"
+#include "omarchy.h"
 #include "renderer.h"
 #include "viewporter-client-protocol.h"
 // 生成したヘッダーは C++ の予約語 namespace を引数の名前に使う
@@ -97,6 +98,8 @@ struct App {
     GDBusConnection* system = nullptr;
     GDBusProxy* power = nullptr;
     GFileMonitor* zoneMonitor = nullptr;
+    GFileMonitor* omarchyMonitor = nullptr;  // Omarchy の壁紙のリンク（~/.local/state/omarchy/current）
+    guint omarchySettle = 0;
     guint busOwner = 0;
     HyprlandWatcher hyprland;
     std::set<std::string> covered;  // ほかの窓で隠れている画面の名前（Hyprland のとき）
@@ -410,6 +413,8 @@ void LoadImage(App* app) {
     app->loadedImage = app->config.image;
     app->index = 0;
     app->delays.clear();
+    // 新しい画像を読む前に、前の画像を GPU から手放す（載るのはいつも1枚分）
+    app->renderer.Upload({});
     LoadedImage image;
     app->imageOk = !app->config.image.empty() && LoadImageFile(app->config.image, image);
     if (!app->imageOk) {
@@ -434,7 +439,7 @@ void Apply(App* app, const Config& resolved) {
 void ScheduleSwitch(App* app);
 
 void Reselect(App* app) {
-    const Config next = app->saved.Resolved(LocalMinute(), app->dark);
+    const Config next = ResolveNow(app->saved, LocalMinute(), app->dark);
     if (!(next == app->config)) Apply(app, next);
     ScheduleSwitch(app);
 }
@@ -485,7 +490,7 @@ void SyncAutostart(const Config& config) {
 void ReloadConfig(App* app) {
     app->saved = LoadConfig(app->configPath);
     SyncAutostart(app->saved);
-    Apply(app, app->saved.Resolved(LocalMinute(), app->dark));
+    Apply(app, ResolveNow(app->saved, LocalMinute(), app->dark));
     ScheduleSwitch(app);
 }
 
@@ -530,6 +535,30 @@ void OnPrepareForSleep(GDBusConnection*, const gchar*, const gchar*, const gchar
 
 void OnZoneChanged(GFileMonitor*, GFile*, GFile*, GFileMonitorEvent, gpointer data) {
     Reselect(static_cast<App*>(data));
+}
+
+gboolean OnOmarchySettled(gpointer data) {
+    auto* app = static_cast<App*>(data);
+    app->omarchySettle = 0;
+    Reselect(app);
+    return G_SOURCE_REMOVE;
+}
+
+// Omarchy の壁紙のリンク（background）か、テーマ（theme）が差し替わった。ln -nsf は消してから作る・
+// 別の名前で作って入れ替えるので、リンクそのものでなく親のフォルダーを見張り、続けて来る知らせは1回にまとめる
+void OnOmarchyChanged(GFileMonitor*, GFile* file, GFile* other, GFileMonitorEvent, gpointer data) {
+    auto* app = static_cast<App*>(data);
+    if (app->saved.switchBy != SwitchBy::Omarchy) return;
+    const auto named = [](GFile* f) {
+        if (!f) return false;
+        gchar* base = g_file_get_basename(f);
+        const bool hit = g_strcmp0(base, "background") == 0 || g_strcmp0(base, "theme") == 0;
+        g_free(base);
+        return hit;
+    };
+    if (!named(file) && !named(other)) return;
+    if (app->omarchySettle) g_source_remove(app->omarchySettle);
+    app->omarchySettle = g_timeout_add(100, OnOmarchySettled, app);
 }
 
 // ---- D-Bus で受ける頼みごと（bus.h） ----
@@ -668,6 +697,14 @@ int main(int argc, char** argv) {
     app.zoneMonitor = g_file_monitor_file(zone, G_FILE_MONITOR_WATCH_MOVES, nullptr, nullptr);
     g_object_unref(zone);
     if (app.zoneMonitor) g_signal_connect(app.zoneMonitor, "changed", G_CALLBACK(OnZoneChanged), &app);
+    // Omarchy の壁紙のセレクター・テーマの切り替え（inotify で待つだけで、見に行きはしない）
+    const std::string omarchyDir = OmarchyCurrentDir();
+    if (g_file_test(omarchyDir.c_str(), G_FILE_TEST_IS_DIR)) {
+        GFile* current = g_file_new_for_path(omarchyDir.c_str());
+        app.omarchyMonitor = g_file_monitor_directory(current, G_FILE_MONITOR_WATCH_MOVES, nullptr, nullptr);
+        g_object_unref(current);
+        if (app.omarchyMonitor) g_signal_connect(app.omarchyMonitor, "changed", G_CALLBACK(OnOmarchyChanged), &app);
+    }
     app.switchTimer = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
     g_unix_fd_add(app.switchTimer, G_IO_IN, OnSwitchTimer, &app);
 
@@ -691,10 +728,10 @@ int main(int argc, char** argv) {
         ScheduleFrame(&app);
     });
     SyncAutostart(app.saved);
-    Apply(&app, app.saved.Resolved(LocalMinute(), app.dark));
+    Apply(&app, ResolveNow(app.saved, LocalMinute(), app.dark));
     ScheduleSwitch(&app);
-    // 画像をまだ選んでいない・読めないときは、設定画面を出す
-    if (!app.imageOk) OpenSettings();
+    // 画像をまだ選んでいない・読めないときは、設定画面を出す（Omarchy に付いていくときは、組が無ければ出さないのが正しい）
+    if (!app.imageOk && app.saved.switchBy != SwitchBy::Omarchy) OpenSettings();
 
     g_main_loop_run(app.loop);
 

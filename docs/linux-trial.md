@@ -75,4 +75,21 @@ cramgent の Hyprland（0.56）は設定が Lua なので、`hyprctl dispatch` �
 - 設定画面は、OS がダークなので libadwaita のダークで出る
 - 時刻の切り替え: `config.json` の `timeSlots` の1つを1〜2分後に始まるようにすると、その時刻の 0.5 秒以内に替わる（`grim -g "0,100 200x200"` で前後を撮って色を比べた）
 
+### Omarchy の壁紙に付いていくのを試す
+
+本物の Omarchy の壁紙・テーマに触れないよう、`XDG_STATE_HOME` に試験用の `omarchy/current/background` を作り、別の D-Bus で起動する（動いている本物の pixwall と名前がぶつからない）:
+
+```sh
+T=~/pixwall-cli/omtest
+mkdir -p $T/state/omarchy/current $T/bg/pixwall $T/config/pixwall
+# $T/bg に a.png・b.png（静止画）、$T/bg/pixwall/a.gif（a.png と組）を置く
+ln -nsf $T/bg/a.png $T/state/omarchy/current/background
+echo '{"switchBy": "omarchy", "launchAtLogin": false}' > $T/config/pixwall/config.json
+XDG_CONFIG_HOME=$T/config XDG_STATE_HOME=$T/state setsid dbus-run-session -- ./build/pixwall &
+ln -nsf $T/bg/b.png $T/state/omarchy/current/background   # 組なし: pixwall の面が消える
+hyprctl layers | grep -c "namespace: pixwall"               # 本物の分と合わせて数える
+```
+
+確かめたこと（2026-11-09）: 組ありの静止画・GIF を直接 → 描く、組なし → 0.6 秒以内に面が消え、CPU 0・PSS 22MB のまま。設定画面は組の名前を出し、組が無ければ見本・並べ方を出さない（`PIXWALL_SNAPSHOT` で撮った）。
+
 ほかに見ること: すべての画面の端から端まで（バーの下も）出る、クリックがデスクトップに素通しされる、ドットがぼけない（拡大率 1.25 などでも）、全画面の窓（`fullscreen`）にすると CPU 時間が増えない（`ps -o time= -p $(pgrep -x pixwall)` を数秒おきに見る）、画面をつなぐ・外すと面が増える・消える、`pixwallctl quit` で終わる。

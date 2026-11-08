@@ -10,6 +10,7 @@
 #include "cli.h"
 #include "config.h"
 #include "config_file.h"
+#include "omarchy.h"
 #include "image_loader.h"
 #include "still.h"
 
@@ -61,7 +62,7 @@ int Set(const CliCommand& command, const std::string& configPath, const Config& 
 
 // 今、壁紙に出しているもの（時刻・ダークモードで選んだもの）を書き出す
 int Export(const CliCommand& command, const Config& saved) {
-    const Config config = saved.Resolved(LocalMinute(), SystemIsDark());
+    const Config config = ResolveNow(saved, LocalMinute(), SystemIsDark());
     if (config.image.empty()) {
         Fail("no image is chosen");
         return 1;
@@ -159,7 +160,7 @@ int Internal(const std::vector<std::string>& args) {
         const Config saved = LoadConfig(ConfigPath());
         const int minute = std::atoi(args[1].c_str());
         Out(std::to_string(saved.MinutesToNextSwitch(minute)));
-        Out(FormatConfig(saved.Resolved(minute, args[2] == "1")));
+        Out(FormatConfig(ResolveNow(saved, minute, args[2] == "1")));
         return 0;
     }
     if (args[0] == "--frames" && args.size() == 2) {

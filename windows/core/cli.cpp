@@ -25,7 +25,12 @@ const char* const kCliUsage =
     "  position         0 to 1 (0 top/left, 0.5 center, 1 bottom/right; fit and fill)\n"
     "  freeX, freeY     0 to 1 (0 left/top edge, 1 right/bottom edge; free)\n"
     "  freeSize         0.1 to 3 (1 is the size that fits the screen; free)\n"
+#ifdef __linux__
+    "  switchBy         none | time | appearance | omarchy (the times and images are set in the settings;\n"
+    "                   omarchy follows the Omarchy wallpaper: a GIF with the same name in pixwall/ next to it)\n"
+#else
     "  switchBy         none | time | appearance (the times and images are set in the settings)\n"
+#endif
     "  background       auto | custom\n"
     "  backgroundColor  #RRGGBB (used when background is custom)\n"
     "  speed            0.25 to 4\n"
@@ -163,6 +168,7 @@ std::string ConfigValue(const Config& c, const std::string& key) {
         switch (c.switchBy) {
             case SwitchBy::Time: return "time";
             case SwitchBy::Appearance: return "appearance";
+            case SwitchBy::Omarchy: return "omarchy";
             default: return "none";
         }
     }
@@ -220,8 +226,15 @@ bool SetConfigValue(Config& c, const std::string& key, const std::string& v, std
         if (v == "none") c.SwitchTo(SwitchBy::None);
         else if (v == "time") c.SwitchTo(SwitchBy::Time);
         else if (v == "appearance") c.SwitchTo(SwitchBy::Appearance);
+#ifdef __linux__
+        // Omarchy の壁紙の選択に付いていくのは Linux だけ
+        else if (v == "omarchy") c.SwitchTo(SwitchBy::Omarchy);
+        else {
+            error = "switchBy must be none, time, appearance or omarchy";
+#else
         else {
             error = "switchBy must be none, time or appearance";
+#endif
             return false;
         }
         return true;

@@ -11,8 +11,9 @@
 
 namespace pixwall {
 
-// 出す画像を何で切り替えるか。設定の JSON にもこの名前で書く（none / time / appearance）
-enum class SwitchBy { None, Time, Appearance };
+// 出す画像を何で切り替えるか。設定の JSON にもこの名前で書く（none / time / appearance / omarchy）。
+// Omarchy は Linux（Omarchy の壁紙の選択に付いていく）だけのもの。ほかの OS では切り替えない（None と同じ）として扱う
+enum class SwitchBy { None, Time, Appearance, Omarchy };
 
 // 1つの画像と、その並べ方・位置・大きさ。JSON では Config の上の階層と同じ名前の項目に書く
 struct Slot {
@@ -51,6 +52,8 @@ struct Config {
     // ダーク・ライトで切り替えるときの画像と並べ方。無ければ image と並べ方を使う
     std::optional<Slot> lightSlot;
     std::optional<Slot> darkSlot;
+    // Omarchy で切り替えるときの、画像ごとの並べ方（image が画像のパス）。無い画像は上の階層の並べ方を使う
+    std::vector<Slot> omarchySlots;
     // 余白の色。false なら画像の1枚目の左上の1ドットの色、true なら backgroundColor（選んでいれば）
     bool customBackground = false;
     int backgroundColor = -1;  // 自分で選んだ余白の色（0xRRGGBB）。-1 ならまだ選んでいない。自動にしても覚えておく
@@ -82,6 +85,10 @@ struct Config {
     int MinutesToNextSwitch(int minute) const;
     // 切り替え方を変える。初めて切り替えるときは、今の画像と並べ方から始める（時刻は 6:00 と 18:00、ダーク・ライトは両方）
     void SwitchTo(SwitchBy mode);
+    // Omarchy で切り替えるとき、画像 image を出す並べ方。omarchySlots に無ければ上の階層の並べ方。image が空なら空
+    Slot OmarchySlot(const std::string& image) const;
+    // omarchySlots の、slot.image の並べ方を slot にする（無ければ足す）
+    void SetOmarchySlot(const Slot& slot);
     // 無いもの（番号が範囲の外・まだ選んでいないダーク・ライト）は mainSlot
     Slot GetSlot(SlotRef ref) const;
     // 番号が範囲の外なら何もしない

@@ -297,6 +297,7 @@ const char* SwitchByName(SwitchBy mode) {
     switch (mode) {
         case SwitchBy::Time: return "time";
         case SwitchBy::Appearance: return "appearance";
+        case SwitchBy::Omarchy: return "omarchy";
         default: return "none";
     }
 }
@@ -407,6 +408,25 @@ void Config::SetSlot(SlotRef ref, const Slot& slot) {
     }
 }
 
+Slot Config::OmarchySlot(const std::string& path) const {
+    if (path.empty()) return Slot{};
+    for (const auto& s : omarchySlots) {
+        if (s.image == path) return s;
+    }
+    return Slot{path, placement()};
+}
+
+void Config::SetOmarchySlot(const Slot& slot) {
+    if (slot.image.empty()) return;
+    for (auto& s : omarchySlots) {
+        if (s.image == slot.image) {
+            s = slot;
+            return;
+        }
+    }
+    omarchySlots.push_back(slot);
+}
+
 std::vector<std::string> Config::AllImages() const {
     std::vector<std::string> all;
     const auto add = [&](const std::string& path) {
@@ -450,6 +470,7 @@ Config ParseConfig(std::string_view json) {
             if (*s == "none") c.switchBy = SwitchBy::None;
             if (*s == "time") c.switchBy = SwitchBy::Time;
             if (*s == "appearance") c.switchBy = SwitchBy::Appearance;
+            if (*s == "omarchy") c.switchBy = SwitchBy::Omarchy;
         }
         // 読めない1つは飛ばす
         if (key == "timeSlots") {
@@ -457,6 +478,13 @@ Config ParseConfig(std::string_view json) {
                 Reader(raw->text).Array([&](const Value& item) {
                     int start = 0;
                     if (auto slot = ReadSlot(item, &start)) c.timeSlots.push_back(TimeSlot{start, *slot});
+                });
+            }
+        }
+        if (key == "omarchySlots") {
+            if (const auto* raw = std::get_if<Raw>(&v); raw && raw->open == '[') {
+                Reader(raw->text).Array([&](const Value& item) {
+                    if (auto slot = ReadSlot(item); slot && !slot->image.empty()) c.SetOmarchySlot(*slot);
                 });
             }
         }
@@ -510,6 +538,16 @@ std::string FormatConfig(const Config& c) {
         out += "  \"lightSlot\" : ";
         WriteSlot(out, *c.lightSlot, "    ", nullptr);
         out += ",\n";
+    }
+    // Omarchy の並べ方は、使っているときだけ書く（ほかの OS の設定は変わらない）
+    if (!c.omarchySlots.empty()) {
+        out += "  \"omarchySlots\" : [\n";
+        for (size_t i = 0; i < c.omarchySlots.size(); ++i) {
+            out += "    ";
+            WriteSlot(out, c.omarchySlots[i], "      ", nullptr);
+            out += i + 1 < c.omarchySlots.size() ? ",\n" : "\n";
+        }
+        out += "  ],\n";
     }
     out += std::string("  \"pauseOnLowPower\" : ") + (c.pauseOnLowPower ? "true" : "false") + ",\n";
     out += "  \"position\" : " + number(c.position) + ",\n";

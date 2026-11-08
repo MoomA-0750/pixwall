@@ -19,6 +19,7 @@
 #include "config.h"
 #include "config_file.h"
 #include "image_loader.h"
+#include "omarchy.h"
 #include "still.h"
 #include "strings.h"
 
@@ -84,6 +85,10 @@ struct Ui {
     GtkWidget* darkButton = nullptr;
     GtkWidget* imageGroup = nullptr;
     GtkWidget* imageRow = nullptr;
+    GtkWidget* chooseButton = nullptr;
+    GtkWidget* previewRow = nullptr;
+    GtkWidget* exportRow = nullptr;
+    GtkWidget* placementRows[5] = {};  // 並べ方の行（Omarchy で組む GIF が無いときは触れない）
     GtkWidget* preview = nullptr;
     GtkWidget* frameRow = nullptr;
     GtkWidget* frameScale = nullptr;
@@ -113,6 +118,7 @@ struct Ui {
     std::string previewPath;  // 見本に読んだ画像
     std::unique_ptr<LoadedImage> previewImage;
     GFileMonitor* monitor = nullptr;
+    GFileMonitor* omarchyMonitor = nullptr;
 };
 
 Ui ui;
@@ -132,10 +138,20 @@ void Commit() {
     if (GVariant* reply = CallResident("Reload")) g_variant_unref(reply);
 }
 
-Slot EditingSlot() { return ui.saved.GetSlot(ui.editing); }
+bool OmarchyMode() { return ui.saved.switchBy == SwitchBy::Omarchy; }
+
+// Omarchy の今の壁紙に組む画像（無ければ空）
+std::string OmarchyPair() { return OmarchyImage(OmarchyCurrentDir() + "/background"); }
+
+// Omarchy で切り替えるときは、今の Omarchy の壁紙に組む画像の並べ方を編集する
+Slot EditingSlot() { return OmarchyMode() ? ui.saved.OmarchySlot(OmarchyPair()) : ui.saved.GetSlot(ui.editing); }
 
 void SetEditingSlot(const Slot& slot) {
-    ui.saved.SetSlot(ui.editing, slot);
+    if (OmarchyMode()) {
+        ui.saved.SetOmarchySlot(slot);
+    } else {
+        ui.saved.SetSlot(ui.editing, slot);
+    }
     Commit();
 }
 
@@ -206,6 +222,7 @@ void UpdatePreview() {
 // ---- 画面を設定に合わせる ----
 
 std::string ImageHeading() {
+    if (OmarchyMode()) return T(S::ImageOmarchy);
     switch (ui.editing.kind) {
         case SlotRef::Time:
             return Format(S::ImageFrom, FormatClock(ui.saved.timeSlots[ui.editing.index].start));
@@ -238,13 +255,30 @@ void Sync() {
 
     const Slot slot = EditingSlot();
     adw_preferences_group_set_title(ADW_PREFERENCES_GROUP(ui.imageGroup), ImageHeading().c_str());
-    adw_action_row_set_subtitle(ADW_ACTION_ROW(ui.imageRow), FileName(slot.image).c_str());
+    if (OmarchyMode()) {
+        // 画像は Omarchy の壁紙で決まるので選ばない。組が無ければ並べ方も触れない
+        adw_action_row_set_subtitle(
+            ADW_ACTION_ROW(ui.imageRow),
+            slot.image.empty() ? T(S::OmarchyNoPair) : Format(S::OmarchyHint, FileName(slot.image)).c_str());
+    } else {
+        adw_action_row_set_subtitle(ADW_ACTION_ROW(ui.imageRow), FileName(slot.image).c_str());
+    }
+    gtk_widget_set_visible(ui.chooseButton, !OmarchyMode());
     const Placement& p = slot.placement;
     adw_combo_row_set_selected(ADW_COMBO_ROW(ui.fitCombo), static_cast<guint>(p.fit));
     gtk_widget_set_visible(ui.positionRow, p.fit == Fit::Fit || p.fit == Fit::Fill);
     gtk_widget_set_visible(ui.sizeRow, p.fit == Fit::Free);
     gtk_widget_set_visible(ui.xRow, p.fit == Fit::Free);
     gtk_widget_set_visible(ui.yRow, p.fit == Fit::Free);
+    // Omarchy で組になる GIF が無いときは、見本・書き出し・並べ方を出さない（描かないので効かない）
+    const bool paired = !OmarchyMode() || !slot.image.empty();
+    gtk_widget_set_visible(ui.previewRow, paired);
+    gtk_widget_set_visible(ui.exportRow, paired);
+    if (!paired) {
+        for (GtkWidget* row : ui.placementRows) gtk_widget_set_visible(row, FALSE);
+    } else {
+        gtk_widget_set_visible(ui.fitCombo, TRUE);
+    }
     gtk_range_set_value(GTK_RANGE(ui.positionScale), std::round(p.position * 100));
     gtk_range_set_value(GTK_RANGE(ui.sizeScale), std::round(p.freeSize * 100));
     gtk_range_set_value(GTK_RANGE(ui.xScale), std::round(p.freeX * 100));
@@ -597,7 +631,14 @@ void Build(GtkApplication* app) {
 
     // 画像の切り替え
     ui.switchGroup = Group(page, T(S::SwitchLabel), T(S::SwitchHint));
-    ui.switchCombo = Combo(ui.switchGroup, T(S::SwitchBy), {T(S::SwitchNone), T(S::SwitchTime), T(S::SwitchAppearance)});
+    // Omarchy に付いていくのは、Omarchy があるときだけ選べる（設定がもう omarchy なら出しておく）
+    ui.configPath = ConfigPath();
+    ui.saved = LoadConfig(ui.configPath);
+    std::vector<std::string> modes = {T(S::SwitchNone), T(S::SwitchTime), T(S::SwitchAppearance)};
+    if (g_file_test(OmarchyCurrentDir().c_str(), G_FILE_TEST_IS_DIR) || OmarchyMode()) {
+        modes.push_back(T(S::SwitchOmarchy));
+    }
+    ui.switchCombo = Combo(ui.switchGroup, T(S::SwitchBy), modes);
     OnSelected(ui.switchCombo, [](guint i) {
         ui.saved.SwitchTo(static_cast<SwitchBy>(i));
         ui.editing = InitialEditing();
@@ -640,6 +681,7 @@ void Build(GtkApplication* app) {
     ui.imageRow = adw_action_row_new();
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(ui.imageRow), T(S::AllDisplays));
     GtkWidget* choose = gtk_button_new_with_label(T(S::Choose));
+    ui.chooseButton = choose;
     gtk_widget_set_valign(choose, GTK_ALIGN_CENTER);
     OnClick(choose, [] { ChooseImage(); });
     adw_action_row_add_suffix(ADW_ACTION_ROW(ui.imageRow), choose);
@@ -654,7 +696,7 @@ void Build(GtkApplication* app) {
     gtk_widget_set_margin_end(ui.preview, 12);
     gtk_widget_set_overflow(ui.preview, GTK_OVERFLOW_HIDDEN);
     // 見本は一覧の中に置く（一覧の外に足すと、一覧の下に出る）
-    GtkWidget* previewRow = gtk_list_box_row_new();
+    GtkWidget* previewRow = ui.previewRow = gtk_list_box_row_new();
     gtk_list_box_row_set_activatable(GTK_LIST_BOX_ROW(previewRow), FALSE);
     gtk_list_box_row_set_selectable(GTK_LIST_BOX_ROW(previewRow), FALSE);
     gtk_list_box_row_set_child(GTK_LIST_BOX_ROW(previewRow), ui.preview);
@@ -662,7 +704,7 @@ void Build(GtkApplication* app) {
     ui.frameRow = Slider(ui.imageGroup, "", nullptr, 1, 2, &ui.frameScale, [](double) { UpdatePreview(); });
     // 何枚目かは行の題に出す
     gtk_scale_set_draw_value(GTK_SCALE(ui.frameScale), FALSE);
-    GtkWidget* exportRow = adw_action_row_new();
+    GtkWidget* exportRow = ui.exportRow = adw_action_row_new();
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(exportRow), T(S::StillLabel));
     GtkWidget* exportButton = gtk_button_new_with_label(T(S::ExportButton));
     gtk_widget_set_valign(exportButton, GTK_ALIGN_CENTER);
@@ -685,6 +727,9 @@ void Build(GtkApplication* app) {
                      [](double v) { ChangePlacement([v](Placement& p) { p.freeX = v / 100; }); });
     ui.yRow = Slider(display, T(S::FreeY), T(S::FreeYHint), 0, 100, &ui.yScale,
                      [](double v) { ChangePlacement([v](Placement& p) { p.freeY = v / 100; }); });
+    for (GtkWidget* row : {ui.fitCombo, ui.positionRow, ui.sizeRow, ui.xRow, ui.yRow}) {
+        *std::find(std::begin(ui.placementRows), std::end(ui.placementRows), nullptr) = row;
+    }
     ui.backgroundCombo = Combo(display, T(S::Background), {T(S::BackgroundAuto), T(S::BackgroundCustom)});
     adw_action_row_set_subtitle(ADW_ACTION_ROW(ui.backgroundCombo), T(S::BackgroundHint));
     GtkColorDialog* colorDialog = gtk_color_dialog_new();
@@ -772,6 +817,19 @@ void Build(GtkApplication* app) {
     ui.monitor = g_file_monitor_file(file, G_FILE_MONITOR_WATCH_MOVES, nullptr, nullptr);
     g_object_unref(file);
     if (ui.monitor) g_signal_connect(ui.monitor, "changed", G_CALLBACK(OnConfigChanged), nullptr);
+    // Omarchy で壁紙を選び直したら、編集する画像も替える
+    if (g_file_test(OmarchyCurrentDir().c_str(), G_FILE_TEST_IS_DIR)) {
+        GFile* current = g_file_new_for_path(OmarchyCurrentDir().c_str());
+        ui.omarchyMonitor = g_file_monitor_directory(current, G_FILE_MONITOR_WATCH_MOVES, nullptr, nullptr);
+        g_object_unref(current);
+        if (ui.omarchyMonitor) {
+            g_signal_connect(ui.omarchyMonitor, "changed",
+                             G_CALLBACK(+[](GFileMonitor*, GFile*, GFile*, GFileMonitorEvent, gpointer) {
+                                 if (OmarchyMode()) Sync();
+                             }),
+                             nullptr);
+        }
+    }
     g_bus_watch_name(G_BUS_TYPE_SESSION, kBusName, G_BUS_NAME_WATCHER_FLAGS_NONE,
                      +[](GDBusConnection*, const gchar*, const gchar*, gpointer) { SetRunning(true); },
                      +[](GDBusConnection*, const gchar*, gpointer) { SetRunning(false); }, nullptr, nullptr);

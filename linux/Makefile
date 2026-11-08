@@ -5,7 +5,7 @@ CXXFLAGS += -std=c++20 -Wall -Wextra -I../windows/core -Isrc -Ibuild/gen
 BUILD := build
 
 CORE := ../windows/core/core.cpp ../windows/core/config.cpp ../windows/core/cli.cpp
-COMMON := src/config_file.cpp src/image_loader.cpp src/bus.cpp
+COMMON := src/config_file.cpp src/omarchy.cpp src/image_loader.cpp src/bus.cpp
 
 GIO := $(shell pkg-config --cflags --libs gio-2.0 gdk-pixbuf-2.0)
 GTK := $(shell pkg-config --cflags --libs gtk4)

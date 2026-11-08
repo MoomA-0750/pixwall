@@ -463,6 +463,28 @@ void TestSwitching() {
     CHECK(SetConfigValue(cli, "switchBy", "appearance", error) && ConfigValue(cli, "switchBy") == "appearance");
     CHECK(cli.darkSlot && cli.darkSlot->image == "/main.gif");
     CHECK(!SetConfigValue(cli, "switchBy", "weather", error));
+
+    // Omarchy で切り替える（Linux だけ）。ほかの OS では切り替えない（mainSlot を出す）
+    Config om = ParseConfig(R"({"image": "/main.gif", "fit": "fill", "switchBy": "omarchy",
+        "omarchySlots": [{"image": "/a/pixwall/x.gif", "fit": "free", "freeSize": 2}, {"fit": "fit"}]})");
+    CHECK(om.switchBy == SwitchBy::Omarchy && om.omarchySlots.size() == 1);
+    CHECK(om.Resolved(0, false).image == "/main.gif");
+    CHECK(om.OmarchySlot("/a/pixwall/x.gif").placement.fit == Fit::Free);
+    CHECK(om.OmarchySlot("/a/pixwall/x.gif").placement.freeSize == 2);
+    CHECK(om.OmarchySlot("/b/pixwall/y.gif").placement.fit == Fit::Fill);
+    CHECK(om.OmarchySlot("/b/pixwall/y.gif").image == "/b/pixwall/y.gif");
+    CHECK(om.OmarchySlot("").image.empty());
+    om.SetOmarchySlot(Slot{"/b/pixwall/y.gif", Placement(Fit::Fit, 0)});
+    om.SetOmarchySlot(Slot{"/a/pixwall/x.gif", Placement(Fit::Integer, 0)});
+    CHECK(om.omarchySlots.size() == 2 && om.OmarchySlot("/a/pixwall/x.gif").placement.fit == Fit::Integer);
+    CHECK(ParseConfig(FormatConfig(om)) == om);
+    CHECK(FormatConfig(Config{}).find("omarchySlots") == std::string::npos);
+    CHECK(ConfigValue(om, "switchBy") == "omarchy");
+#ifdef __linux__
+    CHECK(SetConfigValue(cli, "switchBy", "omarchy", error) && cli.switchBy == SwitchBy::Omarchy);
+#else
+    CHECK(!SetConfigValue(cli, "switchBy", "omarchy", error));
+#endif
 }
 
 int main() {

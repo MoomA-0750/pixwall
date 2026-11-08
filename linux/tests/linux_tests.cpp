@@ -1,6 +1,7 @@
 // Linux の部分（GIF を読む・config.json の読み書き）のテスト。make test で動かす
 #include <gdk-pixbuf/gdk-pixbuf.h>
 #include <glib/gstdio.h>
+#include <unistd.h>
 
 #include <cmath>
 #include <cstdio>
@@ -14,6 +15,7 @@
 #include "config_file.h"
 #include "hyprland.h"
 #include "image_loader.h"
+#include "omarchy.h"
 
 using namespace pixwall;
 
@@ -143,6 +145,42 @@ void TestConfigFile() {
     g_free(cwd);
 }
 
+// Omarchy の壁紙のリンクから、組む画像を決める（リンクは omarchy-theme-bg-set と同じく ln -nsf の形で置く）
+void TestOmarchy() {
+    gchar* root = g_dir_make_tmp("pixwall-omarchy-XXXXXX", nullptr);
+    const std::string dir = root;
+    g_free(root);
+    const std::string bg = dir + "/backgrounds";
+    g_mkdir_with_parents((bg + "/pixwall").c_str(), 0700);
+    for (const char* f : {"/a.png", "/b.jpg", "/c.gif", "/d.png", "/pixwall/a.gif", "/pixwall/d.webp", "/pixwall/b.txt"}) {
+        g_file_set_contents((bg + f).c_str(), "x", 1, nullptr);
+    }
+    const std::string link = dir + "/background";
+    const auto point = [&](const std::string& target) {
+        g_remove(link.c_str());
+        return symlink(target.c_str(), link.c_str()) == 0;
+    };
+    Check(point(bg + "/a.png") && OmarchyImage(link) == bg + "/pixwall/a.gif", "a still image with a GIF pair");
+    Check(point(bg + "/d.png") && OmarchyImage(link) == bg + "/pixwall/d.webp", "a still image with a WebP pair");
+    Check(point(bg + "/b.jpg") && OmarchyImage(link).empty(), "a still image without a pair leaves it to Omarchy");
+    Check(point(bg + "/c.gif") && OmarchyImage(link) == bg + "/c.gif", "a GIF chosen directly is shown");
+    Check(point("backgrounds/a.png") && OmarchyImage(link) == bg + "/pixwall/a.gif", "a relative link");
+    Check(point(bg + "/none.png") && OmarchyImage(link).empty(), "a broken link shows nothing");
+    g_remove(link.c_str());
+    Check(OmarchyImage(link).empty(), "no link shows nothing");
+
+    // Omarchy で切り替えないときは、ほかの OS と同じ
+    Config c;
+    c.image = "/main.gif";
+    Check(ResolveNow(c, 0, false).image == "/main.gif", "other modes are resolved as before");
+    for (const char* f : {"/a.png", "/b.jpg", "/c.gif", "/d.png", "/pixwall/a.gif", "/pixwall/d.webp", "/pixwall/b.txt"}) {
+        g_remove((bg + f).c_str());
+    }
+    g_rmdir((bg + "/pixwall").c_str());
+    g_rmdir(bg.c_str());
+    g_rmdir(dir.c_str());
+}
+
 // Hyprland の JSON（2026-11-08 に cramgent の Omarchy で hyprctl -j が返した形）から、隠れている画面を決める
 void TestHyprland() {
     const std::string monitors = R"([{"id": 0, "name": "eDP-1", "width": 2560, "height": 1600, "x": 0, "y": 0,
@@ -184,6 +222,7 @@ int main() {
     TestGif();
     TestPng();
     TestConfigFile();
+    TestOmarchy();
     if (failures) {
         std::fprintf(stderr, "%d failed\n", failures);
         return 1;

@@ -426,3 +426,12 @@
 - 起動したときにもう隠れている画面には、一度も絵を出さないと Hyprland が面を出さない（`hyprctl layers` で a: 0 のまま）。隠れていても一度は描く
 - 時刻の切り替えが1分遅れた。タイマーは切り替わる時刻ちょうどに起きていたが、今の分を読む `time()` が粗い時計（`CLOCK_REALTIME_COARSE`）で数ミリ秒遅れ、まだ前の分を返していた。`clock_gettime(CLOCK_REALTIME)` で読む。cramgent で、足した時刻の 0.5 秒以内に替わることを確かめた
 
+## 2026-11-09 Omarchy の壁紙に付いていく（Linux）
+
+- 本人の要望（cramgent の別のセッション経由、本人の了承済みの設計）: Omarchy のテーマごとに GIF を決めたい・静止画と GIF を組にして Omarchy の壁紙のセレクターから選びたい。一番の条件は軽いこと
+- Omarchy は選んだ壁紙を `~/.local/state/omarchy/current/background` のリンクで指す。セレクター（`omarchy-theme-bg-set`）もテーマの切り替え（`omarchy-theme-set`）も `ln -nsf` で付け替えるだけで、壁紙を替えたときのフックは無い。そこでリンクを見張る。`ln -nsf` は消して作り直す・入れ替えるので、リンクでなく親のフォルダーを inotify で見る。テーマを替えると `current/theme` が `rm -rf` と `mv` で入れ替わり、リンクの文字列が同じでも中身が替わるので、`theme` の変化でも選び直す。続けて来る知らせは 0.1 秒待って1回にまとめる
+- 組の決め方は、静止画と同じフォルダーの下の `pixwall/` に同じ名前の GIF。Omarchy のセレクターは `find -maxdepth 1` なので下のフォルダーの GIF は一覧に出ず、静止画だけが並ぶ。テーマを替えるときは `cp -r` なので `pixwall/` も一緒に写る
+- 組の無い静止画では、pixwall は面を消して描かない（Omarchy の Quickshell が静止画を描く）。二重に描かず、CPU も 0。GIF を直接選んだら pixwall が描く（本人の了承で OWE（owed）を止めたので二重にならない。OWE は GIF を動画にして流すのでドットが崩れていた）
+- 並べ方を組ごとに持つ形は、画像のパスをキーにした `omarchySlots`。時刻・外観の切り替えと違い、組の数は Omarchy 側のファイルで決まるので、設定には変えたものだけを書く
+- core の `SwitchBy` に `Omarchy` を足した。Windows・Mac の常駐側は `Resolved` が `mainSlot` を返すので切り替えない。Windows の設定画面（C#）と Mac（Swift）は知らない値を `none` として読む。CLI で `omarchy` を受けるのは Linux だけ
+- cramgent で、本物の Omarchy と分けた場所（`XDG_STATE_HOME`・`XDG_CONFIG_HOME` を試験用に、別の D-Bus）で確かめた: リンクを組ありの静止画 → 描く、組なし → 0.6 秒以内に面が消える（PSS は 22MB のまま、CPU 0）、GIF を直接 → 描く

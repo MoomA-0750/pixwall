@@ -74,8 +74,8 @@ to-fu の Android Studio に、折りたたみのエミュレーター `Pixel_10
 
 - 時刻: `switchBy` を `time` にし、`timeSlots` の1つを今の時刻より前（整数倍）、もう1つを1〜2分後（`fill`）にする。その時刻になると、ホーム画面の点が大きくなる
 - ダーク・ライト: `switchBy` を `appearance` にし、`lightSlot` と `darkSlot` の並べ方を変える。`adb shell cmd uimode night no` / `yes` で、すぐ替わる
-- 設定画面: 切り替え方の3つのつながったトグル、時刻の行（「変える」「消す」、今出している行に「表示中」）、「時刻を追加」、時刻を選ぶ画面（24 時間の文字盤）、ダーク・ライトのときの「ライト」「ダーク」のトグル
-- Wave の画面の上の透明な窓が下の真ん中にあると、そこへの `adb shell input tap` は落とされる（logcat に `Untrusted touch due to occlusion`）。その範囲を避けて押す
+- 設定画面: 切り替え方の3つのつながったトグル、選んだ切り替え方に合った説明、時刻の行（「変える」「消す」、今出している行に「表示中」）、「時刻を追加」、時刻を選ぶ画面（24 時間の文字盤）、ダーク・ライトのときの「ライト」「ダーク」のトグル
+- ほかのアプリの見えない窓が重なっていると、そこへの `adb shell input tap` は落とされる（logcat に `Untrusted touch due to occlusion`）。2026-11-09 には Wave の窓が下の真ん中を遮っていた（Wave 側で直った）
 
 2026-11-09 に Pixel 3 で上のすべてを確かめた
 

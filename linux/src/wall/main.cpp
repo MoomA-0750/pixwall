@@ -3,6 +3,7 @@
 // GNOME は layer-shell を持たないので、シェルの拡張機能（gnome-extension/）が同じ役をする
 #include <gio/gio.h>
 #include <glib-unix.h>
+#include <sys/stat.h>
 #include <sys/timerfd.h>
 #include <unistd.h>
 #include <wayland-egl.h>
@@ -82,6 +83,7 @@ struct App {
     Config saved;   // config.json のとおり
     Config config;  // 今出すものを mainSlot に入れたもの。描くのはこちら
     std::string loadedImage;
+    std::string loadedStamp;  // 読んだ画像のファイルの印（入れ替わったら同じパスでも読み直す）
     bool imageOk = false;
     std::vector<double> delays;
     int autoColor = 0;
@@ -409,8 +411,19 @@ void Refresh(App* app) {
 
 // ---- 設定と切り替え ----
 
+// ファイルの印（装置・inode・大きさ・更新時刻）。Omarchy はテーマを替えると current/theme を丸ごと入れ替えるので、
+// 同じパスでも別の画像になる
+std::string FileStamp(const std::string& path) {
+    struct stat st {};
+    if (path.empty() || stat(path.c_str(), &st) != 0) return {};
+    return std::to_string(st.st_dev) + ":" + std::to_string(st.st_ino) + ":" + std::to_string(st.st_size) + ":" +
+           std::to_string(st.st_mtim.tv_sec) + "." + std::to_string(st.st_mtim.tv_nsec);
+}
+
 void LoadImage(App* app) {
     app->loadedImage = app->config.image;
+    app->loadedStamp = FileStamp(app->config.image);
+    if (g_getenv("PIXWALL_DEBUG")) std::fprintf(stderr, "pixwall: load %s\n", app->config.image.c_str());
     app->index = 0;
     app->delays.clear();
     // 新しい画像を読む前に、前の画像を GPU から手放す（載るのはいつも1枚分）
@@ -429,7 +442,7 @@ void LoadImage(App* app) {
 
 void Apply(App* app, const Config& resolved) {
     app->config = resolved;
-    if (app->config.image != app->loadedImage) LoadImage(app);
+    if (app->config.image != app->loadedImage || FileStamp(app->config.image) != app->loadedStamp) LoadImage(app);
     SyncSurfaces(app);
     DrawAll(app);
     app->stalled = false;
@@ -440,7 +453,7 @@ void ScheduleSwitch(App* app);
 
 void Reselect(App* app) {
     const Config next = ResolveNow(app->saved, LocalMinute(), app->dark);
-    if (!(next == app->config)) Apply(app, next);
+    if (!(next == app->config) || FileStamp(next.image) != app->loadedStamp) Apply(app, next);
     ScheduleSwitch(app);
 }
 

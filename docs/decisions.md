@@ -435,3 +435,12 @@
 - 並べ方を組ごとに持つ形は、画像のパスをキーにした `omarchySlots`。時刻・外観の切り替えと違い、組の数は Omarchy 側のファイルで決まるので、設定には変えたものだけを書く
 - core の `SwitchBy` に `Omarchy` を足した。Windows・Mac の常駐側は `Resolved` が `mainSlot` を返すので切り替えない。Windows の設定画面（C#）と Mac（Swift）は知らない値を `none` として読む。CLI で `omarchy` を受けるのは Linux だけ
 - cramgent で、本物の Omarchy と分けた場所（`XDG_STATE_HOME`・`XDG_CONFIG_HOME` を試験用に、別の D-Bus）で確かめた: リンクを組ありの静止画 → 描く、組なし → 0.6 秒以内に面が消える（PSS は 22MB のまま、CPU 0）、GIF を直接 → 描く
+- cramgent の本物の Omarchy で確かめた（本人の了承のうえ、壁紙・テーマを替えて戻した）: `omarchy-theme-bg-set` で組なしの WebP → pixwall の面が消える（CPU 0 のまま）、組ありの静止画・GIF の直接 → 描く。`omarchy-theme-set` でライト・ダークを替えると、そのテーマの `pixwall/` の GIF に替わる。初めは、テーマを替えても組の GIF のパス（`current/theme/backgrounds/pixwall/…`）が同じなので読み直さず、前のテーマの GIF のままだった。ファイルの印を見て読み直すようにした
+- ログイン時の起動は、uwsm が使う `systemd-xdg-autostart-generator` が `app-pixwall@autostart.service` を作り、`xdg-desktop-autostart.target` に入ることと、その単位を起こすと pixwall が動くことで確かめた。ログインし直すのは、GUI の中で別の作業（Claude のセッション）が動いていて落としてしまうので避けた。ディスクが暗号化されているので再起動もしない
+
+## 2026-11-09 本物の GNOME で確かめる（画面の撮り方）
+
+- 本人がこの PC の GNOME に入れたので、本物のデスクトップで確かめた。撮影は、GNOME Shell の `org.gnome.Shell.Screenshot` が GNOME 自身の撮影アプリ・ポータル以外からの呼び出しを断る（`AccessDenied: Screenshot is not allowed`）ので、xdg-desktop-portal の Screenshot を確かめの窓なしで呼ぶ（`linux/tests/portal_shot.py`）。初めての1回だけ GNOME が「許可しますか」を出し、本人が許可した（PermissionStore の `screenshot`）。ほかの窓を写さないよう、上の帯だけを切り出して見る
+- 上のバーの裏に pixwall の絵が出ないのは、blur-my-shell のバーのぼかしが「静的」（GNOME の壁紙の写しをぼかす）だったため。本人の環境の blur-my-shell を「動的」（後ろをそのままぼかす）にすると、バーの裏が pixwall の絵（余白の色・GIF）になった。pixwall 側は何も変えていない
+- 確かめたこと: 並べ方を変えるとすぐ変わる、ダーク・ライトで別の GIF にすぐ替わる、終了すると GNOME の壁紙に戻り、もう一度有効にすると戻る
+

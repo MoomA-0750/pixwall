@@ -48,6 +48,15 @@ pkill -f '[g]nome-shell --headless'  # 止める
 - 窓を最大化すると止まり（タイマーが無くなり `_index` が進まない）、元に戻す・最小化で動き出す
 - 設定画面: 時刻の行を選ぶと「画像（06:00 から）」に移る、時の「＋」で 07:00 になる、「時刻を足す」で今の時刻の行が増える。`pixwallctl quit` で拡張機能が止まり、GNOME の壁紙が見えて「pixwall が動いていません」が出る。「開始」で動き出す
 
+## 本物の GNOME の画面を撮る
+
+GNOME Shell の撮影の窓口は、ほかのプログラムからは断る。xdg-desktop-portal から撮る（初めての1回だけ「許可しますか」が出る）:
+
+```sh
+python3 -I linux/tests/portal_shot.py ~/shot.png          # 画面全体
+python3 -I linux/tests/portal_shot.py ~/bar.png 0 160     # 上から 160 ピクセルの帯だけ（ほかの窓を写さない）
+```
+
 ## Hyprland で試す
 
 cramgent（Omarchy を入れた M1 MacBook Air、Arch Linux ARM）で試す。要るもの（gcc・make・wayland・egl・gtk4・libadwaita・gdk-pixbuf）は入っている。ssh から試すときは、画面の Hyprland に向ける:

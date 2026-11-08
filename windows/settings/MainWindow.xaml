@@ -285,7 +285,16 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock x:Uid="QuitLabel" Text="壁紙を止めて、OS の壁紙に戻す" VerticalAlignment="Center" />
+                    <TextBlock x:Uid="Keep" Text="終了しても壁紙を残す" VerticalAlignment="Center" />
+                    <ToggleSwitch x:Uid="KeepControl" x:Name="KeepSwitch" AutomationProperties.Name="終了しても壁紙を残す" Grid.Column="1" OnContent="" OffContent="" MinWidth="0"
+                                  Toggled="Keep_Toggled" />
+                </Grid>
+                <Grid Style="{StaticResource Card}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="QuitLabel" Text="壁紙を止めて、OS の壁紙に戻す" VerticalAlignment="Center" TextWrapping="Wrap" />
                     <Button x:Uid="QuitButton" Grid.Column="1" Content="pixwall を終了" Click="Quit_Click" />
                 </Grid>
             </StackPanel>

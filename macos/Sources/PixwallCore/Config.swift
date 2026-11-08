@@ -36,6 +36,8 @@ public struct Config: Codable, Equatable {
     public var pauseOnLowPower = true
     /// ログインしたときに自動で始める
     public var launchAtLogin = true
+    /// 終えたときに OS の壁紙を元に戻さず、今の画像の1枚目のまま残す
+    public var keepWallpaperOnQuit = false
 
     public init() {}
 
@@ -58,6 +60,7 @@ public struct Config: Codable, Equatable {
         speed = min(max((try? c.decodeIfPresent(Double.self, forKey: .speed)) ?? d.speed, 0.25), 4)
         pauseOnLowPower = (try? c.decodeIfPresent(Bool.self, forKey: .pauseOnLowPower)) ?? d.pauseOnLowPower
         launchAtLogin = (try? c.decodeIfPresent(Bool.self, forKey: .launchAtLogin)) ?? d.launchAtLogin
+        keepWallpaperOnQuit = (try? c.decodeIfPresent(Bool.self, forKey: .keepWallpaperOnQuit)) ?? d.keepWallpaperOnQuit
     }
 
     /// 並べ方と位置・大きさ

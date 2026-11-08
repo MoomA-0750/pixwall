@@ -105,6 +105,8 @@ struct Ui {
     GtkWidget* colorButton = nullptr;
     GtkWidget* speedCombo = nullptr;
     GtkWidget* lowPowerRow = nullptr;
+    GtkWidget* keepRow = nullptr;
+    GtkWidget* quitRow = nullptr;
     GtkWidget* pauseRow = nullptr;
     GtkWidget* loginRow = nullptr;
 
@@ -296,6 +298,8 @@ void Sync() {
     adw_combo_row_set_selected(ADW_COMBO_ROW(ui.speedCombo), speed);
     adw_switch_row_set_active(ADW_SWITCH_ROW(ui.lowPowerRow), c.pauseOnLowPower);
     adw_switch_row_set_active(ADW_SWITCH_ROW(ui.loginRow), c.launchAtLogin);
+    adw_switch_row_set_active(ADW_SWITCH_ROW(ui.keepRow), c.keepWallpaperOnQuit);
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(ui.quitRow), T(c.keepWallpaperOnQuit ? S::QuitKeeps : S::QuitLabel));
     UpdatePreview();
     ui.syncing = false;
 }
@@ -797,7 +801,19 @@ void Build(GtkApplication* app) {
 
     // 終了
     GtkWidget* quit = Group(page, nullptr);
-    GtkWidget* quitRow = adw_action_row_new();
+    // 終えたときに GNOME の壁紙を戻さない（GNOME だけ。ほかには入れ替える OS の壁紙が無い）
+    ui.keepRow = adw_switch_row_new();
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(ui.keepRow), T(S::Keep));
+    gtk_widget_set_visible(ui.keepRow, IsGnome());
+    On<GParamSpec*>(ui.keepRow, "notify::active", [](GParamSpec*) {
+        if (ui.syncing) return;
+        ui.saved.keepWallpaperOnQuit = adw_switch_row_get_active(ADW_SWITCH_ROW(ui.keepRow));
+        adw_preferences_row_set_title(ADW_PREFERENCES_ROW(ui.quitRow),
+                                      T(ui.saved.keepWallpaperOnQuit ? S::QuitKeeps : S::QuitLabel));
+        Commit();
+    });
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(quit), ui.keepRow);
+    GtkWidget* quitRow = ui.quitRow = adw_action_row_new();
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(quitRow), T(S::QuitLabel));
     GtkWidget* quitButton = gtk_button_new_with_label(T(S::QuitButton));
     gtk_widget_add_css_class(quitButton, "destructive-action");

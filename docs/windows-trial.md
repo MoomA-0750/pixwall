@@ -59,6 +59,20 @@ ssh から入れるときは、ssh のセッションには画面が無いので
 - 設定画面を開いたまま `set speed 4 fit fit position 0` をすると、設定画面の並べ方・位置・速さがすぐ変わる。そのあと設定画面で何か変えても（UI Automation で「Pause in Energy Saver」を切り替えるなど）、`config.json` に `speed 4`・`fit`・`position 0` が残る
 - `quit` で常駐側が終わり、`status` が `stopped`、`%LOCALAPPDATA%\pixwall\desktop` が空
 
+## 終了しても壁紙を残す
+
+画面のあるセッションで:
+
+```powershell
+$c = "$env:LOCALAPPDATA\Programs\pixwall\pixwallctl.exe"
+& $c set keepWallpaperOnQuit true; & $c quit
+(Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers').BackgroundHistoryPath0   # pixwall の PNG のまま
+# pixwall.exe を起動してから
+& $c set keepWallpaperOnQuit false; & $c quit    # 元の壁紙と置き方に戻る
+```
+
+2026-11-09 に to-fu で確かめた（2画面とも元の写真と「塗りつぶし」に戻った）。設定画面のスイッチの見た目は、to-fu の画面をほかの作業が使っていたので、まだ撮っていない
+
 ## リソースを測る
 
 メモリはタスクマネージャーの「詳細」で pixwall.exe のプライベート ワーキング セット（「メモリ」の列）を見る。PowerShell では `Win32_PerfFormattedData_PerfProc_Process` の `WorkingSetPrivate`。`Get-Process` の `WorkingSet64` はドライバーの DLL などほかのプロセスと分け合う分も含むので、目安とは比べない

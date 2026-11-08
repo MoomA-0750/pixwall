@@ -35,12 +35,13 @@ const char* const kCliUsage =
     "  backgroundColor  #RRGGBB (used when background is custom)\n"
     "  speed            0.25 to 4\n"
     "  pauseOnLowPower  true | false\n"
-    "  launchAtLogin    true | false";
+    "  launchAtLogin    true | false\n"
+    "  keepWallpaperOnQuit  true | false (keep the first frame as the OS wallpaper after quitting)";
 
 namespace {
 
 const char* const kKeys[] = {"image", "fit", "position", "freeX", "freeY", "freeSize", "switchBy", "background", "backgroundColor",
-                             "speed", "pauseOnLowPower", "launchAtLogin"};
+                             "speed", "pauseOnLowPower", "launchAtLogin", "keepWallpaperOnQuit"};
 
 // 0.5 は "0.5"、1 は "1"（config.json と同じ）
 std::string Number(double v) {
@@ -182,6 +183,7 @@ std::string ConfigValue(const Config& c, const std::string& key) {
     if (key == "speed") return Number(c.speed);
     if (key == "pauseOnLowPower") return c.pauseOnLowPower ? "true" : "false";
     if (key == "launchAtLogin") return c.launchAtLogin ? "true" : "false";
+    if (key == "keepWallpaperOnQuit") return c.keepWallpaperOnQuit ? "true" : "false";
     return "";
 }
 
@@ -259,6 +261,7 @@ bool SetConfigValue(Config& c, const std::string& key, const std::string& v, std
     if (key == "speed") return number(0.25, 4, c.speed);
     if (key == "pauseOnLowPower") return boolean(c.pauseOnLowPower);
     if (key == "launchAtLogin") return boolean(c.launchAtLogin);
+    if (key == "keepWallpaperOnQuit") return boolean(c.keepWallpaperOnQuit);
     error = "unknown key: " + key;
     return false;
 }

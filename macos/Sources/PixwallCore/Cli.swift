@@ -14,6 +14,7 @@ public enum ConfigKey: String, CaseIterable {
     case speed
     case pauseOnLowPower
     case launchAtLogin
+    case keepWallpaperOnQuit
 }
 
 /// `pixwallctl` で頼めること。Windows 版の cli.h とそろえる
@@ -76,6 +77,7 @@ public let cliUsage = """
       speed            0.25 to 4
       pauseOnLowPower  true | false
       launchAtLogin    true | false
+      keepWallpaperOnQuit  true | false (keep the first frame as the OS wallpaper after quitting)
     """
 
 /// 引数（コマンドの名前より後）を読む。形が違えば CliError
@@ -145,6 +147,7 @@ extension Config {
         case .speed: return number(speed)
         case .pauseOnLowPower: return String(pauseOnLowPower)
         case .launchAtLogin: return String(launchAtLogin)
+        case .keepWallpaperOnQuit: return String(keepWallpaperOnQuit)
         }
     }
 
@@ -184,6 +187,7 @@ extension Config {
         case .speed: speed = try double(0.25...4)
         case .pauseOnLowPower: pauseOnLowPower = try bool()
         case .launchAtLogin: launchAtLogin = try bool()
+        case .keepWallpaperOnQuit: keepWallpaperOnQuit = try bool()
         }
     }
 

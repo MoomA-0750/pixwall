@@ -34,6 +34,8 @@ public sealed record Config
     public double Speed { get; init; } = 1;
     public bool PauseOnLowPower { get; init; } = true;
     public bool LaunchAtLogin { get; init; } = true;
+    /// 終えたときに OS の壁紙を元に戻さず、今の画像の1枚目のまま残す
+    public bool KeepWallpaperOnQuit { get; init; }
     /// 出す画像を何で切り替えるか。none / time / appearance
     public string SwitchBy { get; init; } = "none";
     /// 時刻で切り替えるときの、時刻ごとの画像と並べ方（書いた順）
@@ -167,6 +169,7 @@ public sealed record Config
                     "speed" when v.ValueKind == JsonValueKind.Number => c with { Speed = Math.Clamp(v.GetDouble(), 0.25, 4) },
                     "pauseOnLowPower" when v.ValueKind is JsonValueKind.True or JsonValueKind.False => c with { PauseOnLowPower = v.GetBoolean() },
                     "launchAtLogin" when v.ValueKind is JsonValueKind.True or JsonValueKind.False => c with { LaunchAtLogin = v.GetBoolean() },
+                    "keepWallpaperOnQuit" when v.ValueKind is JsonValueKind.True or JsonValueKind.False => c with { KeepWallpaperOnQuit = v.GetBoolean() },
                     _ => c,
                 };
             }
@@ -211,6 +214,7 @@ public sealed record Config
             w.WriteNumber("freeX", FreeX);
             w.WriteNumber("freeY", FreeY);
             if (Image is not null) w.WriteString("image", Image);
+            w.WriteBoolean("keepWallpaperOnQuit", KeepWallpaperOnQuit);
             w.WriteBoolean("launchAtLogin", LaunchAtLogin);
             if (LightSlot is not null)
             {

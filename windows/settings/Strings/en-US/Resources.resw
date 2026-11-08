@@ -49,7 +49,10 @@
   <data name="StartupHeading.Text" xml:space="preserve"><value>Startup</value></data>
   <data name="Login.Text" xml:space="preserve"><value>Open at Sign-in</value></data>
   <data name="LoginControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Open at Sign-in</value></data>
-  <data name="QuitLabel.Text" xml:space="preserve"><value>Stop the wallpaper and go back to the Windows wallpaper</value></data>
+  <data name="Keep.Text" xml:space="preserve"><value>Keep the Wallpaper After Quitting</value></data>
+  <data name="KeepControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>Keep the Wallpaper After Quitting</value></data>
+  <data name="QuitRestores" xml:space="preserve"><value>Stop the wallpaper and go back to the Windows wallpaper</value></data>
+  <data name="QuitKeeps" xml:space="preserve"><value>Stop the wallpaper and keep the first frame as the Windows wallpaper</value></data>
   <data name="QuitButton.Content" xml:space="preserve"><value>Quit pixwall</value></data>
   <data name="WindowTitle" xml:space="preserve"><value>pixwall Settings</value></data>
   <data name="NoImage" xml:space="preserve"><value>None</value></data>

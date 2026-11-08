@@ -16,7 +16,7 @@ enum class S {
     Background, BackgroundHint, BackgroundAuto, BackgroundCustom, Speed, SpeedTimes, PauseHeading, LowPower, Pause,
     StartupHeading, Login, LoginHint, QuitLabel, QuitButton, CouldNotRead, Exported, ExportFailed, SwitchLabel,
     SwitchHint, SwitchNone, SwitchTime, SwitchAppearance, AddTime, EditAppearance, Light, Dark, Now, RemoveTime,
-    StartTime, Images, Cancel, SwitchBy, SwitchOmarchy, ImageOmarchy, OmarchyHint, OmarchyNoPair, Count
+    StartTime, Images, Cancel, SwitchBy, SwitchOmarchy, ImageOmarchy, OmarchyHint, OmarchyNoPair, Keep, QuitKeeps, Count
 };
 
 inline bool Japanese() {
@@ -101,6 +101,8 @@ inline const char* T(S key) {
         {"壁紙のセレクターで選んだ静止画と同じフォルダーの pixwall/ に、同じ名前の GIF を置くと動きます: {0}",
          "Put a GIF with the same name in pixwall/ next to the wallpaper you choose in the selector: {0}"},
         {"この壁紙と組になる GIF が無いので、Omarchy の静止画を出しています", "This wallpaper has no paired GIF, so Omarchy shows the still image"},
+        {"終了しても壁紙を残す", "Keep the Wallpaper After Quitting"},
+        {"壁紙を止めて、今の画像の1枚目を GNOME の壁紙に残す", "Stop the wallpaper and keep the first frame as the GNOME wallpaper"},
     };
     static_assert(sizeof(kText) / sizeof(kText[0]) == static_cast<size_t>(S::Count));
     return kText[static_cast<int>(key)][Japanese() ? 0 : 1];

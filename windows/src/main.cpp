@@ -518,8 +518,9 @@ LRESULT CALLBACK MessageProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             DestroyWindow(hwnd);
             return 0;
         case WM_DESTROY:
-            // OS の壁紙を戻す。ログオフ・シャットダウンで終わるときは戻さない（次に始まったときも同じ絵を入れるので）
-            app.osWallpaper.Restore();
+            // OS の壁紙を戻す。ログオフ・シャットダウンで終わるときは戻さない（次に始まったときも同じ絵を入れるので）。
+            // 「終了しても壁紙を残す」なら、1枚目のまま残す（元の壁紙の覚え書きは消さないので、切ってから終えると戻る）
+            if (!app.config.keepWallpaperOnQuit) app.osWallpaper.Restore();
             // 見るスレッドを止めてから終わる（動いたままの std::thread を壊すと落ちる）
             if (app.coverageThread.joinable()) StopCoverageWatch();
             PostQuitMessage(0);

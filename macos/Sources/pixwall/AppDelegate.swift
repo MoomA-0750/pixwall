@@ -58,7 +58,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         windows.forEach { $0.stop() }
-        if !poweringOff { osWallpaper.restore() }
+        // 「終了しても壁紙を残す」なら1枚目のまま（元の壁紙の覚え書きは残すので、切ってから終えると戻る）
+        if !poweringOff && !config.keepWallpaperOnQuit { osWallpaper.restore() }
     }
 
     /// もう一度起動された（Finder・Launchpad・Spotlight・open から）

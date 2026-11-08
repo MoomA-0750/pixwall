@@ -51,6 +51,9 @@ final class CliTests: XCTestCase {
         try c.set(.backgroundColor, to: "#1e2a3b")
         try c.set(.pauseOnLowPower, to: "false")
         try c.set(.launchAtLogin, to: "false")
+        XCTAssertEqual(c.value(for: .keepWallpaperOnQuit), "false")
+        try c.set(.keepWallpaperOnQuit, to: "true")
+        XCTAssertTrue(c.keepWallpaperOnQuit)
         try c.set(.image, to: "/a/b.gif")
         XCTAssertEqual(c.fit, .fill)
         XCTAssertEqual(c.position, 0.25)
@@ -72,7 +75,7 @@ final class CliTests: XCTestCase {
             (.fit, "stretch"), (.position, "1.5"), (.position, "-0.1"), (.position, "nan"), (.speed, "0.1"),
             (.speed, "5"), (.background, "red"), (.backgroundColor, "#12345"), (.backgroundColor, "123456"),
             (.pauseOnLowPower, "yes"), (.image, ""), (.freeX, "1.1"), (.freeY, "-1"), (.freeSize, "0.05"),
-            (.freeSize, "3.5"),
+            (.freeSize, "3.5"), (.keepWallpaperOnQuit, "1"),
         ]
         for (key, value) in cases {
             XCTAssertThrowsError(try c.set(key, to: value), "\(key) \(value)")

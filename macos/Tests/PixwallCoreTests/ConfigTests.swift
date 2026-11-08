@@ -26,6 +26,7 @@ final class ConfigTests: XCTestCase {
         XCTAssertNil(c.customBackground)
         XCTAssertTrue(c.pauseOnLowPower)
         XCTAssertTrue(c.launchAtLogin)
+        XCTAssertFalse(c.keepWallpaperOnQuit)
     }
 
     func testRoundTrip() throws {
@@ -41,6 +42,7 @@ final class ConfigTests: XCTestCase {
         c.backgroundColor = "#1E2A3B"
         c.pauseOnLowPower = false
         c.launchAtLogin = false
+        c.keepWallpaperOnQuit = true
         let url = dir.appendingPathComponent("pixwall/config.json")
         try c.save(to: url)
         XCTAssertEqual(Config.load(from: url), c)

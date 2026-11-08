@@ -44,6 +44,17 @@ open /Applications/pixwall.app --args "$D/dot-64x64-30f.gif"
 - 設定画面を開いたまま `set speed 2 fit fill` と `pause` をすると、設定画面の並べ方・速さ・一時停止が変わる（画面を撮れないときは `osascript` の System Events で部品の値を読む）。そのあと設定画面で何か変えても、`show` に `speed 2`・`fill` が残る
 - `quit` で常駐側と設定画面が終わり、`status` が `stopped`
 
+## 終了しても壁紙を残す
+
+```sh
+C=/Applications/pixwall.app/Contents/MacOS/pixwallctl
+$C set keepWallpaperOnQuit true; $C quit
+osascript -e 'tell application "System Events" to get picture of every desktop'   # pixwall の PNG のまま
+open /Applications/pixwall.app; sleep 5; $C set keepWallpaperOnQuit false; $C quit   # 元の壁紙に戻り、desktop/ が空になる
+```
+
+2026-11-09 に M1 で確かめた（元は動く壁紙の DefaultDesktop.heic。オフで終えると、設定ファイルの控えから戻った）。設定画面の一番下に「終了しても壁紙を残す」と、終えたときにどうなるかの説明が出る
+
 ## リソースを測る
 
 ```sh

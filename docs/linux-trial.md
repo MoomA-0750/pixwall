@@ -61,6 +61,8 @@ build/pixwallctl quit                                    # 元の壁紙に戻り
 
 本物の GNOME では、入れたあとにログインし直すと新しい拡張機能になる。blur-my-shell のバーのぼかしを「静的」に戻し、上のバーの裏が1枚目のぼかしになることを撮って見る
 
+「終了しても壁紙を残す」（試験のシェルで）: `build/pixwallctl set keepWallpaperOnQuit true; build/pixwallctl quit` で `picture-uri` が pixwall の PNG のまま、`original.ini` も残る。拡張機能を有効にし直して `set keepWallpaperOnQuit false; quit` で元に戻る。設定画面の一番下に「終了しても壁紙を残す」が出て、終了の行の説明が変わる（2026-11-09 に確かめた）
+
 ## 本物の GNOME の画面を撮る
 
 GNOME Shell の撮影の窓口は、ほかのプログラムからは断る。xdg-desktop-portal から撮る（初めての1回だけ「許可しますか」が出る）:

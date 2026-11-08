@@ -189,6 +189,8 @@ void TestConfig() {
     CHECK(odd.image == "C:\\x\\y.gif");
     // 前の版の設定には launchAtLogin が無い。既定のオン
     CHECK(odd.launchAtLogin);
+    // 前の版の設定には keepWallpaperOnQuit が無い。既定は戻す
+    CHECK(!odd.keepWallpaperOnQuit);
 
     // 日本語のパス（\u の書き方と、そのままの UTF-8 の両方）
     CHECK(ParseConfig(R"({"image": "C:\\\u58c1\u7d19.gif"})").image == "C:\\\xE5\xA3\x81\xE7\xB4\x99.gif");
@@ -200,6 +202,7 @@ void TestConfig() {
     c.speed = 0.5;
     c.pauseOnLowPower = false;
     c.launchAtLogin = false;
+    c.keepWallpaperOnQuit = true;
     c.position = 0.25;
     c.customBackground = true;
     c.backgroundColor = 0x1E2A3B;
@@ -308,6 +311,8 @@ void TestCli() {
     CHECK(SetConfigValue(config, "backgroundColor", "#1e2a3b", error));
     CHECK(SetConfigValue(config, "pauseOnLowPower", "false", error));
     CHECK(SetConfigValue(config, "launchAtLogin", "false", error));
+    CHECK(ConfigValue(config, "keepWallpaperOnQuit") == "false");
+    CHECK(SetConfigValue(config, "keepWallpaperOnQuit", "true", error) && config.keepWallpaperOnQuit);
     CHECK(SetConfigValue(config, "image", "C:\\a\\b.gif", error));
     CHECK(config.fit == Fit::Fill && Near(config.position, 0.25) && Near(config.speed, 4));
     CHECK(SetConfigValue(config, "freeX", "0", error) && SetConfigValue(config, "freeY", "1", error) &&
@@ -324,7 +329,7 @@ void TestCli() {
         {"fit", "stretch"}, {"position", "1.5"}, {"position", "-0.1"}, {"position", "nan"}, {"speed", "0.1"},
         {"speed", "5"}, {"background", "red"}, {"backgroundColor", "#12345"}, {"backgroundColor", "123456"},
         {"pauseOnLowPower", "yes"}, {"image", ""}, {"position", "0.5x"}, {"freeX", "1.1"}, {"freeY", "-1"},
-        {"freeSize", "0.05"}, {"freeSize", "3.5"},
+        {"freeSize", "0.05"}, {"freeSize", "3.5"}, {"keepWallpaperOnQuit", "1"},
     };
     for (const auto& [k, v] : bad) CHECK(!SetConfigValue(fresh, k, v, error));
     CHECK(fresh == Config{});
@@ -407,6 +412,7 @@ void TestSwitching() {
   "freeX" : 0.5,
   "freeY" : 0.5,
   "image" : "/Users/a/main.gif",
+  "keepWallpaperOnQuit" : false,
   "launchAtLogin" : true,
   "pauseOnLowPower" : true,
   "position" : 0.5,

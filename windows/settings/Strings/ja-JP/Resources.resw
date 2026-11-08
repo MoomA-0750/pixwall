@@ -49,7 +49,10 @@
   <data name="StartupHeading.Text" xml:space="preserve"><value>起動</value></data>
   <data name="Login.Text" xml:space="preserve"><value>ログイン時に起動</value></data>
   <data name="LoginControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>ログイン時に起動</value></data>
-  <data name="QuitLabel.Text" xml:space="preserve"><value>壁紙を止めて、OS の壁紙に戻す</value></data>
+  <data name="Keep.Text" xml:space="preserve"><value>終了しても壁紙を残す</value></data>
+  <data name="KeepControl.[using:Microsoft.UI.Xaml.Automation]AutomationProperties.Name" xml:space="preserve"><value>終了しても壁紙を残す</value></data>
+  <data name="QuitRestores" xml:space="preserve"><value>壁紙を止めて、OS の壁紙に戻す</value></data>
+  <data name="QuitKeeps" xml:space="preserve"><value>壁紙を止めて、今の画像の1枚目を OS の壁紙に残す</value></data>
   <data name="QuitButton.Content" xml:space="preserve"><value>pixwall を終了</value></data>
   <data name="WindowTitle" xml:space="preserve"><value>pixwall の設定</value></data>
   <data name="NoImage" xml:space="preserve"><value>選んでいない</value></data>

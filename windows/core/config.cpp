@@ -498,6 +498,7 @@ Config ParseConfig(std::string_view json) {
         if (key == "speed" && n) c.speed = std::clamp(*n, 0.25, 4.0);
         if (key == "pauseOnLowPower" && b) c.pauseOnLowPower = *b;
         if (key == "launchAtLogin" && b) c.launchAtLogin = *b;
+        if (key == "keepWallpaperOnQuit" && b) c.keepWallpaperOnQuit = *b;
     });
     return ok ? c : Config{};
 }
@@ -533,6 +534,7 @@ std::string FormatConfig(const Config& c) {
         Quote(out, c.image);
         out += ",\n";
     }
+    out += std::string("  \"keepWallpaperOnQuit\" : ") + (c.keepWallpaperOnQuit ? "true" : "false") + ",\n";
     out += std::string("  \"launchAtLogin\" : ") + (c.launchAtLogin ? "true" : "false") + ",\n";
     if (c.lightSlot) {
         out += "  \"lightSlot\" : ";

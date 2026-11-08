@@ -258,7 +258,12 @@ struct SettingsView: View {
                 }
             }
             Section {
+                Toggle("終了しても壁紙を残す", isOn: $model.config.keepWallpaperOnQuit)
                 Button("pixwall を終了", role: .destructive) { model.onQuit() }
+            } footer: {
+                // 三項演算子では String になり訳されないので、LocalizedStringKey にする
+                Text(model.config.keepWallpaperOnQuit ? LocalizedStringKey("終了すると、今の画像の1枚目を macOS の壁紙に残します")
+                                                      : LocalizedStringKey("終了すると、元の macOS の壁紙に戻します"))
             }
         }
         .formStyle(.grouped)

@@ -134,6 +134,8 @@ public sealed partial class MainWindow : Window
         ShowBackgroundColor();
         LowPowerSwitch.IsOn = config.PauseOnLowPower;
         LoginSwitch.IsOn = config.LaunchAtLogin;
+        KeepSwitch.IsOn = config.KeepWallpaperOnQuit;
+        ShowQuitLabel();
         PauseSwitch.IsOn = Resident.IsPaused;
         loading = false;
         UpdateFrames();
@@ -493,6 +495,15 @@ public sealed partial class MainWindow : Window
     private void LowPower_Toggled(object sender, RoutedEventArgs e) => Apply(config with { PauseOnLowPower = LowPowerSwitch.IsOn });
 
     private void Login_Toggled(object sender, RoutedEventArgs e) => Apply(config with { LaunchAtLogin = LoginSwitch.IsOn });
+
+    private void Keep_Toggled(object sender, RoutedEventArgs e)
+    {
+        Apply(config with { KeepWallpaperOnQuit = KeepSwitch.IsOn });
+        ShowQuitLabel();
+    }
+
+    /// 終了したときに OS の壁紙がどうなるか
+    private void ShowQuitLabel() => QuitLabel.Text = Strings.Get(KeepSwitch.IsOn ? "QuitKeeps" : "QuitRestores");
 
     private void Pause_Toggled(object sender, RoutedEventArgs e)
     {

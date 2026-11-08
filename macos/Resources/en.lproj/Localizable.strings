@@ -60,3 +60,6 @@
 "開く…" = "Open…";
 "pixwall を終了" = "Quit pixwall";
 "設定を閉じる" = "Close Settings";
+"終了しても壁紙を残す" = "Keep the Wallpaper After Quitting";
+"終了すると、今の画像の1枚目を macOS の壁紙に残します" = "When pixwall quits, the first frame stays as the macOS wallpaper.";
+"終了すると、元の macOS の壁紙に戻します" = "When pixwall quits, the original macOS wallpaper comes back.";

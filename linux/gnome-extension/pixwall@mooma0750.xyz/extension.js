@@ -404,8 +404,9 @@ class Wall {
         if (this._stillTimer)
             GLib.source_remove(this._stillTimer);
         // 止めたら GNOME の壁紙を元に戻す。画面をロックしたとき（GNOME はロック中、拡張機能を止める）は戻さない
-        // （ロック画面にも同じ絵を出し、ロックを解いたら描き直さずに続ける）。ログアウトでは止まらないので戻さない
-        if (!Main.sessionMode.isLocked) {
+        // （ロック画面にも同じ絵を出し、ロックを解いたら描き直さずに続ける）。ログアウトでは止まらないので戻さない。
+        // 「終了しても壁紙を残す」なら1枚目のまま（元の壁紙の覚え書きは残すので、切ってから終えると戻る）
+        if (!Main.sessionMode.isLocked && !this._config?.keepWallpaperOnQuit) {
             try {
                 Gio.Subprocess.new([this._ctl, '--gnome-wallpaper-restore'], Gio.SubprocessFlags.NONE);
             } catch (e) {

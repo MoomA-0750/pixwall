@@ -60,6 +60,8 @@ struct Config {
     double speed = 1;  // 速さの倍率（0.25〜4）
     bool pauseOnLowPower = true;
     bool launchAtLogin = true;
+    // 終えたときに OS の壁紙を元に戻さず、今の画像の1枚目のまま残す
+    bool keepWallpaperOnQuit = false;
     bool operator==(const Config&) const = default;
 
     Placement placement() const {

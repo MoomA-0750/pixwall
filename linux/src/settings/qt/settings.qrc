@@ -1,0 +1,15 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+<qresource prefix="/">
+    <file>qml/Main.qml</file>
+    <file>qml/Group.qml</file>
+    <file>qml/PrefRow.qml</file>
+    <file>qml/SwitchRow.qml</file>
+    <file>qml/ComboRow.qml</file>
+    <file>qml/SliderRow.qml</file>
+    <file>qml/PwButton.qml</file>
+    <file>qml/TimeRow.qml</file>
+    <file>qml/Toast.qml</file>
+    <file>qml/FieldBackground.qml</file>
+</qresource>
+</RCC>

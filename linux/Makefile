@@ -60,7 +60,7 @@ $(BUILD)/pixwall-settings-gtk: src/settings/gtk/main.cpp src/settings/strings.h 
 QT_SRC := src/settings/qt/main.cpp src/settings/qt/backend.cpp src/settings/qt/theme.cpp src/settings/qt/monitors.cpp
 QT_MOC := $(BUILD)/gen/moc_backend.cpp $(BUILD)/gen/moc_theme.cpp
 QT_QML := $(wildcard src/settings/qt/qml/*.qml)
-QT_FLAGS = -fPIC $(QT)
+QT_FLAGS = -fPIC -DQT_NO_KEYWORDS $(QT)
 
 $(BUILD)/gen/moc_%.cpp: src/settings/qt/%.h
 	@mkdir -p $(BUILD)/gen
@@ -96,8 +96,13 @@ test: $(BUILD)/core_tests $(BUILD)/linux_tests $(BUILD)/layout_dump $(BUILD)/pix
 	sh tests/settings_select_test.sh
 	gjs -m gnome-extension/tests/run.js
 
-test-qt: $(BUILD)/theme_tests
+$(BUILD)/backend_tests: tests/backend_tests.cpp src/settings/qt/backend.cpp src/settings/qt/monitors.cpp $(BUILD)/gen/moc_backend.cpp src/settings/qt/backend.h src/settings/strings.h src/still.cpp $(COMMON) $(CORE)
+	@mkdir -p $(BUILD)
+	$(CXX) $(CXXFLAGS) -Isrc/settings/qt -o $@ tests/backend_tests.cpp src/settings/qt/backend.cpp src/settings/qt/monitors.cpp $(BUILD)/gen/moc_backend.cpp src/still.cpp $(COMMON) $(CORE) $(QT_FLAGS) $(GIO)
+
+test-qt: $(BUILD)/theme_tests $(BUILD)/backend_tests
 	QT_QPA_PLATFORM=offscreen $(BUILD)/theme_tests
+	$(BUILD)/backend_tests
 
 clean:
 	rm -rf $(BUILD)

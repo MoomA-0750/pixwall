@@ -14,6 +14,9 @@ PrefRow {
         id: combo
         currentIndex: row.currentIndex
         onActivated: index => row.activated(index)
+        // Material の ComboBox は中身（TextField）の implicitWidth が 0 なので、既定のままだと幅がいつも 180 になり、
+        // 長い項目（「Largest Whole Multiple」など）が途中で切れる。一番長い項目の幅に合わせる
+        implicitContentWidthPolicy: ComboBox.WidestText
         implicitWidth: Math.max(180, implicitContentWidth + leftPadding + rightPadding)
         background: FieldBackground { control: combo }
         popup.Material.foreground: Theme.foreground

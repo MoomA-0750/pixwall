@@ -28,7 +28,7 @@ PrefRow {
     Label {
         visible: row.now
         text: App.s.Now
-        color: Theme.accent
+        color: Look.accent
         font.bold: true
         Layout.rightMargin: 6
     }
@@ -59,7 +59,7 @@ PrefRow {
         text: App.s.RemoveTime
         flat: true
         enabled: App.canRemoveTime
-        ink: Theme.red
+        ink: Look.red
         onClicked: App.removeTime(row.index)
     }
 }

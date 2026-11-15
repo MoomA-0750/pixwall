@@ -18,7 +18,7 @@ ColumnLayout {
         text: group.title
         font.bold: true
         Layout.fillWidth: true
-        Layout.leftMargin: 4
+        Layout.leftMargin: Look.space.s1
         wrapMode: Text.Wrap
     }
     Label {
@@ -27,14 +27,14 @@ ColumnLayout {
         opacity: 0.7
         font.pixelSize: 13
         Layout.fillWidth: true
-        Layout.leftMargin: 4
+        Layout.leftMargin: Look.space.s1
         wrapMode: Text.Wrap
     }
     Rectangle {
         Layout.fillWidth: true
         implicitHeight: column.implicitHeight
-        radius: Theme.radius >= 0 ? Theme.radius : 12
-        color: Theme.raised
+        radius: Look.panelRadius
+        color: Look.raised
         Item {
             anchors.fill: parent
             anchors.margins: 1
@@ -50,7 +50,7 @@ ColumnLayout {
             anchors.fill: parent
             radius: parent.radius
             color: "transparent"
-            border.color: Theme.border
+            border.color: Look.border
             border.width: 1
         }
     }

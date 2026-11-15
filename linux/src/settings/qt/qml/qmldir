@@ -1,0 +1,13 @@
+# qrc:/qml/ の部品の一覧。Look（色・角丸・余白）を singleton にするために置く。部品を足したらここにも足す
+ComboRow 1.0 ComboRow.qml
+FieldBackground 1.0 FieldBackground.qml
+Group 1.0 Group.qml
+Kasane 1.0 Kasane.qml
+singleton Look 1.0 Look.qml
+Main 1.0 Main.qml
+PrefRow 1.0 PrefRow.qml
+PwButton 1.0 PwButton.qml
+SliderRow 1.0 SliderRow.qml
+SwitchRow 1.0 SwitchRow.qml
+TimeRow 1.0 TimeRow.qml
+Toast 1.0 Toast.qml

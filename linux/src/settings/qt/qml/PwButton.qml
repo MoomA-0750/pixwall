@@ -12,14 +12,14 @@ Button {
     // つなげて並べるとき（GTK 版の linked）、隣と接する側の角を丸めない
     property bool joinStart: false
     property bool joinEnd: false
-    property color fill: destructive ? Theme.red
-        : accent ? Theme.accent
+    property color fill: destructive ? Look.red
+        : accent ? Look.accent
         : flat ? "transparent"
-        : Qt.tint(Theme.raised, Qt.alpha(Theme.foreground, 0.10))
-    property color ink: destructive ? Theme.onRed
-        : accent ? Theme.onAccent
-        : flat ? Theme.accent
-        : Theme.foreground
+        : Qt.tint(Look.raised, Qt.alpha(Look.foreground, 0.10))
+    property color ink: destructive ? Look.onRed
+        : accent ? Look.onAccent
+        : flat ? Look.accent
+        : Look.foreground
 
     contentItem: Label {
         text: control.text
@@ -33,7 +33,7 @@ Button {
     background: Rectangle {
         implicitWidth: 64
         implicitHeight: control.Material.buttonHeight
-        radius: Theme.radius >= 0 ? Theme.radius : height / 2
+        radius: Look.buttonRadius
         topLeftRadius: control.joinStart ? 0 : radius
         bottomLeftRadius: control.joinStart ? 0 : radius
         topRightRadius: control.joinEnd ? 0 : radius
@@ -41,6 +41,6 @@ Button {
         color: Qt.tint(control.fill, Qt.alpha(control.ink, control.down ? 0.18 : control.hovered ? 0.08 : 0))
         opacity: control.enabled ? 1 : 0.5
         border.width: control.visualFocus ? 2 : 0
-        border.color: Theme.accent
+        border.color: Look.accent
     }
 }

@@ -11,5 +11,8 @@
     <file>qml/TimeRow.qml</file>
     <file>qml/Toast.qml</file>
     <file>qml/FieldBackground.qml</file>
+    <file>qml/Look.qml</file>
+    <file>qml/Kasane.qml</file>
+    <file>qml/qmldir</file>
 </qresource>
 </RCC>

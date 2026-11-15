@@ -15,12 +15,12 @@ ApplicationWindow {
     // 撮るときに、中身の高さで切る
     readonly property int naturalHeight: header.height + content.implicitHeight + 48
 
-    Material.theme: Theme.dark ? Material.Dark : Material.Light
-    Material.accent: Theme.accent
-    Material.primary: Theme.accent
-    Material.background: Theme.background
-    Material.foreground: Theme.foreground
-    color: Theme.background
+    Material.theme: Look.dark ? Material.Dark : Material.Light
+    Material.accent: Look.accent
+    Material.primary: Look.accent
+    Material.background: Look.background
+    Material.foreground: Look.foreground
+    color: Look.background
 
     header: ColumnLayout {
         spacing: 0
@@ -28,7 +28,7 @@ ApplicationWindow {
         Rectangle {
             Layout.fillWidth: true
             implicitHeight: 46
-            color: Theme.raised
+            color: Look.raised
             Label {
                 anchors.centerIn: parent
                 text: window.title
@@ -38,7 +38,7 @@ ApplicationWindow {
                 anchors.bottom: parent.bottom
                 width: parent.width
                 height: 1
-                color: Theme.border
+                color: Look.border
             }
         }
         // pixwall が動いていないときの帯
@@ -46,22 +46,22 @@ ApplicationWindow {
             visible: !App.running
             Layout.fillWidth: true
             implicitHeight: 48
-            color: Theme.accent
+            color: Look.accent
             RowLayout {
                 anchors.fill: parent
-                anchors.leftMargin: 16
+                anchors.leftMargin: Look.space.s4
                 anchors.rightMargin: 10
                 Label {
                     text: App.s.NotRunning
-                    color: Theme.onAccent
+                    color: Look.onAccent
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
                 }
                 PwButton {
                     text: App.s.Start
                     // 帯がアクセントの色なので、ボタンは窓の地の色にする
-                    fill: Theme.background
-                    ink: Theme.foreground
+                    fill: Look.background
+                    ink: Look.foreground
                     onClicked: App.start()
                 }
             }
@@ -78,7 +78,7 @@ ApplicationWindow {
             width: Math.min(600, scroll.availableWidth - 32)
             x: (scroll.availableWidth - width) / 2
             y: 24
-            spacing: 24
+            spacing: Look.space.s6
 
             // 表示を更新
             Group {
@@ -114,7 +114,7 @@ ApplicationWindow {
                     Rectangle {
                         width: parent.width
                         height: 1
-                        color: Theme.border
+                        color: Look.border
                     }
                     PwButton {
                         anchors.centerIn: parent
@@ -164,7 +164,7 @@ ApplicationWindow {
                     Rectangle {
                         width: parent.width
                         height: 1
-                        color: Theme.border
+                        color: Look.border
                     }
                     Image {
                         anchors.centerIn: parent
@@ -179,7 +179,7 @@ ApplicationWindow {
                         width: App.previewWidth + 2
                         height: App.previewHeight + 2
                         color: "transparent"
-                        border.color: Theme.border
+                        border.color: Look.border
                     }
                 }
                 SliderRow {
@@ -256,9 +256,9 @@ ApplicationWindow {
                         visible: App.customBackground
                         width: 40
                         height: 28
-                        radius: Theme.smallRadius
+                        radius: Look.smallRadius
                         color: App.backgroundColor
-                        border.color: Theme.border
+                        border.color: Look.border
                         Accessible.name: App.s.Background
                         Accessible.role: Accessible.Button
                         MouseArea {

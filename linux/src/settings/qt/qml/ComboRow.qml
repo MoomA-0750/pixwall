@@ -19,12 +19,12 @@ PrefRow {
         implicitContentWidthPolicy: ComboBox.WidestText
         implicitWidth: Math.max(180, implicitContentWidth + leftPadding + rightPadding)
         background: FieldBackground { control: combo }
-        popup.Material.foreground: Theme.foreground
+        popup.Material.foreground: Look.foreground
         // 開いた一覧はポップオーバーの色（Material の影の効果は使わない）
         popup.background: Rectangle {
-            color: Theme.raised
-            radius: Theme.radius >= 0 ? Theme.radius : 4
-            border.color: Theme.border
+            color: Look.raised
+            radius: Look.fieldRadius
+            border.color: Look.border
         }
     }
     // 選ぶ欄の後ろに置くもの（余白の色の見本など。GTK 版と同じ並び）

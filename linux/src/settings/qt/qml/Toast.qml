@@ -14,15 +14,15 @@ Popup {
     }
     x: (parent.width - width) / 2
     y: parent.height - height - 24
-    padding: 12
+    padding: Look.space.s3
     leftPadding: 18
     rightPadding: 18
     closePolicy: Popup.CloseOnPressOutside
-    Material.foreground: Theme.foreground
+    Material.foreground: Look.foreground
     background: Rectangle {
-        color: Theme.raised
-        radius: Theme.radius >= 0 ? Theme.radius : 8
-        border.color: Theme.border
+        color: Look.raised
+        radius: Look.toastRadius
+        border.color: Look.border
     }
     contentItem: Label {
         id: label

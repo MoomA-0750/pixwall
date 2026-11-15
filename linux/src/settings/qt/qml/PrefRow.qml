@@ -20,7 +20,7 @@ Item {
         visible: row.separator
         width: parent.width
         height: 1
-        color: Theme.border
+        color: Look.border
     }
     MouseArea {
         anchors.fill: parent

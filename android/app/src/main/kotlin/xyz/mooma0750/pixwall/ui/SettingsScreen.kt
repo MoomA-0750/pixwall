@@ -82,6 +82,7 @@ import xyz.mooma0750.pixwall.core.mainSlot
 import xyz.mooma0750.pixwall.core.frameDelayMillis
 import xyz.mooma0750.pixwall.core.layout
 import kotlin.math.roundToInt
+import kasane.KasaneSpace
 
 /** 設定画面で動かす画像。全フレーム（続く同じ絵はまとめたあと）と待ち時間、「自動」の余白の色 */
 class Preview(val frames: List<ImageBitmap>, val delaysMillis: List<Int>, val autoBackground: Int)
@@ -131,12 +132,12 @@ fun SettingsScreen(
             }
             if (maxWidth >= WIDE_LAYOUT) {
                 Row(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
-                    ScreenPreview(config, preview, index, screen, openLabel, openFullScreen, Modifier.weight(1f).fillMaxHeight().padding(24.dp))
+                    ScreenPreview(config, preview, index, screen, openLabel, openFullScreen, Modifier.weight(1f).fillMaxHeight().padding(KasaneSpace.s6))
                     list(Modifier.width(SETTINGS_WIDTH).fillMaxHeight())
                 }
             } else {
                 Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))) {
-                    ScreenPreview(config, preview, index, screen, openLabel, openFullScreen, Modifier.fillMaxWidth().height(previewHeight).padding(16.dp))
+                    ScreenPreview(config, preview, index, screen, openLabel, openFullScreen, Modifier.fillMaxWidth().height(previewHeight).padding(KasaneSpace.s4))
                     list(Modifier.weight(1f))
                 }
             }
@@ -169,8 +170,8 @@ private fun SettingsList(
     val navigationBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     LazyColumn(
         modifier = modifier,
-        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = navigationBar + 24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(start = KasaneSpace.s4, end = KasaneSpace.s4, top = KasaneSpace.s2, bottom = navigationBar + KasaneSpace.s6),
+        verticalArrangement = Arrangement.spacedBy(KasaneSpace.s2),
     ) {
         item {
             ImageCard(preview != null, imageState, isActiveWallpaper, onPickImage, onSetWallpaper)
@@ -230,7 +231,7 @@ private fun LazyListScope.switchSection(
                 stringResource(if (config.switchBy == SwitchBy.TIME) R.string.switch_detail_time else R.string.switch_detail_appearance),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+                modifier = Modifier.padding(start = KasaneSpace.s1, top = KasaneSpace.s2),
             )
         }
     }
@@ -259,7 +260,7 @@ private fun LazyListScope.switchSection(
             }
         }
         SwitchBy.APPEARANCE -> item {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(KasaneSpace.s2))
             ConnectedToggles(listOf(SlotRef.Light to R.string.edit_light, SlotRef.Dark to R.string.edit_dark), editing, onEdit)
         }
     }
@@ -342,7 +343,7 @@ private fun <T> ConnectedToggles(options: List<Pair<T, Int>>, selected: T, onSel
                     options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 },
-                contentPadding = PaddingValues(horizontal = 4.dp),
+                contentPadding = PaddingValues(horizontal = KasaneSpace.s1),
                 modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
             ) {
                 Text(stringResource(label), maxLines = 1)
@@ -357,7 +358,7 @@ private fun Section(title: String) {
         title,
         style = MaterialTheme.typography.titleSmallEmphasized,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 4.dp),
+        modifier = Modifier.padding(start = KasaneSpace.s1, top = KasaneSpace.s4, bottom = KasaneSpace.s1),
     )
 }
 
@@ -370,7 +371,7 @@ private fun ImageCard(
     onSetWallpaper: () -> Unit,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().padding(KasaneSpace.s4), verticalArrangement = Arrangement.spacedBy(KasaneSpace.s2)) {
             Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLargeEmphasized)
             Text(
                 stringResource(if (isActiveWallpaper) R.string.status_active else R.string.status_inactive),
@@ -394,7 +395,7 @@ private fun ImageCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(KasaneSpace.s1))
                 Button(onClick = onSetWallpaper, shapes = ButtonDefaults.shapes(), modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.set_wallpaper))
                 }
@@ -402,7 +403,7 @@ private fun ImageCard(
                     Text(stringResource(R.string.pick_image))
                 }
             } else {
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(KasaneSpace.s1))
                 Button(onClick = onPickImage, shapes = ButtonDefaults.shapes(), modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.pick_image))
                 }
@@ -527,7 +528,7 @@ private fun FreeSliders(config: Config, onChange: (Config) -> Unit) {
 @Composable
 private fun PercentSlider(label: Int, value: Double, range: IntRange, onChange: (Double) -> Unit) {
     val percent = (value * 100).roundToInt()
-    Column(Modifier.padding(horizontal = 4.dp)) {
+    Column(Modifier.padding(horizontal = KasaneSpace.s1)) {
         Text(
             stringResource(label, percent),
             style = MaterialTheme.typography.bodyMedium,
@@ -568,7 +569,7 @@ private fun LazyListScope.backgroundSection(config: Config, preview: Preview?, o
             ColorPicker(
                 rgb = config.backgroundColor ?: 0,
                 onChange = { onChange(config.copy(backgroundColor = it)) },
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = KasaneSpace.s1, vertical = KasaneSpace.s2),
             )
         }
     }
@@ -586,7 +587,7 @@ private fun SpeedButtons(config: Config, onChange: (Config) -> Unit) {
                     SPEEDS.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
                     else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
                 },
-                contentPadding = PaddingValues(horizontal = 4.dp),
+                contentPadding = PaddingValues(horizontal = KasaneSpace.s1),
                 modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
             ) {
                 Text(speedLabel(speed), maxLines = 1)

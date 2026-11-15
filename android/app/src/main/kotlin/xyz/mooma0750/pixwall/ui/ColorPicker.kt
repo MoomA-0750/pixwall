@@ -22,6 +22,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import xyz.mooma0750.pixwall.R
 import xyz.mooma0750.pixwall.core.hexColor
+import kasane.KasaneSpace
 
 /**
  * 色を選ぶ。Compose の Material 3 には色を選ぶ部品が無いので、色相・彩度・明るさの3本のスライダーで選ぶ。
@@ -39,8 +40,8 @@ fun ColorPicker(rgb: Int, onChange: (Int) -> Unit, modifier: Modifier = Modifier
         onChange(fromHsv(next))
     }
 
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(KasaneSpace.s1)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(KasaneSpace.s4)) {
             Swatch(rgb)
             Text(hexColor(rgb), style = MaterialTheme.typography.titleMediumEmphasized)
         }

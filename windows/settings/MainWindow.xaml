@@ -18,7 +18,7 @@
                 <Setter Property="CornerRadius" Value="{StaticResource OverlayCornerRadius}" />
                 <Setter Property="Padding" Value="16,12" />
                 <Setter Property="MinHeight" Value="64" />
-                <Setter Property="ColumnSpacing" Value="12" />
+                <Setter Property="ColumnSpacing" Value="{StaticResource KasaneSpace3}" />
             </Style>
             <Style x:Key="Heading" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
                 <Setter Property="Margin" Value="4,20,0,6" />
@@ -33,7 +33,7 @@
         <TitleBar x:Uid="AppTitleBar" x:Name="AppTitleBar" Title="pixwall の設定" />
 
         <ScrollViewer Grid.Row="1">
-            <StackPanel MaxWidth="640" Padding="24,16,24,24" Spacing="4">
+            <StackPanel MaxWidth="640" Padding="24,16,24,24" Spacing="{StaticResource KasaneSpace1}">
                 <!-- 自動で合わなかったときのために、一番上に置く -->
                 <Grid Style="{StaticResource Card}">
                     <Grid.ColumnDefinitions>
@@ -45,7 +45,7 @@
                 </Grid>
 
                 <TextBlock x:Uid="ImageHeading" Text="画像" Style="{StaticResource Heading}" />
-                <Grid Style="{StaticResource Card}" RowSpacing="12">
+                <Grid Style="{StaticResource Card}" RowSpacing="{StaticResource KasaneSpace3}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -68,7 +68,7 @@
                            HorizontalAlignment="Center" Visibility="Collapsed" />
                 </Grid>
                 <!-- pixwall が動いていないときにも、同じ見た目を静止画で壁紙にできるように -->
-                <Grid Style="{StaticResource Card}" RowSpacing="8">
+                <Grid Style="{StaticResource Card}" RowSpacing="{StaticResource KasaneSpace2}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -134,9 +134,9 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
                     <!-- 自分で選ぶときだけ出す。押すと色を選ぶ画面が開く -->
-                    <Button x:Uid="ColorButtonControl" x:Name="ColorButton" AutomationProperties.Name="色を選ぶ" Grid.Column="1" Padding="4"
+                    <Button x:Uid="ColorButtonControl" x:Name="ColorButton" AutomationProperties.Name="色を選ぶ" Grid.Column="1" Padding="{StaticResource KasanePadding1}"
                             VerticalAlignment="Center" Visibility="Collapsed">
-                        <Border x:Name="ColorSwatch" Width="40" Height="20" CornerRadius="2"
+                        <Border x:Name="ColorSwatch" Width="40" Height="20" CornerRadius="{StaticResource KasaneCornerRadiusMin}"
                                 BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="1" />
                         <Button.Flyout>
                             <Flyout>

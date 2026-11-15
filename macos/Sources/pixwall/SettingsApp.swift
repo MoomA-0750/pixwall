@@ -59,7 +59,7 @@ final class SettingsApp: NSObject, NSApplicationDelegate {
             guard let loaded = AnimatedImage(url: URL(fileURLWithPath: image)) else {
                 model.loadError = image
                 let saved = self.saved
-                DispatchQueue.main.async { [weak self] in self?.model.config = saved }
+                Task { @MainActor [weak self] in self?.model.config = saved }
                 return
             }
             model.loadError = nil

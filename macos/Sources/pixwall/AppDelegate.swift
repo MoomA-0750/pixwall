@@ -13,14 +13,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             updateCoverageWatch()
         }
     }
-    private var rebuildWork: DispatchWorkItem?
+    private var rebuildWork: Task<Void, Never>?
     /// 並べ方・位置を変えてから OS の壁紙を描き直すまで待つ。位置のつまみを動かしている間は窓だけを動かし、
     /// PNG を描いて OS に入れる重い処理は止まってから1回だけ行う
-    private var osWallpaperWork: DispatchWorkItem?
+    private var osWallpaperWork: Task<Void, Never>?
     private var coverageTimer: DispatchSourceTimer?
     /// どこかでマウスのボタンを離したことを知る（NSEvent のグローバルモニター）
     private var mouseUpMonitor: Any?
-    private var mouseUpChecks: [DispatchWorkItem] = []
+    private var mouseUpChecks: [Task<Void, Never>] = []
     /// Dock に出るアプリの pid。アプリが起動・終了したときに数え直す
     private var regularApps: Set<pid_t>?
 
@@ -87,9 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func scheduleOsWallpaper() {
         osWallpaperWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.applyOsWallpaper() }
-        osWallpaperWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5, execute: work)
+        osWallpaperWork = after(0.5) { [weak self] in self?.applyOsWallpaper() }
     }
 
     /// OS の壁紙にも1枚目を入れる（Mission Control・メニューバーの色・操作スペースの切り替えで見える）
@@ -186,9 +184,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func checkCoverageAfterMouseUp() {
         mouseUpChecks.forEach { $0.cancel() }
         mouseUpChecks = [0.1, 0.45].map { delay in
-            let work = DispatchWorkItem { [weak self] in self?.checkCoverage() }
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
-            return work
+            after(delay) { [weak self] in self?.checkCoverage() }
         }
     }
 
@@ -205,9 +201,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 変化が落ち着くまで少し待ってから1回だけ作り直す
     private func scheduleRebuild() {
         rebuildWork?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.rebuild() }
-        rebuildWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: work)
+        rebuildWork = after(0.2) { [weak self] in self?.rebuild() }
+    }
+
+    /// 少し待ってからメインスレッドで動かす。cancel() すれば動かない
+    private func after(_ seconds: Double, _ body: @escaping @MainActor () -> Void) -> Task<Void, Never> {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            body()
+        }
     }
 
     private func observe() {

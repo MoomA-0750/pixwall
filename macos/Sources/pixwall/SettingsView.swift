@@ -5,25 +5,25 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 /// 設定画面の中身と、変えたときにすること
-final class SettingsModel: ObservableObject {
-    @Published var config: Config {
+final class SettingsModel: ObservableObject { // apple-ui-allow: macOS 13 を支える（@Observable は macOS 14 から）
+    @Published var config: Config { // apple-ui-allow: macOS 13（@Observable は 14 から）
         didSet { if config != oldValue { onChange(config) } }
     }
-    @Published var paused = false {
+    @Published var paused = false { // apple-ui-allow: macOS 13（@Observable は 14 から）
         didSet { if paused != oldValue { onPause(paused) } }
     }
     /// 読めなかった画像のパス。画面に出す
-    @Published var loadError: String?
+    @Published var loadError: String? // apple-ui-allow: macOS 13（@Observable は 14 から）
     /// ログイン項目に入れたが、システム設定で切られている
-    @Published var loginItemNeedsApproval = false
+    @Published var loginItemNeedsApproval = false // apple-ui-allow: macOS 13（@Observable は 14 から）
     /// 動かしている画像（プレビューと書き出しに使う）。読めないときは nil
-    @Published var image: AnimatedImage? {
+    @Published var image: AnimatedImage? { // apple-ui-allow: macOS 13（@Observable は 14 から）
         didSet { frame = 0 }
     }
     /// 書き出す絵（何枚目か、0 から）
-    @Published var frame = 0
+    @Published var frame = 0 // apple-ui-allow: macOS 13（@Observable は 14 から）
     /// 書き出した結果。画面に出す
-    @Published var exportResult: String?
+    @Published var exportResult: String? // apple-ui-allow: macOS 13（@Observable は 14 から）
 
     var onChange: (Config) -> Void = { _ in }
     var onPause: (Bool) -> Void = { _ in }
@@ -64,7 +64,7 @@ final class SettingsModel: ObservableObject {
 }
 
 struct SettingsView: View {
-    @ObservedObject var model: SettingsModel
+    @ObservedObject var model: SettingsModel // apple-ui-allow: macOS 13（@Observable は 14 から）
 
     var body: some View {
         Form {

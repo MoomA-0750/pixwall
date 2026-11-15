@@ -1,0 +1,7 @@
+{
+  "$schema": "kasane-native/1",
+  "files": [
+    { "from": "apple/KasaneTokens.swift", "to": "macos/Sources/pixwall/KasaneTokens.swift" },
+    { "from": "windows/Kasane.xaml", "to": "windows/settings/Kasane.xaml" }
+  ]
+}

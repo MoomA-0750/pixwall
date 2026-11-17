@@ -13,6 +13,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -47,6 +48,10 @@ class SettingsActivity : ComponentActivity() {
     private var preview by mutableStateOf<Preview?>(null)
     private var imageState by mutableStateOf(ImageState.NONE)
     private var isActiveWallpaper by mutableStateOf(false)
+    private var resumes by mutableIntStateOf(0)
+    private var hasWatch by mutableStateOf(false)
+    private var sending by mutableStateOf(false)
+    private var sendResult by mutableStateOf<SendResult?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,6 +73,12 @@ class SettingsActivity : ComponentActivity() {
                 preview = loaded
                 imageState = if (loaded != null) ImageState.LOADED else ImageState.UNREADABLE
             }
+            // 開くたびに、pixwall の入った時計がつながっているかを見る（つながっているときだけ「時計へ送る」を出す）
+            LaunchedEffect(resumes) {
+                hasWatch = withContext(Dispatchers.IO) { WatchSender.hasWatch(this@SettingsActivity) }
+            }
+            // 編集している画像が替わったら、前に送った結果は消す
+            LaunchedEffect(editingImage) { sendResult = null }
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri == null) return@rememberLauncherForActivityResult
                 scope.launch {
@@ -107,6 +118,19 @@ class SettingsActivity : ComponentActivity() {
                     isActiveWallpaper = isActiveWallpaper,
                     onPickImage = { picker.launch(arrayOf("image/*")) },
                     onSetWallpaper = ::openWallpaperPicker,
+                    canSendToWatch = hasWatch && preview != null,
+                    sending = sending,
+                    sendResult = sendResult,
+                    onSendToWatch = {
+                        val image = config.slot(editing).image
+                        if (image != null && !sending) {
+                            sending = true
+                            scope.launch {
+                                sendResult = withContext(Dispatchers.IO) { WatchSender.send(this@SettingsActivity, Uri.parse(image)) }
+                                sending = false
+                            }
+                        }
+                    },
                     onChange = { next -> change(next.withMain(config.mainSlot).withSlot(editing, next.mainSlot)) },
                 )
             }
@@ -115,6 +139,7 @@ class SettingsActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        resumes++
         isActiveWallpaper = WallpaperManager.getInstance(this).wallpaperInfo?.component == wallpaperComponent()
     }
 

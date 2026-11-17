@@ -8,8 +8,9 @@ import java.io.File
 data class GifSource(val id: String, val name: String)
 
 /**
- * 時計の中にある GIF。今はアプリに入れたサンプルと、アプリの領域の gifs/ に置いたもの
- * （スマホから送る形はまだ無い。試すときは adb で gifs/ に置く。docs/android-trial.md）
+ * 時計の中にある GIF。アプリに入れたサンプルと、アプリの領域の gifs/ に置いたもの
+ * （スマホの pixwall から送ったもの。GifReceiverService が置く。試すときは adb で置いてもよい。docs/android-trial.md）。
+ * gifs/ のものは新しい順に、サンプルより前に並べる
  */
 class Library(private val context: Context) {
     private val dir = File(context.filesDir, "gifs")
@@ -17,9 +18,19 @@ class Library(private val context: Context) {
     fun list(): List<GifSource> {
         val samples = context.assets.list("samples").orEmpty().sorted().map { GifSource("asset:samples/$it", it.removeSuffix(".gif")) }
         val files = dir.listFiles { f -> f.name.endsWith(".gif", ignoreCase = true) }.orEmpty()
-            .sortedBy { it.name }
+            .sortedWith(compareByDescending<File> { it.lastModified() }.thenBy { it.name })
             .map { GifSource("file:gifs/${it.name}", it.name.removeSuffix(".gif")) }
         return files + samples
+    }
+
+    /** 受け取った GIF を置き、その id を返す。同じ名前なら入れ替える。書きかけを読まないよう、別のファイルに書いてから入れ替える */
+    fun add(name: String, bytes: ByteArray): String {
+        dir.mkdirs()
+        val safe = name.substringAfterLast('/').removeSuffix(".gif").replace(Regex("[\\\\:*?\"<>|\\x00-\\x1f]"), "_").trim().ifEmpty { "image" } + ".gif"
+        val temp = File(dir, ".$safe.tmp")
+        temp.writeBytes(bytes)
+        temp.renameTo(File(dir, safe))
+        return "file:gifs/$safe"
     }
 
     fun read(id: String): ByteArray = when {

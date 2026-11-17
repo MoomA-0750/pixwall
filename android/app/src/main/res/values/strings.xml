@@ -59,4 +59,10 @@
     <string name="time_cancel">Cancel</string>
     <string name="edit_light">Light</string>
     <string name="edit_dark">Dark</string>
+    <string name="watch_send">Send to watch</string>
+    <string name="watch_sending">Sending…</string>
+    <string name="watch_sent">Sent. Open pixwall on your watch and tap “Set watch face”.</string>
+    <string name="watch_none">No watch with pixwall is connected.</string>
+    <string name="watch_not_gif">Only GIF images can be sent to the watch.</string>
+    <string name="watch_failed">Couldn\'t send it. Try again.</string>
 </resources>

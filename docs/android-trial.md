@@ -90,7 +90,8 @@ cd android && ./gradlew :wear:assembleDebug   # wear/build/outputs/apk/debug/wea
 - 起こす: to-fu の画面のあるセッションで `emulator.exe -avd pixwall_watch -no-window -no-audio -no-snapshot -port 5570`
 - 入れて開く: `adb -s emulator-5570 install -r wear-debug.apk`、`adb -s emulator-5570 shell am start -n xyz.mooma0750.pixwall/xyz.mooma0750.pixwall.wear.MainActivity`
 - 画面が暗くなって止まらないように: `svc power stayon true`。充電中の画面が出るときは `dumpsys battery unplug`
-- GIF を足す: `adb push a.gif /data/local/tmp/` のあと `adb shell "run-as xyz.mooma0750.pixwall sh -c 'mkdir -p files/gifs && cp /data/local/tmp/a.gif files/gifs/'"`（デバッグ版だけ）
+- スマホから送る: スマホと時計を組にし、両方に同じ鍵で署名した pixwall を入れる（Data Layer は同じ名前・同じ鍵のアプリの間でしか届かない）。スマホの設定画面で GIF を選んで「時計へ送る」を押す。時計の logcat に `received <名前>` が出て、時計の pixwall の一覧の一番上に出て選ばれる。組にした環境ではまだ試していない
+- GIF を足す（組にした環境が無いとき）: `adb push a.gif /data/local/tmp/` のあと `adb shell "run-as xyz.mooma0750.pixwall sh -c 'mkdir -p files/gifs && cp /data/local/tmp/a.gif files/gifs/'"`（デバッグ版だけ）
 - 設定を直接書く: 同じく run-as で `files/config.json` を置き換える（`image` は `asset:samples/…` か `file:gifs/…`）
 - ボタンを押す代わりに: デバッグ版は `am start -S -n …/.wear.MainActivity --ez install true` で開くと、読み込み次第「文字盤にする」と同じことをする。結果は `logcat -s pixwall:I` に `watch face: Active` などと出る
 - アンビエントは `settings put global ambient_enabled 1` と `svc power stayon false` のあと `input keyevent KEYCODE_SLEEP`、戻すのは `KEYCODE_WAKEUP`

@@ -65,6 +65,7 @@ extensions.getByType<ApplicationAndroidComponentsExtension>().onVariants { varia
 
 dependencies {
     implementation(project(":core"))
+    implementation(libs.play.services.wearable)
     implementation(libs.androidx.activity.compose)
     implementation(libs.wear.compose.material3)
     implementation(libs.wear.compose.foundation)

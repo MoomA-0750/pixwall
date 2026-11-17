@@ -25,5 +25,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- スマホの pixwall が送った GIF を受け取る -->
+        <service
+            android:name=".GifReceiverService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED" />
+                <data
+                    android:host="*"
+                    android:pathPrefix="/gif/"
+                    android:scheme="wear" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

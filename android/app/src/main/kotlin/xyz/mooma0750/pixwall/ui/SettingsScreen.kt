@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import xyz.mooma0750.pixwall.R
+import xyz.mooma0750.pixwall.SendResult
 import xyz.mooma0750.pixwall.core.Config
 import xyz.mooma0750.pixwall.core.Fit
 import xyz.mooma0750.pixwall.core.SPEEDS
@@ -107,6 +108,10 @@ fun SettingsScreen(
     isActiveWallpaper: Boolean,
     onPickImage: () -> Unit,
     onSetWallpaper: () -> Unit,
+    canSendToWatch: Boolean,
+    sending: Boolean,
+    sendResult: SendResult?,
+    onSendToWatch: () -> Unit,
     onChange: (Config) -> Unit,
 ) {
     val index = rememberFrameIndex(preview, config.speed)
@@ -127,7 +132,8 @@ fun SettingsScreen(
             val list = @Composable { modifier: Modifier ->
                 SettingsList(
                     config, editing, activeTime, onEdit, onSwitch, onTimes,
-                    preview, imageState, isActiveWallpaper, onPickImage, onSetWallpaper, onChange, modifier,
+                    preview, imageState, isActiveWallpaper, onPickImage, onSetWallpaper,
+                    WatchSend(canSendToWatch, sending, sendResult, onSendToWatch), onChange, modifier,
                 )
             }
             if (maxWidth >= WIDE_LAYOUT) {
@@ -164,6 +170,7 @@ private fun SettingsList(
     isActiveWallpaper: Boolean,
     onPickImage: () -> Unit,
     onSetWallpaper: () -> Unit,
+    watch: WatchSend,
     onChange: (Config) -> Unit,
     modifier: Modifier,
 ) {
@@ -174,7 +181,7 @@ private fun SettingsList(
         verticalArrangement = Arrangement.spacedBy(KasaneSpace.s2),
     ) {
         item {
-            ImageCard(preview != null, imageState, isActiveWallpaper, onPickImage, onSetWallpaper)
+            ImageCard(preview != null, imageState, isActiveWallpaper, onPickImage, onSetWallpaper, watch)
         }
         switchSection(config, editing, activeTime, onEdit, onSwitch, onTimes)
         fitSection(config, onChange)
@@ -369,6 +376,7 @@ private fun ImageCard(
     isActiveWallpaper: Boolean,
     onPickImage: () -> Unit,
     onSetWallpaper: () -> Unit,
+    watch: WatchSend,
 ) {
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) {
         Column(Modifier.fillMaxWidth().padding(KasaneSpace.s4), verticalArrangement = Arrangement.spacedBy(KasaneSpace.s2)) {
@@ -408,9 +416,37 @@ private fun ImageCard(
                     Text(stringResource(R.string.pick_image))
                 }
             }
+            // pixwall の入った時計がつながっているときだけ出す
+            if (watch.available) {
+                OutlinedButton(
+                    onClick = watch.onSend,
+                    enabled = !watch.sending,
+                    shapes = ButtonDefaults.shapes(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(if (watch.sending) R.string.watch_sending else R.string.watch_send))
+                }
+                watch.result?.let { result ->
+                    Text(
+                        stringResource(
+                            when (result) {
+                                SendResult.SENT -> R.string.watch_sent
+                                SendResult.NO_WATCH -> R.string.watch_none
+                                SendResult.NOT_GIF -> R.string.watch_not_gif
+                                SendResult.FAILED -> R.string.watch_failed
+                            },
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (result == SendResult.SENT) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
         }
     }
 }
+
+/** 「時計へ送る」の状態。available は pixwall の入った時計がつながっていて、画像が読めているとき */
+class WatchSend(val available: Boolean, val sending: Boolean, val result: SendResult?, val onSend: () -> Unit)
 
 /**
  * 今のフレームの番号。壁紙と同じ待ち時間と速さで進める。

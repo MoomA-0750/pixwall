@@ -4,6 +4,9 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.os.FileObserver
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -89,7 +93,7 @@ private fun SettingsScreen(autoInstall: Boolean) {
     val store = remember { WearConfigStore(context) }
     val maker = remember { WatchFaceMaker(context) }
     val scope = rememberCoroutineScope()
-    val images = remember { library.list() }
+    var images by remember { mutableStateOf(library.list()) }
 
     var config by remember {
         mutableStateOf(store.load().let { c -> if (images.any { it.id == c.image }) c else c.copy(image = images.firstOrNull()?.id) })
@@ -97,6 +101,23 @@ private fun SettingsScreen(autoInstall: Boolean) {
     fun update(c: Config) {
         config = c
         store.save(c)
+    }
+
+    // スマホから GIF が届くと、受け手（GifReceiverService）が gifs/ に置いて config.json で選ぶ。開いている間に届いたら一覧と選択を読み直す
+    DisposableEffect(Unit) {
+        val main = Handler(Looper.getMainLooper())
+        val observer = object : FileObserver(context.filesDir, MOVED_TO) {
+            override fun onEvent(event: Int, path: String?) {
+                if (path != "config.json") return
+                main.post {
+                    images = library.list()
+                    val loaded = store.load()
+                    if (loaded != config) config = loaded
+                }
+            }
+        }
+        observer.startWatching()
+        onDispose { observer.stopWatching() }
     }
 
     val gif by produceState<GifImage?>(null, config.image) {

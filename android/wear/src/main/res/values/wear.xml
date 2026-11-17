@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- スマホの pixwall が、この名前でつながっている時計を探す（WatchSender.WATCH_CAPABILITY） -->
+    <string-array name="android_wear_capabilities" translatable="false">
+        <item>pixwall_watch</item>
+    </string-array>
+</resources>

@@ -58,4 +58,10 @@
     <string name="time_cancel">キャンセル</string>
     <string name="edit_light">ライト</string>
     <string name="edit_dark">ダーク</string>
+    <string name="watch_send">時計へ送る</string>
+    <string name="watch_sending">送っています…</string>
+    <string name="watch_sent">送りました。時計で pixwall を開き、「文字盤にする」を押してください。</string>
+    <string name="watch_none">pixwall の入った時計がつながっていません。</string>
+    <string name="watch_not_gif">時計へ送れるのは GIF だけです。</string>
+    <string name="watch_failed">送れませんでした。もう一度試してください。</string>
 </resources>

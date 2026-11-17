@@ -56,6 +56,8 @@ class PixwallWallpaperService : WallpaperService() {
         private var frames: Frames? = null
         private var loadedImage: String? = null
         private var loadGeneration = 0
+        private var loading = false
+        private var retryDelay = RETRY_FIRST_MS
         private var index = 0
         private var nextAt = 0L
         private var surfaceWidth = 0
@@ -65,6 +67,7 @@ class PixwallWallpaperService : WallpaperService() {
 
         private val tick = Runnable { advance() }
         private val switchTick = Runnable { reselect() }
+        private val retryTick = Runnable { retryLoad() }
 
         // 時計・時間帯を変えたら選び直す
         private val timeReceiver = object : BroadcastReceiver() {
@@ -115,6 +118,7 @@ class PixwallWallpaperService : WallpaperService() {
         override fun onDestroy() {
             handler.removeCallbacks(tick)
             handler.removeCallbacks(switchTick)
+            handler.removeCallbacks(retryTick)
             configObserver.stopWatching()
             unregisterReceiver(powerReceiver)
             unregisterReceiver(timeReceiver)
@@ -158,6 +162,8 @@ class PixwallWallpaperService : WallpaperService() {
             if (visible) {
                 // 見えていない間に切り替わる時刻を過ぎていれば、ここで替える
                 reselect()
+                // 読めなかった画像は、見えたときにもすぐ読み直す
+                if (frames == null && loadedImage != null && !loading) retryLoad()
                 draw()
                 nextAt = 0
             }
@@ -206,20 +212,50 @@ class PixwallWallpaperService : WallpaperService() {
 
         private fun loadImage(image: String?) {
             loadedImage = image
+            retryDelay = RETRY_FIRST_MS
+            handler.removeCallbacks(retryTick)
+            startLoad(image)
+        }
+
+        /**
+         * 画像を読む。端末を起こした直後は、画像を置いた場所（ストレージ・メディアの仕組み）の用意が壁紙より遅れて読めないことがあるので、
+         * 読めなければ、見えている間は間をあけて読み直す（1 秒から倍にしていき、1 分ごとまで）
+         */
+        private fun startLoad(image: String?) {
             val generation = ++loadGeneration
             if (image == null) {
+                loading = false
                 replaceFrames(null)
                 return
             }
+            loading = true
             val isPreview = isPreview
             loader.execute {
                 val loaded = runCatching { Frames.load(this@PixwallWallpaperService, Uri.parse(image)) }
-                    .onFailure { Log.w(TAG, "cannot load $image (preview=$isPreview)", it) }
+                    .onFailure { Log.w(TAG, "cannot load $image (preview=$isPreview), retry in ${retryDelay}ms", it) }
                     .getOrNull()
                 handler.post {
-                    if (generation == loadGeneration) replaceFrames(loaded) else loaded?.recycle()
+                    if (generation != loadGeneration) {
+                        loaded?.recycle()
+                        return@post
+                    }
+                    loading = false
+                    replaceFrames(loaded)
+                    if (loaded == null) {
+                        handler.postDelayed(retryTick, retryDelay)
+                        retryDelay = (retryDelay * 2).coerceAtMost(RETRY_MAX_MS)
+                    } else {
+                        retryDelay = RETRY_FIRST_MS
+                    }
                 }
             }
+        }
+
+        private fun retryLoad() {
+            handler.removeCallbacks(retryTick)
+            // 見えていない間は読み直さない（見えたときに読み直す）
+            if (frames != null || loadedImage == null || loading || !visible) return
+            startLoad(loadedImage)
         }
 
         private fun replaceFrames(f: Frames?) {
@@ -292,5 +328,7 @@ class PixwallWallpaperService : WallpaperService() {
 
     companion object {
         private const val TAG = "pixwall"
+        private const val RETRY_FIRST_MS = 1_000L
+        private const val RETRY_MAX_MS = 60_000L
     }
 }

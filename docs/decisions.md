@@ -494,3 +494,12 @@
 - 時計は受け取ったものを選んでおくが、文字盤は作らない。作るのは数秒〜1分かかり、今の文字盤を入れ替えるので、本人が押す
 - 送れるのは GIF だけにした。時計は GIF しか読まないため。静止画を1枚の GIF にして送る形は、要るとなったら足す
 - まだ試していない: スマホと時計を組にした環境が無い（Pixel 3 は本人の指示で保留中。to-fu のエミュレーターで組にするには、Google アカウントのログインなど本人の操作が要るかもしれない）
+
+## 2026-11-18 to-fu でスマホと時計のエミュレーターを組にする
+
+- 時計へ送る試験のために、to-fu に pixwall 用のスマホの AVD を作った。最初の `pixwall_phone`（android-36.1 の Play 版、Fold の設定）は、GPU の指定（auto・host・swiftshader_indirect）を変えても、データを消しても、起動のたびに surfaceflinger が落ちた（readColorBufferDma の abort）。同じ像の Pixel_10_Pro_Fold は窓なしで動いている。本人が案C（別の像で作り直す）を選び、`pixwall_phone15`（android-35 の Play 版、pixel_8、RAM 3GB）にしたら落ちずに動いた。`pixwall_phone` は本人の了承を得て消した
+- Play へのサインインは本人がした。Wear OS by Google の同意画面では「使用状況と診断の送信」をオフにした
+- 組にする通り道: スマホで `adb -s emulator-5560 forward tcp:5601 tcp:5601`、時計で `adb -s emulator-5570 reverse tcp:5601 tcp:5601`（時計の Wear_NetworkService は自分の 127.0.0.1:5601 につなぎに行く）。そのあと Wear OS by Google の「その他の設定」→「Pair with emulator」。エミュレーターの console の `redir add tcp:5601:5601` では、つなぎの途中で止まって組にならなかった
+- 組になり、スマホの pixwall に「Send to watch」が出て、押すと「Sent.」と出た。スマホのアプリと時計のアプリは同じ鍵（SHA-256 be7acdac…86af）で署名されている。ただ、時計の `files/gifs` は増えず、受け取りのログも出なかった。`dumpsys activity service WearableService` では、スマホが書いた量と時計が読んだ量が合っていない
+- 原因: to-fu の adb の窓口（5037、ほかのセッションの 5039 も）が数分おきに止まり、そのたびに forward・reverse が消える。つながりは中途半端なまま残り、時計の com.google.android.gms を止めて繋ぎ直させても、つなぎの途中で止まった。同じ頃 Unity の Editor が起動し直していた（Unity は adb 32 を同梱、SDK は 37）が、止めているのが Unity かは確かめていない。窓口の番号を変える（5038・5047）、張り直す見張りを走らせる、を試したが安定しなかった。5040 は svchost が使っている。ssh から立てた adb の窓口は、ssh が切れると一緒に止まる
+- 本人の返事: Unity は unibridge とその中のセッションが使っていて、今は止められない。止められるまで、この試験は保留にする。見張りも動かさない

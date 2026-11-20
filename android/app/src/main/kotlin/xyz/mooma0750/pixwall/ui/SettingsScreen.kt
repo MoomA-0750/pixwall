@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,6 +33,7 @@ import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -69,6 +71,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import xyz.mooma0750.pixwall.R
 import xyz.mooma0750.pixwall.SendResult
@@ -354,7 +357,13 @@ private fun <T> ConnectedToggles(options: List<Pair<T, Int>>, selected: T, onSel
                 contentPadding = PaddingValues(horizontal = KasaneSpace.s1),
                 modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
             ) {
-                Text(stringResource(label), maxLines = 1)
+                // 入りきらないとき（文字を大きくした設定など）は、右を切って左へ寄せず、縮めて中央に収める
+                val size = LocalTextStyle.current.fontSize
+                Text(
+                    stringResource(label),
+                    maxLines = 1,
+                    autoSize = TextAutoSize.StepBased(minFontSize = size * 0.6f, maxFontSize = size, stepSize = 0.5.sp),
+                )
             }
         }
     }

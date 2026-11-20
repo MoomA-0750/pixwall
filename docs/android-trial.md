@@ -32,7 +32,19 @@ adb shell am start -a android.service.wallpaper.CHANGE_LIVE_WALLPAPER \
 ## 試すときの注意
 
 - `adb shell am force-stop xyz.mooma0750.pixwall` をすると、OS が壁紙を既定のものに戻す。プロセスを作り直したいときは、`adb install -r` で入れ直す（壁紙は外れず、OS がつなぎ直す）。リリース版はデバッグできないので、シェルからの `kill` は効かない
-- 選んである画像のファイルを `adb push` で上書きすると、メディアの仕組みがそのファイルへの読む権限を取り消し、壁紙が黒くなる（設定画面に「読めない」と出る）。違う画像で試すときは、別の名前で置いて設定画面から選び直す
+- 選んである画像のファイルを `adb push` で上書きすると、メディアの仕組みがそのファイルへの読む権限を取り消す。壁紙は写しで出し続け、設定画面に「元の画像が見つかりません」と出る。違う画像で試すときは、別の名前で置いて設定画面から選び直す
+- `am force-stop xyz.mooma0750.pixwall` は壁紙のプロセスも止めるので、OS が既定の壁紙に戻す。設定画面だけを閉じたいときは、戻るかホームで閉じる
+
+### 選んだ画像の写し
+
+1. 試しの GIF を置く: `adb push <GIF> /sdcard/Download/pixwall-copytest.gif` と `adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE -d file:///sdcard/Download/pixwall-copytest.gif`
+2. 設定画面で選ぶ。`adb shell run-as xyz.mooma0750.pixwall ls -la files/images` に同じ大きさのファイルが1つだけある（前の画像の写しは消える）
+3. 元を消す: `adb shell content query --uri content://media/external/file --projection _id --where "_display_name='pixwall-copytest.gif'"` で出た番号を `adb shell content delete --uri content://media/external/file/<番号>`
+4. 設定画面を開き直すと「元の画像が見つかりません。pixwall が持っている写しで出し続けています」と出て、見本は動いている。ホーム画面の壁紙もそのまま
+5. 再起動しても、ホーム画面の壁紙は最初から GIF で出る（logcat に `cannot load` が出ない）
+6. 前の版からの移り方: 写しの無い前の版で画像を選んだまま、新しい版を `adb install -r` で入れると、壁紙が元を読んで `files/images` に写す
+
+2026-11-20 に Pixel 3 で上のすべてを確かめた。同じ日に、直しの入った版で Pixel 3 を 3 回再起動し、どの回も壁紙が最初から GIF で出た
 - 再起動したあとは、PIN でロックを解くまで pixwall に替わらない（PIN は本人に頼む）
 
 ## 見ること

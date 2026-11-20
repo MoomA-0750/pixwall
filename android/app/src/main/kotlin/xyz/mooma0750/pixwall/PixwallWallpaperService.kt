@@ -9,7 +9,6 @@ import android.content.IntentFilter
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.net.Uri
 import android.os.FileObserver
 import android.os.Handler
 import android.os.Looper
@@ -231,7 +230,7 @@ class PixwallWallpaperService : WallpaperService() {
             loading = true
             val isPreview = isPreview
             loader.execute {
-                val loaded = runCatching { Frames.load(this@PixwallWallpaperService, Uri.parse(image)) }
+                val loaded = runCatching { Frames.load(this@PixwallWallpaperService, image) }
                     .onFailure { Log.w(TAG, "cannot load $image (preview=$isPreview), retry in ${retryDelay}ms", it) }
                     .getOrNull()
                 handler.post {

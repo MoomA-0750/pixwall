@@ -89,7 +89,8 @@ import kasane.KasaneSpace
 class Preview(val frames: List<ImageBitmap>, val delaysMillis: List<Int>, val autoBackground: Int)
 
 /** 画像の状態 */
-enum class ImageState { NONE, LOADED, UNREADABLE }
+/** SOURCE_MISSING は、元の画像は消えたが、pixwall の写しで出し続けているとき */
+enum class ImageState { NONE, LOADED, SOURCE_MISSING, UNREADABLE }
 
 /**
  * 設定画面。壁紙をつけたときの画面の見本を動かしながら、設定を変えられる（スマホは見本が上、広い画面は左）。
@@ -390,11 +391,12 @@ private fun ImageCard(
                     when (imageState) {
                         ImageState.NONE -> R.string.image_none
                         ImageState.LOADED -> R.string.image_loaded
+                        ImageState.SOURCE_MISSING -> R.string.image_source_missing
                         ImageState.UNREADABLE -> R.string.image_unreadable
                     },
                 ),
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (imageState == ImageState.UNREADABLE) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                color = if (imageState == ImageState.UNREADABLE || imageState == ImageState.SOURCE_MISSING) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             // 主役の操作は「壁紙に設定」（まだのとき）。画像を選ぶのは控えめにする
             if (!isActiveWallpaper && hasPreview) {

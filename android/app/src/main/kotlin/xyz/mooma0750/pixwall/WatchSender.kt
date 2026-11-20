@@ -35,10 +35,12 @@ object WatchSender {
                 .nodes.isNotEmpty()
         }.onFailure { Log.i(TAG, "no Data Layer: ${it.message}") }.getOrDefault(false)
 
-    fun send(context: Context, uri: Uri): SendResult {
+    /** 設定の画像（config.json の image）を、写しから読んで送る */
+    fun send(context: Context, image: String): SendResult {
         if (!hasWatch(context)) return SendResult.NO_WATCH
+        val uri = Uri.parse(image)
         return runCatching {
-            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("cannot open $uri")
+            val bytes = ImageCopies.read(context, image)
             if (!isGif(bytes)) return SendResult.NOT_GIF
             val request = PutDataMapRequest.create(PATH_PREFIX + fileName(context, uri)).apply {
                 dataMap.putAsset(KEY_GIF, Asset.createFromBytes(bytes))

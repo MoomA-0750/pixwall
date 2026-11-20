@@ -3,7 +3,6 @@ package xyz.mooma0750.pixwall
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
-import android.net.Uri
 import xyz.mooma0750.pixwall.core.decodeGif
 import xyz.mooma0750.pixwall.core.isGif
 import xyz.mooma0750.pixwall.core.mergingRepeats
@@ -28,11 +27,13 @@ class Frames(
     }
 
     companion object {
+        /** 設定の画像（config.json の image）を、写しから読む（ImageCopies）。読めなければ例外 */
+        fun load(context: Context, image: String): Frames = decode(ImageCopies.read(context, image))
+
         /**
          * 画像を読む。GIF は自分で全フレーム読み、そのほか（PNG・WebP・JPEG など）は1枚目だけを静止画として読む。読めなければ例外
          */
-        fun load(context: Context, uri: Uri): Frames {
-            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: error("cannot open $uri")
+        fun decode(bytes: ByteArray): Frames {
             val software: List<Bitmap>
             val delays: List<Int>
             if (isGif(bytes)) {

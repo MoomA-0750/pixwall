@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -69,9 +70,16 @@ class SettingsActivity : ComponentActivity() {
                     imageState = ImageState.NONE
                     return@LaunchedEffect
                 }
-                val loaded = withContext(Dispatchers.IO) { loadPreview(Uri.parse(editingImage)) }
+                // 写しから読む。元の画像が消えていても写しで出せるときは、そのことを知らせる
+                val (loaded, sourceExists) = withContext(Dispatchers.IO) {
+                    loadPreview(editingImage) to ImageCopies.sourceExists(this@SettingsActivity, editingImage)
+                }
                 preview = loaded
-                imageState = if (loaded != null) ImageState.LOADED else ImageState.UNREADABLE
+                imageState = when {
+                    loaded == null -> ImageState.UNREADABLE
+                    sourceExists -> ImageState.LOADED
+                    else -> ImageState.SOURCE_MISSING
+                }
             }
             // 開くたびに、pixwall の入った時計がつながっているかを見る（つながっているときだけ「時計へ送る」を出す）
             LaunchedEffect(resumes) {
@@ -82,13 +90,21 @@ class SettingsActivity : ComponentActivity() {
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri == null) return@rememberLauncherForActivityResult
                 scope.launch {
-                    val loaded = withContext(Dispatchers.IO) { loadPreview(uri) }
-                    // 読めない画像は設定に書かない
+                    // 元を読んで写しを作る。読めない画像は設定に書かない
+                    val image = uri.toString()
+                    val loaded = withContext(Dispatchers.IO) {
+                        runCatching {
+                            val bytes = ImageCopies.readSource(this@SettingsActivity, image)
+                            val frames = Frames.decode(bytes)
+                            ImageCopies.write(this@SettingsActivity, image, bytes)
+                            toPreview(frames)
+                        }.onFailure { Log.w(TAG, "cannot use $image", it) }.getOrNull()
+                    }
                     if (loaded == null) {
                         imageState = ImageState.UNREADABLE
                         return@launch
                     }
-                    val next = config.withSlot(editing, config.slot(editing).copy(image = uri.toString()))
+                    val next = config.withSlot(editing, config.slot(editing).copy(image = image))
                     keepPermission(uri, next)
                     preview = loaded
                     imageState = ImageState.LOADED
@@ -126,7 +142,7 @@ class SettingsActivity : ComponentActivity() {
                         if (image != null && !sending) {
                             sending = true
                             scope.launch {
-                                sendResult = withContext(Dispatchers.IO) { WatchSender.send(this@SettingsActivity, Uri.parse(image)) }
+                                sendResult = withContext(Dispatchers.IO) { WatchSender.send(this@SettingsActivity, image) }
                                 sending = false
                             }
                         }
@@ -147,6 +163,8 @@ class SettingsActivity : ComponentActivity() {
         if (next == config) return
         config = next
         ConfigStore.save(this, next)
+        // 使わなくなった画像の写しを消す
+        ImageCopies.prune(this, next.allImages)
     }
 
     private fun minuteOfDay(): Int {
@@ -162,14 +180,16 @@ class SettingsActivity : ComponentActivity() {
             if (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES) SlotRef.Dark else SlotRef.Light
     }
 
-    private fun loadPreview(uri: Uri): Preview? =
-        runCatching { Frames.load(this, uri) }.getOrNull()?.let { frames ->
-            frames.colorSample.recycle()
-            Preview(frames.bitmaps.map { it.asImageBitmap() }, frames.delaysMillis, frames.autoBackground)
-        }
+    private fun loadPreview(image: String): Preview? =
+        runCatching { Frames.load(this, image) }.onFailure { Log.w(TAG, "cannot load $image", it) }.getOrNull()?.let(::toPreview)
+
+    private fun toPreview(frames: Frames): Preview {
+        frames.colorSample.recycle()
+        return Preview(frames.bitmaps.map { it.asImageBitmap() }, frames.delaysMillis, frames.autoBackground)
+    }
 
     /**
-     * 選んだ画像はコピーせず、場所（URI）だけ覚える。端末を再起動しても読めるように読む権限を持ち続け、
+     * 壁紙は写しを読むが、元の画像が消えたかを設定画面で知らせるために、元を読む権限も持ち続ける。
      * 前の画像の権限は、ほかの時刻・外観でも使っていなければ手放す
      */
     private fun keepPermission(uri: Uri, next: Config) {
@@ -189,4 +209,8 @@ class SettingsActivity : ComponentActivity() {
     }
 
     private fun wallpaperComponent() = ComponentName(this, PixwallWallpaperService::class.java)
+
+    private companion object {
+        const val TAG = "pixwall"
+    }
 }

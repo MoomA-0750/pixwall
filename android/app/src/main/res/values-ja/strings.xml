@@ -7,6 +7,7 @@
 
     <string name="image_none">画像を選んでいません。動かす GIF を選んでください。</string>
     <string name="image_loaded">見本を押すと、壁紙にしたときと同じ大きさで全画面に出ます。</string>
+    <string name="image_source_missing">元の画像が見つかりません。pixwall が持っている写しで出し続けています。</string>
     <string name="image_unreadable">この画像は読めません。ほかの画像を選んでください。</string>
     <string name="preview_open">全画面で見る</string>
     <string name="preview_close">設定に戻る</string>
